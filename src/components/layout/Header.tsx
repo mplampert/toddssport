@@ -11,6 +11,7 @@ import {
 import toddsLogo from "@/assets/todds-logo.png";
 
 const serviceLinks = [
+  { name: "Team Uniforms", path: "/uniforms" },
   { name: "Team Stores", path: "/team-stores" },
   { name: "Fanwear", path: "/fanwear" },
   { name: "Corporate", path: "/corporate" },

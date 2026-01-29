@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Services from "./pages/Services";
 import TeamsAndLeagues from "./pages/TeamsAndLeagues";
+import Uniforms from "./pages/Uniforms";
+import UniformDetail from "./pages/UniformDetail";
 import TeamStores from "./pages/TeamStores";
 import Fanwear from "./pages/Fanwear";
 import Corporate from "./pages/Corporate";
@@ -28,6 +30,8 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/services" element={<Services />} />
           <Route path="/teams-leagues" element={<TeamsAndLeagues />} />
+          <Route path="/uniforms" element={<Uniforms />} />
+          <Route path="/uniforms/:sport" element={<UniformDetail />} />
           <Route path="/team-stores" element={<TeamStores />} />
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />
