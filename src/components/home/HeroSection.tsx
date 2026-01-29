@@ -32,7 +32,7 @@ export function HeroSection() {
         <div className="max-w-3xl">
           <h1 className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-black text-primary-foreground mb-6 leading-[1.1] tracking-tight">
             Your Program Demands More.
-            <span className="block text-orange">Todd's Delivers.</span>
+            <span className="block text-accent">Todd's Delivers.</span>
           </h1>
           <p className="text-lg md:text-xl lg:text-2xl text-primary-foreground/90 mb-8 max-w-2xl leading-relaxed">
             Custom uniforms, spirit wear, and branded gear for schools, clubs, and businesses—handled by a dedicated Todd's rep.
