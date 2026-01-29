@@ -80,6 +80,45 @@ export type Database = {
         }
         Relationships: []
       }
+      champro_orders: {
+        Row: {
+          created_at: string
+          id: string
+          order_type: Database["public"]["Enums"]["champro_order_type"]
+          po: string
+          request_payload: Json
+          response_payload: Json | null
+          session_id: string | null
+          status: string
+          sub_order_ids: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_type: Database["public"]["Enums"]["champro_order_type"]
+          po: string
+          request_payload: Json
+          response_payload?: Json | null
+          session_id?: string | null
+          status?: string
+          sub_order_ids?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_type?: Database["public"]["Enums"]["champro_order_type"]
+          po?: string
+          request_payload?: Json
+          response_payload?: Json | null
+          session_id?: string | null
+          status?: string
+          sub_order_ids?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       corporate_leads: {
         Row: {
           additional_info: string | null
@@ -536,6 +575,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      champro_order_type: "CUSTOM" | "STOCK"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -664,6 +704,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      champro_order_type: ["CUSTOM", "STOCK"],
     },
   },
 } as const
