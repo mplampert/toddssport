@@ -41,6 +41,69 @@ export type Database = {
         }
         Relationships: []
       }
+      corporate_leads: {
+        Row: {
+          additional_info: string | null
+          budget_range: string | null
+          company_name: string
+          created_at: string
+          email: string
+          id: string
+          industry: string | null
+          interested_in_apparel: boolean | null
+          interested_in_fulfillment: boolean | null
+          interested_in_promo_products: boolean | null
+          interested_in_web_store: boolean | null
+          internal_notes: string | null
+          name: string
+          number_of_employees: string | null
+          phone: string | null
+          status: string | null
+          target_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          budget_range?: string | null
+          company_name: string
+          created_at?: string
+          email: string
+          id?: string
+          industry?: string | null
+          interested_in_apparel?: boolean | null
+          interested_in_fulfillment?: boolean | null
+          interested_in_promo_products?: boolean | null
+          interested_in_web_store?: boolean | null
+          internal_notes?: string | null
+          name: string
+          number_of_employees?: string | null
+          phone?: string | null
+          status?: string | null
+          target_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          budget_range?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          industry?: string | null
+          interested_in_apparel?: boolean | null
+          interested_in_fulfillment?: boolean | null
+          interested_in_promo_products?: boolean | null
+          interested_in_web_store?: boolean | null
+          internal_notes?: string | null
+          name?: string
+          number_of_employees?: string | null
+          phone?: string | null
+          status?: string | null
+          target_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       fanwear_leads: {
         Row: {
           additional_info: string | null
