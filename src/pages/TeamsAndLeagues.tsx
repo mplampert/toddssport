@@ -4,6 +4,9 @@ import { QuoteForm } from "@/components/home/QuoteForm";
 import { Button } from "@/components/ui/button";
 import { Check, Users, Shirt, Heart, Trophy } from "lucide-react";
 
+import heroTeamsImg from "@/assets/hero-teams.jpg";
+import teamUniformsImg from "@/assets/service-team-uniforms.jpg";
+
 const features = [
   {
     icon: Shirt,
@@ -54,9 +57,7 @@ const TeamsAndLeagues = () => {
         <section className="relative min-h-[500px] flex items-center">
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ 
-              backgroundImage: `url('https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1920&q=80')`
-            }}
+            style={{ backgroundImage: `url(${heroTeamsImg})` }}
           />
           <div className="absolute inset-0 hero-overlay" />
           
@@ -120,7 +121,7 @@ const TeamsAndLeagues = () => {
               
               <div className="rounded-xl overflow-hidden shadow-xl">
                 <img 
-                  src="https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=800&q=80"
+                  src={teamUniformsImg}
                   alt="Youth sports team"
                   className="w-full h-80 lg:h-96 object-cover"
                 />
