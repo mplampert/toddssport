@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -33,12 +31,12 @@ interface CustomOrderPayload {
   LeadTime?: string;
   ProofFileURL?: string;
   TeamColor?: string;
-  Items: CustomOrderItem[];
+  OrderItems: CustomOrderItem[];
 }
 
 interface StockOrderItem {
   SKU: string;
-  Warehouse: string;
+  Warehouse?: string;
   Quantity: number;
 }
 
@@ -57,45 +55,47 @@ interface StockOrderPayload {
   Autowarehouse?: boolean;
   ShippingMethod?: string;
   ShippingCustomerAccount?: string;
-  Items: StockOrderItem[];
+  OrderItems: StockOrderItem[];
 }
 
-interface OrderStatusParams {
-  SubOrderID: string;
-}
-
-// Place Custom Product Order
+// Place Custom Product Order - matches Champro API spec exactly
 async function placeCustomOrder(payload: CustomOrderPayload) {
   console.log("Placing custom order with PO:", payload.PO);
-  
+
+  // Build the exact JSON structure Champro expects
   const requestBody = {
     APICustomerKey: API_CUSTOMER_KEY,
-    PO: payload.PO,
-    ShipToFirstName: payload.ShipToFirstName,
-    ShipToLastName: payload.ShipToLastName,
-    Address: payload.Address,
-    Address2: payload.Address2 || "",
-    City: payload.City,
-    StateCode: payload.StateCode,
-    ZIPCode: payload.ZIPCode,
-    CountryCode: payload.CountryCode,
-    Phone: payload.Phone || "",
-    IsResidential: payload.IsResidential ? "YES" : "",
-    LeadTime: payload.LeadTime || "",
-    ProofFileURL: payload.ProofFileURL || "",
-    TeamColor: payload.TeamColor || "",
-    SubOrders: payload.Items.map((item) => ({
-      SKU: item.SKU,
-      TeamName: item.TeamName || "",
-      PlayerName: item.PlayerName || "",
-      PlayerNumber: item.PlayerNumber || "",
-      Quantity: item.Quantity,
-    })),
+    Orders: [
+      {
+        PO: payload.PO,
+        OrderType: "CUSTOM",
+        ShipToLastName: payload.ShipToLastName,
+        ShipToFirstName: payload.ShipToFirstName,
+        Address: payload.Address,
+        Address2: payload.Address2 || "",
+        City: payload.City,
+        StateCode: payload.StateCode,
+        ZIPCode: payload.ZIPCode,
+        CountryCode: payload.CountryCode,
+        Phone: payload.Phone || "",
+        IsResidential: payload.IsResidential ? 1 : 0,
+        LeadTime: payload.LeadTime || "",
+        ProofFileURL: payload.ProofFileURL || "",
+        TeamColor: payload.TeamColor || "",
+        OrderItems: payload.OrderItems.map((item) => ({
+          SKU: item.SKU,
+          TeamName: item.TeamName || "",
+          PlayerName: item.PlayerName || "",
+          PlayerNumber: item.PlayerNumber || "",
+          Quantity: item.Quantity,
+        })),
+      },
+    ],
   };
 
   console.log("Custom order request body:", JSON.stringify(requestBody, null, 2));
 
-  const response = await fetch(`${CHAMPRO_BASE_URL}/api/CustomProductOrder`, {
+  const response = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -105,40 +105,46 @@ async function placeCustomOrder(payload: CustomOrderPayload) {
 
   const data = await response.json();
   console.log("Custom order response:", JSON.stringify(data, null, 2));
-  
+
   return data;
 }
 
-// Place Stock Product Order
+// Place Stock Product Order - matches Champro API spec exactly
 async function placeStockOrder(payload: StockOrderPayload) {
   console.log("Placing stock order with PO:", payload.PO);
-  
+
+  // Build the exact JSON structure Champro expects
   const requestBody = {
     APICustomerKey: API_CUSTOMER_KEY,
-    PO: payload.PO,
-    ShipToFirstName: payload.ShipToFirstName,
-    ShipToLastName: payload.ShipToLastName,
-    Address: payload.Address,
-    Address2: payload.Address2 || "",
-    City: payload.City,
-    StateCode: payload.StateCode,
-    ZIPCode: payload.ZIPCode,
-    CountryCode: payload.CountryCode,
-    Phone: payload.Phone || "",
-    IsResidential: payload.IsResidential ? "YES" : "",
     Autowarehouse: payload.Autowarehouse ? "YES" : "",
-    ShippingMethod: payload.ShippingMethod || "",
-    ShippingCustomerAccount: payload.ShippingCustomerAccount || "",
-    Items: payload.Items.map((item) => ({
-      SKU: item.SKU,
-      Warehouse: item.Warehouse,
-      Quantity: item.Quantity,
-    })),
+    Orders: [
+      {
+        PO: payload.PO,
+        OrderType: "STOCK",
+        ShipToLastName: payload.ShipToLastName,
+        ShipToFirstName: payload.ShipToFirstName,
+        Address: payload.Address,
+        Address2: payload.Address2 || "",
+        City: payload.City,
+        StateCode: payload.StateCode,
+        ZIPCode: payload.ZIPCode,
+        CountryCode: payload.CountryCode,
+        Phone: payload.Phone || "",
+        ShippingMethod: payload.ShippingMethod || "",
+        ShippingCustomerAccount: payload.ShippingCustomerAccount || "",
+        IsResidential: payload.IsResidential ? 1 : 0,
+        OrderItems: payload.OrderItems.map((item) => ({
+          SKU: item.SKU,
+          Warehouse: item.Warehouse || "IL",
+          Quantity: item.Quantity,
+        })),
+      },
+    ],
   };
 
   console.log("Stock order request body:", JSON.stringify(requestBody, null, 2));
 
-  const response = await fetch(`${CHAMPRO_BASE_URL}/api/StockProductOrder`, {
+  const response = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -148,21 +154,19 @@ async function placeStockOrder(payload: StockOrderPayload) {
 
   const data = await response.json();
   console.log("Stock order response:", JSON.stringify(data, null, 2));
-  
+
   return data;
 }
 
-// Get Order Status
-async function getOrderStatus(params: OrderStatusParams) {
-  console.log("Getting order status for SubOrderID:", params.SubOrderID);
-  
-  const url = new URL(`${CHAMPRO_BASE_URL}/api/OrderStatus`);
-  url.searchParams.append("APICustomerKey", API_CUSTOMER_KEY);
-  url.searchParams.append("OrderNumber", params.SubOrderID);
+// Get Order Status - matches Champro API spec exactly
+async function getOrderStatus(orderNumber: string) {
+  console.log("Getting order status for OrderNumber:", orderNumber);
 
-  console.log("Order status URL:", url.toString());
+  const url = `${CHAMPRO_BASE_URL}/api/Order/OrderStatus?OrderNumber=${encodeURIComponent(orderNumber)}&APICustomerKey=${encodeURIComponent(API_CUSTOMER_KEY)}`;
 
-  const response = await fetch(url.toString(), {
+  console.log("Order status URL:", url);
+
+  const response = await fetch(url, {
     method: "GET",
     headers: {
       "Content-Type": "application/json",
@@ -171,7 +175,7 @@ async function getOrderStatus(params: OrderStatusParams) {
 
   const data = await response.json();
   console.log("Order status response:", JSON.stringify(data, null, 2));
-  
+
   return data;
 }
 
@@ -212,17 +216,17 @@ Deno.serve(async (req) => {
         break;
       }
       case "orderStatus": {
-        const subOrderId = url.searchParams.get("subOrderId");
-        if (!subOrderId) {
+        const orderNumber = url.searchParams.get("orderNumber");
+        if (!orderNumber) {
           return new Response(
-            JSON.stringify({ error: "SubOrderID is required" }),
+            JSON.stringify({ error: "OrderNumber is required" }),
             {
               status: 400,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             }
           );
         }
-        result = await getOrderStatus({ SubOrderID: subOrderId });
+        result = await getOrderStatus(orderNumber);
         break;
       }
       default:
