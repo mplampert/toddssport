@@ -158,6 +158,66 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_leads: {
+        Row: {
+          company_name: string
+          created_at: string
+          email: string
+          id: string
+          interested_in_branded_merch: boolean | null
+          interested_in_company_store: boolean | null
+          interested_in_employee_gifts: boolean | null
+          interested_in_event_kits: boolean | null
+          interested_in_other: boolean | null
+          internal_notes: string | null
+          name: string
+          phone: string | null
+          project_details: string | null
+          quantity_and_budget: string | null
+          status: string | null
+          target_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_name: string
+          created_at?: string
+          email: string
+          id?: string
+          interested_in_branded_merch?: boolean | null
+          interested_in_company_store?: boolean | null
+          interested_in_employee_gifts?: boolean | null
+          interested_in_event_kits?: boolean | null
+          interested_in_other?: boolean | null
+          internal_notes?: string | null
+          name: string
+          phone?: string | null
+          project_details?: string | null
+          quantity_and_budget?: string | null
+          status?: string | null
+          target_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          email?: string
+          id?: string
+          interested_in_branded_merch?: boolean | null
+          interested_in_company_store?: boolean | null
+          interested_in_employee_gifts?: boolean | null
+          interested_in_event_kits?: boolean | null
+          interested_in_other?: boolean | null
+          internal_notes?: string | null
+          name?: string
+          phone?: string | null
+          project_details?: string | null
+          quantity_and_budget?: string | null
+          status?: string | null
+          target_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           created_at: string | null
