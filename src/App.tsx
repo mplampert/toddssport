@@ -11,6 +11,9 @@ import Fanwear from "./pages/Fanwear";
 import Corporate from "./pages/Corporate";
 import PromotionalProducts from "./pages/PromotionalProducts";
 import Contact from "./pages/Contact";
+import Catalogs from "./pages/Catalogs";
+import Auth from "./pages/Auth";
+import AdminCatalogs from "./pages/admin/AdminCatalogs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +33,9 @@ const App = () => (
           <Route path="/corporate" element={<Corporate />} />
           <Route path="/promotional-products" element={<PromotionalProducts />} />
           <Route path="/contact" element={<Contact />} />
+          <Route path="/catalogs" element={<Catalogs />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
