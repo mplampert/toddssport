@@ -7,6 +7,7 @@ const navLinks = [
   { name: "Home", path: "/" },
   { name: "Services", path: "/services" },
   { name: "Team Stores", path: "/team-stores" },
+  { name: "Fanwear", path: "/fanwear" },
   { name: "Teams & Leagues", path: "/teams-leagues" },
   { name: "Contact", path: "/contact" },
 ];
