@@ -1,3 +1,14 @@
+import hockeyUniforms from "@/assets/uniforms/hockey-uniforms.jpg";
+import baseballUniforms from "@/assets/uniforms/baseball-uniforms.jpg";
+import lacrosseUniforms from "@/assets/uniforms/lacrosse-uniforms.jpg";
+import basketballUniforms from "@/assets/uniforms/basketball-uniforms.jpg";
+import footballUniforms from "@/assets/uniforms/football-uniforms.jpg";
+import soccerUniforms from "@/assets/uniforms/soccer-uniforms.jpg";
+import trackUniforms from "@/assets/uniforms/track-uniforms.jpg";
+import softballUniforms from "@/assets/uniforms/softball-uniforms.jpg";
+import volleyballUniforms from "@/assets/uniforms/volleyball-uniforms.jpg";
+import wrestlingUniforms from "@/assets/uniforms/wrestling-uniforms.jpg";
+
 export interface SportUniform {
   id: string;
   name: string;
@@ -17,7 +28,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Hockey",
     slug: "hockey",
     description: "Custom jerseys, socks, and practice gear for ice and roller hockey teams.",
-    image: "https://images.unsplash.com/photo-1580477371194-5c7e5c5a5b5f?w=600&h=400&fit=crop",
+    image: hockeyUniforms,
     icon: "🏒",
     featured: false,
     order: 1,
@@ -27,7 +38,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Baseball",
     slug: "baseball",
     description: "Full-button jerseys, pants, caps, and warm-ups for youth through adult leagues.",
-    image: "https://images.unsplash.com/photo-1529926706528-db9e5010cd3e?w=600&h=400&fit=crop",
+    image: baseballUniforms,
     icon: "⚾",
     featured: true,
     featuredLabel: "Spring Baseball",
@@ -38,7 +49,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Lacrosse",
     slug: "lacrosse",
     description: "Game-day reversibles, shooting shirts, shorts, and pinnies built for speed.",
-    image: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600&h=400&fit=crop",
+    image: lacrosseUniforms,
     icon: "🥍",
     featured: true,
     featuredLabel: "Spring Lacrosse",
@@ -49,7 +60,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Basketball",
     slug: "basketball",
     description: "Sublimated or sewn jerseys, shorts, and warm-up gear for all levels.",
-    image: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=600&h=400&fit=crop",
+    image: basketballUniforms,
     icon: "🏀",
     featured: false,
     order: 4,
@@ -59,7 +70,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Football",
     slug: "football",
     description: "Jerseys, practice gear, sideline apparel, and fan wear for your program.",
-    image: "https://images.unsplash.com/photo-1560272564-c83b66b1ad12?w=600&h=400&fit=crop",
+    image: footballUniforms,
     icon: "🏈",
     featured: false,
     order: 5,
@@ -69,7 +80,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Soccer",
     slug: "soccer",
     description: "Lightweight jerseys, shorts, training gear, and keeper kits.",
-    image: "https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=600&h=400&fit=crop",
+    image: soccerUniforms,
     icon: "⚽",
     featured: false,
     order: 6,
@@ -79,7 +90,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Track & Field",
     slug: "track-field",
     description: "Singlets, shorts, warm-ups, and team bags for sprinters to throwers.",
-    image: "https://images.unsplash.com/photo-1461896836934- voices?w=600&h=400&fit=crop",
+    image: trackUniforms,
     icon: "🏃",
     featured: true,
     featuredLabel: "Spring Track",
@@ -90,7 +101,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Softball",
     slug: "softball",
     description: "Jerseys, pants, and accessories designed for fast-pitch and slow-pitch teams.",
-    image: "https://images.unsplash.com/photo-1578432014316-48b448d79d57?w=600&h=400&fit=crop",
+    image: softballUniforms,
     icon: "🥎",
     featured: false,
     order: 8,
@@ -100,7 +111,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Volleyball",
     slug: "volleyball",
     description: "Jerseys, spandex, and warm-ups for indoor and sand volleyball teams.",
-    image: "https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?w=600&h=400&fit=crop",
+    image: volleyballUniforms,
     icon: "🏐",
     featured: false,
     order: 9,
@@ -110,7 +121,7 @@ export const sportsUniforms: SportUniform[] = [
     name: "Wrestling",
     slug: "wrestling",
     description: "Custom singlets, warm-ups, and team gear for grapplers at every level.",
-    image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&h=400&fit=crop",
+    image: wrestlingUniforms,
     icon: "🤼",
     featured: false,
     order: 10,
