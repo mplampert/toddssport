@@ -12,7 +12,7 @@ const programs = [
     title: "Team Stores",
     description: "Custom online stores for your team, school, or organization. Easy ordering for players and parents.",
     image: teamStoresImg,
-    link: "/services",
+    link: "/team-stores",
   },
   {
     id: 2,
