@@ -8,6 +8,7 @@ import Services from "./pages/Services";
 import TeamsAndLeagues from "./pages/TeamsAndLeagues";
 import TeamStores from "./pages/TeamStores";
 import Fanwear from "./pages/Fanwear";
+import Corporate from "./pages/Corporate";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/teams-leagues" element={<TeamsAndLeagues />} />
           <Route path="/team-stores" element={<TeamStores />} />
           <Route path="/fanwear" element={<Fanwear />} />
+          <Route path="/corporate" element={<Corporate />} />
           <Route path="/contact" element={<Contact />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
