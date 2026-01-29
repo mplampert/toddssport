@@ -25,7 +25,7 @@ export function BrandsBar({ brands = defaultBrands }: BrandsBarProps) {
           Brands We Offer
         </h2>
         
-        <div className="flex flex-wrap items-center justify-center gap-8 md:gap-12">
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10">
           {brands.map((brand) => (
             <div 
               key={brand.id}
@@ -35,16 +35,20 @@ export function BrandsBar({ brands = defaultBrands }: BrandsBarProps) {
                 <img 
                   src={brand.logo_url} 
                   alt={brand.name}
-                  className="brand-logo"
+                  className="h-12 w-auto grayscale opacity-70 hover:grayscale-0 hover:opacity-100 transition-all duration-300"
                 />
               ) : (
-                <div className="px-6 py-3 bg-muted rounded-lg">
-                  <span className="font-bold text-lg text-muted-foreground">{brand.name}</span>
+                <div className="px-5 py-3 bg-navy/10 rounded-lg border border-navy/20 hover:bg-navy hover:border-navy transition-all duration-300 group">
+                  <span className="font-bold text-base text-navy group-hover:text-primary-foreground transition-colors">{brand.name}</span>
                 </div>
               )}
             </div>
           ))}
         </div>
+        
+        <p className="text-center text-sm text-muted-foreground mt-8">
+          Plus many more athletic and casual brands available
+        </p>
       </div>
     </section>
   );

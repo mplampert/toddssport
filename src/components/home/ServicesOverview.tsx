@@ -2,12 +2,19 @@ import { Link } from "react-router-dom";
 import { Printer, Scissors, Users, Gift } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+// Import service images
+import screenPrintingImg from "@/assets/service-screen-printing.jpg";
+import embroideryImg from "@/assets/service-embroidery.jpg";
+import teamUniformsImg from "@/assets/service-team-uniforms.jpg";
+import promoProductsImg from "@/assets/service-promo-products.jpg";
+
 interface Service {
   id: string;
   slug: string;
   name: string;
   short_description: string;
   icon: string;
+  image_url?: string | null;
 }
 
 const defaultServices: Service[] = [
@@ -48,6 +55,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Gift,
 };
 
+const localImages: Record<string, string> = {
+  "screen-printing": screenPrintingImg,
+  "embroidery": embroideryImg,
+  "team-uniforms": teamUniformsImg,
+  "promotional-products": promoProductsImg,
+};
+
 interface ServicesOverviewProps {
   services?: Service[];
 }
@@ -61,17 +75,33 @@ export function ServicesOverview({ services = defaultServices }: ServicesOvervie
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {services.map((service, index) => {
             const IconComponent = iconMap[service.icon] || Printer;
+            const imageUrl = service.image_url || localImages[service.slug];
+            
             return (
               <div 
                 key={service.id}
-                className="service-card"
+                className="group bg-card rounded-xl overflow-hidden border border-border card-hover"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="service-card-icon">
-                  <IconComponent className="w-7 h-7" />
+                {/* Image */}
+                {imageUrl && (
+                  <div className="h-40 overflow-hidden">
+                    <img 
+                      src={imageUrl}
+                      alt={service.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                )}
+                
+                {/* Content */}
+                <div className="p-5">
+                  <div className="service-card-icon mb-3 w-10 h-10">
+                    <IconComponent className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 text-primary">{service.name}</h3>
+                  <p className="text-muted-foreground text-sm">{service.short_description}</p>
                 </div>
-                <h3 className="font-bold text-lg mb-2 text-primary">{service.name}</h3>
-                <p className="text-muted-foreground text-sm mb-4">{service.short_description}</p>
               </div>
             );
           })}

@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Printer, Scissors, Users, Gift } from "lucide-react";
+
+// Import service images
+import screenPrintingImg from "@/assets/service-screen-printing.jpg";
+import embroideryImg from "@/assets/service-embroidery.jpg";
+import teamUniformsImg from "@/assets/service-team-uniforms.jpg";
+import promoProductsImg from "@/assets/service-promo-products.jpg";
 
 interface Service {
   id: string;
@@ -24,11 +29,11 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Gift,
 };
 
-const defaultImages: Record<string, string> = {
-  "screen-printing": "https://images.unsplash.com/photo-1562408590-e32931084e23?auto=format&fit=crop&w=800&q=80",
-  "embroidery": "https://images.unsplash.com/photo-1558171813-4c088753af8f?auto=format&fit=crop&w=800&q=80",
-  "team-uniforms": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
-  "promotional-products": "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=800&q=80",
+const localImages: Record<string, string> = {
+  "screen-printing": screenPrintingImg,
+  "embroidery": embroideryImg,
+  "team-uniforms": teamUniformsImg,
+  "promotional-products": promoProductsImg,
 };
 
 const Services = () => {
@@ -74,7 +79,8 @@ const Services = () => {
               {services.map((service, index) => {
                 const IconComponent = iconMap[service.icon || "Printer"] || Printer;
                 const isReversed = index % 2 === 1;
-                const imageUrl = service.image_url || defaultImages[service.slug] || defaultImages["screen-printing"];
+                // Use database image_url if available, otherwise use local image
+                const imageUrl = service.image_url || localImages[service.slug] || screenPrintingImg;
 
                 return (
                   <div 
