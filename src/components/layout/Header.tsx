@@ -9,6 +9,7 @@ const navLinks = [
   { name: "Team Stores", path: "/team-stores" },
   { name: "Fanwear", path: "/fanwear" },
   { name: "Corporate", path: "/corporate" },
+  { name: "Promo Products", path: "/promotional-products" },
   { name: "Teams & Leagues", path: "/teams-leagues" },
   { name: "Contact", path: "/contact" },
 ];

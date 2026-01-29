@@ -33,7 +33,7 @@ const programs = [
     title: "Promotional Products",
     description: "Branded giveaways, event merchandise, and promotional items that make an impact.",
     image: promoImg,
-    link: "/services",
+    link: "/promotional-products",
   },
 ];
 
