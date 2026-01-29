@@ -170,6 +170,57 @@ export type Database = {
         }
         Relationships: []
       }
+      team_store_leads: {
+        Row: {
+          additional_info: string | null
+          created_at: string
+          email: string
+          id: string
+          internal_notes: string | null
+          launch_date: string | null
+          level: string
+          name: string
+          number_of_teams: string | null
+          organization: string
+          phone: string | null
+          sport: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          internal_notes?: string | null
+          launch_date?: string | null
+          level: string
+          name: string
+          number_of_teams?: string | null
+          organization: string
+          phone?: string | null
+          sport: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          internal_notes?: string | null
+          launch_date?: string | null
+          level?: string
+          name?: string
+          number_of_teams?: string | null
+          organization?: string
+          phone?: string | null
+          sport?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       testimonials: {
         Row: {
           created_at: string | null
