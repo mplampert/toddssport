@@ -25,7 +25,7 @@ export function BrandsStrip({ brands = defaultBrands }: BrandsStripProps) {
           Brands We Offer
         </h2>
         
-        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 lg:gap-8">
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 lg:gap-14">
           {brands.map((brand) => (
             <div 
               key={brand.id}
@@ -35,11 +35,11 @@ export function BrandsStrip({ brands = defaultBrands }: BrandsStripProps) {
                 <img 
                   src={brand.logo_url} 
                   alt={brand.name}
-                  className="h-10 md:h-12 w-auto grayscale opacity-60 hover:grayscale-0 hover:opacity-100 transition-all duration-300"
+                  className="h-8 md:h-10 lg:h-12 w-auto object-contain opacity-70 hover:opacity-100 transition-all duration-300"
                 />
               ) : (
-                <div className="px-4 md:px-6 py-2 md:py-3 bg-navy/5 rounded-md border border-navy/10 hover:bg-navy hover:border-navy transition-all duration-300 group cursor-default">
-                  <span className="font-bold text-sm md:text-base text-navy/70 group-hover:text-primary-foreground transition-colors whitespace-nowrap">
+                <div className="px-4 md:px-6 py-2 md:py-3 bg-charcoal/5 rounded-md border border-charcoal/10 hover:bg-charcoal hover:border-charcoal transition-all duration-300 group cursor-default">
+                  <span className="font-bold text-sm md:text-base text-charcoal/70 group-hover:text-primary-foreground transition-colors whitespace-nowrap">
                     {brand.name}
                   </span>
                 </div>
