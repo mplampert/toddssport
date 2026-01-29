@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import toddsLogo from "@/assets/todds-logo.png";
 
 const serviceLinks = [
   { name: "Team Stores", path: "/team-stores" },
@@ -44,13 +45,12 @@ export function Header() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-navy rounded-lg flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-xl">T</span>
-            </div>
-            <div className="hidden sm:block">
-              <span className="font-bold text-lg text-primary">Todd's Sporting Goods</span>
-            </div>
+          <Link to="/" className="flex items-center">
+            <img 
+              src={toddsLogo} 
+              alt="Todd's Sporting Goods" 
+              className="h-10 md:h-12 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}
