@@ -8,6 +8,10 @@ import trackUniforms from "@/assets/uniforms/track-uniforms.jpg";
 import softballUniforms from "@/assets/uniforms/softball-uniforms.jpg";
 import volleyballUniforms from "@/assets/uniforms/volleyball-uniforms.jpg";
 import wrestlingUniforms from "@/assets/uniforms/wrestling-uniforms.jpg";
+import swimmingUniforms from "@/assets/uniforms/swimming-uniforms.jpg";
+import tennisUniforms from "@/assets/uniforms/tennis-uniforms.jpg";
+import cheerleadingUniforms from "@/assets/uniforms/cheerleading-uniforms.jpg";
+import golfUniforms from "@/assets/uniforms/golf-uniforms.jpg";
 
 export interface SportUniform {
   id: string;
@@ -125,6 +129,46 @@ export const sportsUniforms: SportUniform[] = [
     icon: "🤼",
     featured: false,
     order: 10,
+  },
+  {
+    id: "swimming",
+    name: "Swimming",
+    slug: "swimming",
+    description: "Team swimsuits, jammers, caps, and warm-up gear for competitive swim teams.",
+    image: swimmingUniforms,
+    icon: "🏊",
+    featured: false,
+    order: 11,
+  },
+  {
+    id: "tennis",
+    name: "Tennis",
+    slug: "tennis",
+    description: "Polo shirts, skirts, shorts, and team warm-ups for courts and clubs.",
+    image: tennisUniforms,
+    icon: "🎾",
+    featured: false,
+    order: 12,
+  },
+  {
+    id: "cheerleading",
+    name: "Cheerleading",
+    slug: "cheerleading",
+    description: "Custom shells, skirts, bodysuits, and spirit wear for cheer and dance teams.",
+    image: cheerleadingUniforms,
+    icon: "📣",
+    featured: false,
+    order: 13,
+  },
+  {
+    id: "golf",
+    name: "Golf",
+    slug: "golf",
+    description: "Performance polos, pants, and outerwear for high school and club golf teams.",
+    image: golfUniforms,
+    icon: "⛳",
+    featured: false,
+    order: 14,
   },
 ];
 
