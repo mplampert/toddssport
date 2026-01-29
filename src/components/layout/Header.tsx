@@ -20,6 +20,7 @@ const serviceLinks = [
 
 const navLinks = [
   { name: "Home", path: "/" },
+  { name: "Catalogs", path: "/catalogs" },
   { name: "Contact", path: "/contact" },
 ];
 
@@ -83,6 +84,13 @@ export function Header() {
             </DropdownMenu>
 
             <Link
+              to="/catalogs"
+              className={`nav-link ${location.pathname === "/catalogs" ? "nav-link-active" : ""}`}
+            >
+              Catalogs
+            </Link>
+
+            <Link
               to="/contact"
               className={`nav-link ${location.pathname === "/contact" ? "nav-link-active" : ""}`}
             >
@@ -143,6 +151,14 @@ export function Header() {
                   </div>
                 )}
               </div>
+
+              <Link
+                to="/catalogs"
+                className={`nav-link py-2 ${location.pathname === "/catalogs" ? "nav-link-active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Catalogs
+              </Link>
 
               <Link
                 to="/contact"
