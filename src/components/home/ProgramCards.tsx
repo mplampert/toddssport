@@ -19,7 +19,7 @@ const programs = [
     title: "Fanwear & Spirit Wear",
     description: "Show your pride with custom fan apparel, hoodies, and merchandise for the whole community.",
     image: fanwearImg,
-    link: "/services",
+    link: "/fanwear",
   },
   {
     id: 3,

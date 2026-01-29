@@ -41,6 +41,60 @@ export type Database = {
         }
         Relationships: []
       }
+      fanwear_leads: {
+        Row: {
+          additional_info: string | null
+          approximate_size: string | null
+          created_at: string
+          email: string
+          id: string
+          interested_in_fundraising: boolean | null
+          internal_notes: string | null
+          launch_date: string | null
+          name: string
+          organization: string
+          phone: string | null
+          role: string
+          sports_or_groups: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          additional_info?: string | null
+          approximate_size?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          interested_in_fundraising?: boolean | null
+          internal_notes?: string | null
+          launch_date?: string | null
+          name: string
+          organization: string
+          phone?: string | null
+          role: string
+          sports_or_groups?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          additional_info?: string | null
+          approximate_size?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          interested_in_fundraising?: boolean | null
+          internal_notes?: string | null
+          launch_date?: string | null
+          name?: string
+          organization?: string
+          phone?: string | null
+          role?: string
+          sports_or_groups?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           created_at: string | null
