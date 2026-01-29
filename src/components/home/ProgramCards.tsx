@@ -26,7 +26,7 @@ const programs = [
     title: "Corporate & Staff Apparel",
     description: "Professional embroidered polos, jackets, and uniforms that elevate your brand.",
     image: corporateImg,
-    link: "/services",
+    link: "/corporate",
   },
   {
     id: 4,
