@@ -97,14 +97,22 @@ export function CustomOrdersTab() {
       // Call Champro API
       const response = await placeCustomOrder(payload);
 
-      // Determine status based on response
+      // Determine status based on response - errors are nested in Orders array
+      const firstOrder = response.Orders?.[0];
       const hasErrors =
         (response.RequestErrors && response.RequestErrors.length > 0) ||
-        (response.OrderErrors && response.OrderErrors.length > 0) ||
-        (response.SubOrderErrors && response.SubOrderErrors.length > 0);
+        (firstOrder?.OrderErrors && firstOrder.OrderErrors.length > 0) ||
+        (firstOrder?.SubOrders?.some((so) => so.SubOrderErrors && so.SubOrderErrors.length > 0));
 
       const status = hasErrors ? "error" : "submitted";
-      const subOrderIds = response.SubOrders?.map((so) => so.SubOrderID) || [];
+      
+      // SubOrderIDs are inside Orders[].SubOrders[]
+      const subOrderIds: string[] = [];
+      firstOrder?.SubOrders?.forEach((so) => {
+        if (so.SubOrderID) {
+          subOrderIds.push(String(so.SubOrderID));
+        }
+      });
 
       // Save to database - cast payloads to JSON compatible types
       const { error: dbError } = await supabase.from("champro_orders").insert([{
@@ -125,13 +133,20 @@ export function CustomOrdersTab() {
       queryClient.invalidateQueries({ queryKey: ["champro-orders", "CUSTOM"] });
 
       const errors: string[] = [];
-      if (response.RequestErrors) errors.push(...response.RequestErrors);
-      if (response.OrderErrors) errors.push(...response.OrderErrors);
-      if (response.SubOrderErrors) {
-        response.SubOrderErrors.forEach((se) => {
-          if (se.Errors) errors.push(...se.Errors);
-        });
+      // RequestErrors at top level
+      if (response.RequestErrors) {
+        response.RequestErrors.forEach((re) => errors.push(re.Response));
       }
+      // OrderErrors and SubOrderErrors are nested in Orders array
+      const firstOrder = response.Orders?.[0];
+      if (firstOrder?.OrderErrors) {
+        firstOrder.OrderErrors.forEach((oe) => errors.push(oe.Response));
+      }
+      firstOrder?.SubOrders?.forEach((so) => {
+        if (so.SubOrderErrors) {
+          so.SubOrderErrors.forEach((se) => errors.push(se.Response));
+        }
+      });
 
       setSubmitResult({
         success: !hasErrors,
@@ -191,7 +206,7 @@ export function CustomOrdersTab() {
       LeadTime: leadTime,
       ProofFileURL: proofFileURL,
       TeamColor: teamColor,
-      Items: items.map((item) => ({
+      OrderItems: items.map((item) => ({
         SKU: item.SKU,
         TeamName: item.TeamName,
         PlayerName: item.PlayerName,
@@ -236,7 +251,7 @@ export function CustomOrdersTab() {
                       Session ID: {submitResult.response?.SessionID}
                       <br />
                       SubOrder IDs:{" "}
-                      {submitResult.response?.SubOrders?.map((so) => so.SubOrderID).join(", ")}
+                      {submitResult.response?.Orders?.[0]?.SubOrders?.map((so) => so.SubOrderID).join(", ") || "N/A"}
                     </>
                   ) : (
                     <ul className="list-disc pl-4 mt-2">
@@ -435,8 +450,8 @@ export function CustomOrdersTab() {
                       </TableCell>
                       <TableCell className="font-mono">{order.po}</TableCell>
                       <TableCell>
-                        {response?.CostTotal
-                          ? `$${response.CostTotal.toFixed(2)}`
+                        {response?.Orders?.[0]?.CostTotal
+                          ? `$${response.Orders[0].CostTotal.toFixed(2)}`
                           : "—"}
                       </TableCell>
                       <TableCell>
