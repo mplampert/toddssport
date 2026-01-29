@@ -1,14 +1,38 @@
 import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { getSportBySlug, getAllSports } from "@/data/sportsUniforms";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { ChamproBuilderEmbed, hasChamproBuilder } from "@/components/uniforms/ChamproBuilderEmbed";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function UniformDetail() {
   const { sport: sportSlug } = useParams<{ sport: string }>();
   const sport = sportSlug ? getSportBySlug(sportSlug) : null;
   const allSports = getAllSports();
+  const [embedKey, setEmbedKey] = useState<string | null>(null);
+  const [loadingKey, setLoadingKey] = useState(true);
+
+  // Fetch the Champro embed key from edge function
+  useEffect(() => {
+    async function fetchEmbedKey() {
+      try {
+        const { data, error } = await supabase.functions.invoke("champro-embed-key");
+        if (error) {
+          console.error("Error fetching embed key:", error);
+        } else if (data?.embedKey) {
+          setEmbedKey(data.embedKey);
+        }
+      } catch (err) {
+        console.error("Failed to fetch embed key:", err);
+      } finally {
+        setLoadingKey(false);
+      }
+    }
+    fetchEmbedKey();
+  }, []);
 
   if (!sport) {
     return (
@@ -82,7 +106,45 @@ export default function UniformDetail() {
           </div>
         </section>
 
-        {/* Content Section - Placeholder */}
+        {/* Custom Builder Section */}
+        {hasChamproBuilder(sport.slug) && (
+          <section className="py-16 md:py-24 bg-background">
+            <div className="container mx-auto px-4">
+              <div className="text-center mb-10">
+                <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+                  Design Your {sport.name} Uniforms
+                </h2>
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Use our interactive uniform builder to customize colors, add your team name, 
+                  and see your design come to life.
+                </p>
+              </div>
+              
+              {loadingKey ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="w-8 h-8 animate-spin text-accent" />
+                </div>
+              ) : embedKey ? (
+                <ChamproBuilderEmbed
+                  sportSlug={sport.slug}
+                  embedKey={embedKey}
+                  height="850px"
+                />
+              ) : (
+                <div className="bg-muted/50 rounded-lg p-8 text-center max-w-2xl mx-auto">
+                  <p className="text-muted-foreground">
+                    The uniform designer is temporarily unavailable. Please contact us for assistance.
+                  </p>
+                  <Button onClick={scrollToQuote} className="btn-cta mt-4">
+                    Request a Quote Instead
+                  </Button>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* Content Section */}
         <section className="py-16 md:py-24 bg-secondary/30">
           <div className="container mx-auto px-4">
             <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
@@ -125,19 +187,21 @@ export default function UniformDetail() {
               </div>
             </div>
 
-            {/* Coming Soon Notice */}
-            <div className="mt-16 text-center p-8 bg-accent/10 rounded-xl border border-accent/20 max-w-3xl mx-auto">
-              <h3 className="text-xl font-bold text-foreground mb-2">
-                More Details Coming Soon
-              </h3>
-              <p className="text-muted-foreground mb-6">
-                We're building out detailed {sport.name.toLowerCase()} uniform galleries and style guides. 
-                In the meantime, contact us for a personalized consultation.
-              </p>
-              <Button onClick={scrollToQuote} className="btn-cta">
-                Request a {sport.name} Uniform Quote
-              </Button>
-            </div>
+            {/* CTA for sports without builder */}
+            {!hasChamproBuilder(sport.slug) && (
+              <div className="mt-16 text-center p-8 bg-accent/10 rounded-xl border border-accent/20 max-w-3xl mx-auto">
+                <h3 className="text-xl font-bold text-foreground mb-2">
+                  Request a Custom Quote
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  Contact us for a personalized {sport.name.toLowerCase()} uniform consultation 
+                  and quote.
+                </p>
+                <Button onClick={scrollToQuote} className="btn-cta">
+                  Request a {sport.name} Uniform Quote
+                </Button>
+              </div>
+            )}
           </div>
         </section>
 
