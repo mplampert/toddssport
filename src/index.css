@@ -2,113 +2,113 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Todd's Sporting Goods - Bold Athletic Design System */
+/* Todd's Sporting Goods - Light Blue, Grey & Black Design System */
 
 @layer base {
   :root {
-    /* Navy & Orange Athletic Theme */
+    /* Light Blue, Grey & Black Theme */
     --background: 0 0% 100%;
-    --foreground: 215 25% 15%;
+    --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 15%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 15%;
+    --popover-foreground: 0 0% 10%;
 
-    /* Deep Navy Primary */
-    --primary: 213 50% 20%;
+    /* Black Primary */
+    --primary: 0 0% 10%;
     --primary-foreground: 0 0% 100%;
 
     /* Light Gray Secondary */
-    --secondary: 210 20% 96%;
-    --secondary-foreground: 215 25% 15%;
+    --secondary: 210 10% 96%;
+    --secondary-foreground: 0 0% 10%;
 
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 15% 45%;
+    --muted: 210 10% 96%;
+    --muted-foreground: 0 0% 45%;
 
-    /* Vibrant Orange Accent */
-    --accent: 25 95% 53%;
+    /* Light Blue Accent */
+    --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 90%;
-    --input: 210 20% 90%;
-    --ring: 25 95% 53%;
+    --border: 210 10% 90%;
+    --input: 210 10% 90%;
+    --ring: 199 89% 48%;
 
     --radius: 0.5rem;
 
     /* Custom Colors */
-    --navy: 213 50% 20%;
-    --navy-light: 213 40% 30%;
-    --navy-dark: 213 55% 12%;
-    --orange: 25 95% 53%;
-    --orange-light: 25 90% 60%;
-    --orange-dark: 25 95% 45%;
-    --cream: 40 30% 96%;
-    --slate: 215 15% 45%;
+    --sky: 199 89% 48%;
+    --sky-light: 199 85% 58%;
+    --sky-dark: 199 90% 38%;
+    --charcoal: 0 0% 15%;
+    --charcoal-light: 0 0% 25%;
+    --charcoal-dark: 0 0% 8%;
+    --steel: 210 10% 70%;
+    --slate: 210 10% 50%;
 
     /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(213 50% 20% / 0.95), hsl(213 55% 12% / 0.9));
-    --gradient-cta: linear-gradient(135deg, hsl(25 95% 53%), hsl(25 95% 45%));
-    --gradient-navy: linear-gradient(180deg, hsl(213 50% 20%), hsl(213 55% 12%));
+    --gradient-hero: linear-gradient(135deg, hsl(0 0% 10% / 0.95), hsl(0 0% 5% / 0.9));
+    --gradient-cta: linear-gradient(135deg, hsl(199 89% 48%), hsl(199 90% 38%));
+    --gradient-dark: linear-gradient(180deg, hsl(0 0% 15%), hsl(0 0% 8%));
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px hsl(215 25% 15% / 0.05);
-    --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.1), 0 2px 4px -2px hsl(215 25% 15% / 0.1);
-    --shadow-lg: 0 10px 15px -3px hsl(215 25% 15% / 0.1), 0 4px 6px -4px hsl(215 25% 15% / 0.1);
-    --shadow-xl: 0 20px 25px -5px hsl(215 25% 15% / 0.1), 0 8px 10px -6px hsl(215 25% 15% / 0.1);
-    --shadow-orange: 0 4px 14px hsl(25 95% 53% / 0.4);
+    --shadow-sm: 0 1px 2px hsl(0 0% 10% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 10% / 0.1), 0 2px 4px -2px hsl(0 0% 10% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 10% / 0.1), 0 4px 6px -4px hsl(0 0% 10% / 0.1);
+    --shadow-xl: 0 20px 25px -5px hsl(0 0% 10% / 0.1), 0 8px 10px -6px hsl(0 0% 10% / 0.1);
+    --shadow-accent: 0 4px 14px hsl(199 89% 48% / 0.4);
 
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 0 0% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 210 10% 95%;
+    --sidebar-accent-foreground: 0 0% 10%;
+    --sidebar-border: 210 10% 91%;
+    --sidebar-ring: 199 89% 48%;
   }
 
   .dark {
-    --background: 215 25% 10%;
-    --foreground: 210 20% 96%;
+    --background: 0 0% 8%;
+    --foreground: 210 10% 96%;
 
-    --card: 215 25% 12%;
-    --card-foreground: 210 20% 96%;
+    --card: 0 0% 12%;
+    --card-foreground: 210 10% 96%;
 
-    --popover: 215 25% 12%;
-    --popover-foreground: 210 20% 96%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 210 10% 96%;
 
-    --primary: 25 95% 53%;
+    --primary: 199 89% 48%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 215 25% 18%;
-    --secondary-foreground: 210 20% 96%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 210 10% 96%;
 
-    --muted: 215 25% 18%;
-    --muted-foreground: 215 15% 60%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 210 10% 60%;
 
-    --accent: 25 95% 53%;
+    --accent: 199 89% 48%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 62% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 215 25% 20%;
-    --input: 215 25% 20%;
-    --ring: 25 95% 53%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 199 89% 48%;
 
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-background: 0 0% 10%;
+    --sidebar-foreground: 210 10% 95%;
+    --sidebar-primary: 199 89% 48%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-accent: 0 0% 16%;
+    --sidebar-accent-foreground: 210 10% 95%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 199 89% 48%;
   }
 }
 
@@ -137,12 +137,12 @@
   .btn-cta {
     background: var(--gradient-cta);
     @apply text-white font-bold shadow-lg transition-all duration-300;
-    box-shadow: var(--shadow-orange);
+    box-shadow: var(--shadow-accent);
   }
 
   .btn-cta:hover {
     @apply scale-105;
-    box-shadow: 0 6px 20px hsl(25 95% 53% / 0.5);
+    box-shadow: 0 6px 20px hsl(199 89% 48% / 0.5);
   }
 
   /* Card Hover Effects */
@@ -164,13 +164,13 @@
     @apply text-3xl md:text-4xl font-bold text-center mb-12;
   }
 
-  /* Navy Background */
+  /* Dark Background */
   .bg-navy {
-    background: hsl(var(--navy));
+    background: hsl(var(--charcoal));
   }
 
   .bg-navy-gradient {
-    background: var(--gradient-navy);
+    background: var(--gradient-dark);
   }
 
   /* Service Card */
@@ -180,8 +180,8 @@
 
   .service-card-icon {
     @apply w-14 h-14 rounded-xl flex items-center justify-center mb-4;
-    background: hsl(var(--orange) / 0.1);
-    color: hsl(var(--orange));
+    background: hsl(var(--sky) / 0.1);
+    color: hsl(var(--sky));
   }
 
   /* Brand Logo Bar */
