@@ -19,7 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   type LeadTimeType,
-  calculateRetailPricePerUnit,
+  type Wholesale,
+  type EffectiveMarkup,
+  calculateRetailPerUnit,
   formatPrice,
 } from "@/lib/champroPricing";
 
@@ -137,11 +139,18 @@ export default function UniformDetail() {
 
   // Calculate current price
   const perUnitPrice = productPricing
-    ? calculateRetailPricePerUnit({
-        wholesale: productPricing.wholesale,
-        pricing: productPricing.pricing,
-        leadTime,
-      })
+    ? calculateRetailPerUnit(
+        {
+          baseCost: productPricing.wholesale.base_cost_per_unit,
+          expressUpchargeCost: productPricing.wholesale.express_upcharge_cost_per_unit,
+          expressPlusUpchargeCost: productPricing.wholesale.express_plus_upcharge_cost_per_unit,
+        },
+        {
+          markupPercent: productPricing.pricing.markup_percent,
+          rushMarkupPercent: productPricing.pricing.rush_markup_percent ?? productPricing.pricing.markup_percent,
+        },
+        leadTime
+      )
     : 0;
 
   const totalPrice = perUnitPrice * quantity;
