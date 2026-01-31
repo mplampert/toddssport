@@ -1,5 +1,5 @@
 import { useParams, Link } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { getSportBySlug, getAllSports } from "@/data/sportsUniforms";
@@ -15,6 +15,7 @@ export default function UniformDetail() {
   const allSports = getAllSports();
   const [embedKey, setEmbedKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState(true);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Fetch the Champro embed key from edge function
   useEffect(() => {
@@ -74,7 +75,7 @@ export default function UniformDetail() {
     window.location.href = "/#quote-form";
   };
 
-  const handleChamproCheckout = ({
+  const handleChamproCheckout = useCallback(async ({
     champroSessionId,
     sportSlug: designSport,
   }: {
@@ -82,15 +83,45 @@ export default function UniformDetail() {
     sportSlug: string;
   }) => {
     console.log("Champro design ready:", champroSessionId, designSport);
-    
-    toast.success(
-      `Your ${sport?.name || designSport} uniform design has been saved!`,
-      {
-        description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
-        duration: 10000,
+    setIsCheckingOut(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("champro-checkout", {
+        body: {
+          champroSessionId,
+          sportSlug: designSport,
+          quantity: 1,
+        },
+      });
+
+      if (error) {
+        console.error("Checkout error:", error);
+        toast.error("Unable to start checkout. Please try again.", {
+          description: error.message,
+        });
+        return;
       }
-    );
-  };
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        // Fallback: show success message with session ID for manual processing
+        toast.success(
+          `Your ${sport?.name || designSport} uniform design has been saved!`,
+          {
+            description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
+            duration: 10000,
+          }
+        );
+      }
+    } catch (err) {
+      console.error("Checkout failed:", err);
+      toast.error("Unable to start checkout. Please try again.");
+    } finally {
+      setIsCheckingOut(false);
+    }
+  }, [sport?.name]);
 
   return (
     <div className="min-h-screen flex flex-col">
