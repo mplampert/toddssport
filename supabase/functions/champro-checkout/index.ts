@@ -101,6 +101,15 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Try to get the user from the auth header (optional - guest checkout allowed)
+    let userId: string | null = null;
+    const authHeader = req.headers.get("Authorization");
+    if (authHeader?.startsWith("Bearer ")) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: userData } = await supabase.auth.getUser(token);
+      userId = userData?.user?.id || null;
+    }
+
     const {
       champroSessionId,
       sportSlug,
@@ -237,6 +246,8 @@ serve(async (req) => {
         po: `WEB-${Date.now()}`,
         session_id: champroSessionId,
         status: "pending_payment",
+        user_id: userId,
+        customer_email: customerEmail || null,
         request_payload: {
           champro_session_id: champroSessionId,
           sport_slug: sportSlug,

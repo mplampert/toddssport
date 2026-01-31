@@ -16,6 +16,7 @@ import Contact from "./pages/Contact";
 import Catalogs from "./pages/Catalogs";
 import Auth from "./pages/Auth";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
+import MyOrders from "./pages/MyOrders";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCatalogs from "./pages/admin/AdminCatalogs";
 import AdminChamproOrders from "./pages/admin/AdminChamproOrders";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/catalogs" element={<Catalogs />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
+          <Route path="/my-orders" element={<MyOrders />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
