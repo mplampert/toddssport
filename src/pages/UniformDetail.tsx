@@ -4,10 +4,38 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { getSportBySlug, getAllSports } from "@/data/sportsUniforms";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowLeft, CheckCircle, Loader2, ShoppingCart } from "lucide-react";
 import { ChamproBuilderEmbed, hasChamproBuilder } from "@/components/uniforms/ChamproBuilderEmbed";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  type LeadTimeType,
+  calculateRetailPricePerUnit,
+  formatPrice,
+} from "@/lib/champroPricing";
+
+interface ProductPricing {
+  moq: number;
+  wholesale: {
+    base_cost_per_unit: number;
+    express_upcharge_cost_per_unit: number;
+    express_plus_upcharge_cost_per_unit: number;
+  };
+  pricing: {
+    markup_percent: number;
+    rush_markup_percent: number | null;
+  };
+  productMaster: string;
+}
 
 export default function UniformDetail() {
   const { sport: sportSlug } = useParams<{ sport: string }>();
@@ -16,6 +44,17 @@ export default function UniformDetail() {
   const [embedKey, setEmbedKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  
+  // Checkout form state
+  const [champroSessionId, setChamproSessionId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState<number>(12);
+  const [leadTime, setLeadTime] = useState<LeadTimeType>("standard");
+  const [teamName, setTeamName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  
+  // Pricing state
+  const [productPricing, setProductPricing] = useState<ProductPricing | null>(null);
+  const [loadingPricing, setLoadingPricing] = useState(true);
 
   // Fetch the Champro embed key from edge function
   useEffect(() => {
@@ -35,6 +74,77 @@ export default function UniformDetail() {
     }
     fetchEmbedKey();
   }, []);
+
+  // Fetch product pricing for this sport
+  useEffect(() => {
+    async function fetchPricing() {
+      if (!sportSlug) return;
+      
+      try {
+        // Get product for this sport
+        const { data: products, error: productError } = await supabase
+          .from("champro_products")
+          .select("*")
+          .eq("sport", sportSlug)
+          .limit(1);
+
+        if (productError || !products || products.length === 0) {
+          console.log("No pricing configured for sport:", sportSlug);
+          setLoadingPricing(false);
+          return;
+        }
+
+        const product = products[0];
+
+        // Get wholesale pricing
+        const { data: wholesale } = await supabase
+          .from("champro_wholesale")
+          .select("*")
+          .eq("champro_product_id", product.id)
+          .single();
+
+        // Get pricing rules
+        const { data: pricing } = await supabase
+          .from("champro_pricing_rules")
+          .select("*")
+          .eq("champro_product_id", product.id)
+          .single();
+
+        if (wholesale && pricing) {
+          setProductPricing({
+            moq: product.moq_custom,
+            wholesale: {
+              base_cost_per_unit: Number(wholesale.base_cost_per_unit),
+              express_upcharge_cost_per_unit: Number(wholesale.express_upcharge_cost_per_unit),
+              express_plus_upcharge_cost_per_unit: Number(wholesale.express_plus_upcharge_cost_per_unit),
+            },
+            pricing: {
+              markup_percent: Number(pricing.markup_percent),
+              rush_markup_percent: pricing.rush_markup_percent ? Number(pricing.rush_markup_percent) : null,
+            },
+            productMaster: product.product_master,
+          });
+          setQuantity(product.moq_custom);
+        }
+      } catch (err) {
+        console.error("Failed to fetch pricing:", err);
+      } finally {
+        setLoadingPricing(false);
+      }
+    }
+    fetchPricing();
+  }, [sportSlug]);
+
+  // Calculate current price
+  const perUnitPrice = productPricing
+    ? calculateRetailPricePerUnit({
+        wholesale: productPricing.wholesale,
+        pricing: productPricing.pricing,
+        leadTime,
+      })
+    : 0;
+
+  const totalPrice = perUnitPrice * quantity;
 
   if (!sport) {
     return (
@@ -75,30 +185,51 @@ export default function UniformDetail() {
     window.location.href = "/#quote-form";
   };
 
-  const handleChamproCheckout = useCallback(async ({
-    champroSessionId,
-    sportSlug: designSport,
+  // Called when design is saved in the Champro builder
+  const handleDesignSaved = useCallback(({
+    champroSessionId: sessionId,
   }: {
     champroSessionId: string;
     sportSlug: string;
   }) => {
-    console.log("Champro design ready:", champroSessionId, designSport);
+    console.log("Champro design saved:", sessionId);
+    setChamproSessionId(sessionId);
+    toast.success("Design saved! Complete the form below to checkout.", {
+      duration: 5000,
+    });
+  }, []);
+
+  // Called when user clicks checkout button
+  const handleCheckout = useCallback(async () => {
+    if (!champroSessionId) {
+      toast.error("Please save your design first using the builder above.");
+      return;
+    }
+
+    if (!quantity || quantity < (productPricing?.moq || 1)) {
+      toast.error(`Minimum order quantity is ${productPricing?.moq || 12} units.`);
+      return;
+    }
+
     setIsCheckingOut(true);
 
     try {
       const { data, error } = await supabase.functions.invoke("champro-checkout", {
         body: {
           champroSessionId,
-          sportSlug: designSport,
-          quantity: 1,
+          sportSlug,
+          productMaster: productPricing?.productMaster,
+          quantity,
+          leadTime,
+          teamName,
+          customerEmail,
         },
       });
 
       if (error) {
         console.error("Checkout error:", error);
-        toast.error("Unable to start checkout. Please try again.", {
-          description: error.message,
-        });
+        const errorData = error.message ? JSON.parse(error.message) : {};
+        toast.error(errorData.error || "Unable to start checkout. Please try again.");
         return;
       }
 
@@ -108,7 +239,7 @@ export default function UniformDetail() {
       } else {
         // Fallback: show success message with session ID for manual processing
         toast.success(
-          `Your ${sport?.name || designSport} uniform design has been saved!`,
+          `Your ${sport?.name || sportSlug} uniform design has been saved!`,
           {
             description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
             duration: 10000,
@@ -121,7 +252,7 @@ export default function UniformDetail() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [sport?.name]);
+  }, [champroSessionId, sportSlug, productPricing, quantity, leadTime, teamName, customerEmail, sport?.name]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -175,12 +306,136 @@ export default function UniformDetail() {
                   <Loader2 className="w-8 h-8 animate-spin text-accent" />
                 </div>
               ) : embedKey ? (
-                <ChamproBuilderEmbed
-                  sportSlug={sport.slug}
-                  embedKey={embedKey}
-                  height="850px"
-                  onCheckout={handleChamproCheckout}
-                />
+                <>
+                  <ChamproBuilderEmbed
+                    sportSlug={sport.slug}
+                    embedKey={embedKey}
+                    height="850px"
+                    onCheckout={handleDesignSaved}
+                  />
+
+                  {/* Checkout Form */}
+                  <div className="mt-8 max-w-2xl mx-auto">
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
+                      <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+                        <ShoppingCart className="w-5 h-5 text-accent" />
+                        Complete Your Order
+                      </h3>
+
+                      {champroSessionId ? (
+                        <div className="mb-4 p-3 bg-accent/10 border border-accent/20 rounded-lg">
+                          <p className="text-sm text-accent font-medium">
+                            ✓ Design saved! Complete the form below to checkout.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
+                          <p className="text-sm text-muted-foreground">
+                            Complete your design in the builder above, then click "Process Design" to save it.
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {/* Quantity */}
+                        <div className="space-y-2">
+                          <Label htmlFor="quantity">
+                            Quantity <span className="text-muted-foreground text-xs">(min {productPricing?.moq || 12})</span>
+                          </Label>
+                          <Input
+                            id="quantity"
+                            type="number"
+                            min={productPricing?.moq || 12}
+                            value={quantity}
+                            onChange={(e) => setQuantity(Math.max(productPricing?.moq || 1, parseInt(e.target.value) || 1))}
+                          />
+                        </div>
+
+                        {/* Lead Time */}
+                        <div className="space-y-2">
+                          <Label htmlFor="leadTime">Production Time</Label>
+                          <Select value={leadTime} onValueChange={(v) => setLeadTime(v as LeadTimeType)}>
+                            <SelectTrigger id="leadTime">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard (3-4 weeks)</SelectItem>
+                              <SelectItem value="express">10-Day Rush (+$)</SelectItem>
+                              <SelectItem value="express_plus">5-Day Rush (+$$)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Team Name */}
+                        <div className="space-y-2">
+                          <Label htmlFor="teamName">Team Name (optional)</Label>
+                          <Input
+                            id="teamName"
+                            type="text"
+                            placeholder="e.g., Wildcats"
+                            value={teamName}
+                            onChange={(e) => setTeamName(e.target.value)}
+                          />
+                        </div>
+
+                        {/* Email */}
+                        <div className="space-y-2">
+                          <Label htmlFor="email">Email (for order updates)</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            placeholder="coach@example.com"
+                            value={customerEmail}
+                            onChange={(e) => setCustomerEmail(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Pricing Summary */}
+                      {productPricing && !loadingPricing && (
+                        <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-muted-foreground">Price per unit:</span>
+                            <span className="font-medium text-foreground">{formatPrice(perUnitPrice)}</span>
+                          </div>
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="text-muted-foreground">Quantity:</span>
+                            <span className="font-medium text-foreground">{quantity}</span>
+                          </div>
+                          <div className="border-t border-border pt-2 mt-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-semibold text-foreground">Subtotal:</span>
+                              <span className="text-xl font-bold text-accent">{formatPrice(totalPrice)}</span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              + shipping calculated at checkout
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Checkout Button */}
+                      <Button
+                        onClick={handleCheckout}
+                        disabled={!champroSessionId || isCheckingOut}
+                        className="w-full mt-6 btn-cta"
+                        size="lg"
+                      >
+                        {isCheckingOut ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingCart className="w-4 h-4 mr-2" />
+                            Proceed to Checkout
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </>
               ) : (
                 <div className="bg-muted/50 rounded-lg p-8 text-center max-w-2xl mx-auto">
                   <p className="text-muted-foreground">
