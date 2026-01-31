@@ -19,23 +19,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   type LeadTimeType,
-  type Wholesale,
-  type EffectiveMarkup,
-  calculateRetailPerUnit,
+  type GlobalPricing,
+  calculatePerUnit,
   formatPrice,
 } from "@/lib/champroPricing";
 
 interface ProductPricing {
   moq: number;
-  wholesale: {
-    base_cost_per_unit: number;
-    express_upcharge_cost_per_unit: number;
-    express_plus_upcharge_cost_per_unit: number;
-  };
-  pricing: {
-    markup_percent: number;
-    rush_markup_percent: number | null;
-  };
+  baseCost: number;
+  globalPricing: GlobalPricing;
   productMaster: string;
 }
 
@@ -105,24 +97,20 @@ export default function UniformDetail() {
           .eq("champro_product_id", product.id)
           .single();
 
-        // Get pricing rules
-        const { data: pricing } = await supabase
-          .from("champro_pricing_rules")
+        // Get global pricing settings
+        const { data: globalSettings } = await supabase
+          .from("champro_pricing_settings")
           .select("*")
-          .eq("champro_product_id", product.id)
+          .eq("scope", "global")
           .single();
 
-        if (wholesale && pricing) {
+        if (wholesale && globalSettings) {
           setProductPricing({
             moq: product.moq_custom,
-            wholesale: {
-              base_cost_per_unit: Number(wholesale.base_cost_per_unit),
-              express_upcharge_cost_per_unit: Number(wholesale.express_upcharge_cost_per_unit),
-              express_plus_upcharge_cost_per_unit: Number(wholesale.express_plus_upcharge_cost_per_unit),
-            },
-            pricing: {
-              markup_percent: Number(pricing.markup_percent),
-              rush_markup_percent: pricing.rush_markup_percent ? Number(pricing.rush_markup_percent) : null,
+            baseCost: Number(wholesale.base_cost),
+            globalPricing: {
+              markupPercent: Number(globalSettings.markup_percent),
+              rushPercent: Number(globalSettings.rush_percent),
             },
             productMaster: product.product_master,
           });
@@ -139,16 +127,9 @@ export default function UniformDetail() {
 
   // Calculate current price
   const perUnitPrice = productPricing
-    ? calculateRetailPerUnit(
-        {
-          baseCost: productPricing.wholesale.base_cost_per_unit,
-          expressUpchargeCost: productPricing.wholesale.express_upcharge_cost_per_unit,
-          expressPlusUpchargeCost: productPricing.wholesale.express_plus_upcharge_cost_per_unit,
-        },
-        {
-          markupPercent: productPricing.pricing.markup_percent,
-          rushMarkupPercent: productPricing.pricing.rush_markup_percent ?? productPricing.pricing.markup_percent,
-        },
+    ? calculatePerUnit(
+        { baseCost: productPricing.baseCost },
+        productPricing.globalPricing,
         leadTime
       )
     : 0;
