@@ -18,6 +18,7 @@ import Auth from "./pages/Auth";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import AdminCatalogs from "./pages/admin/AdminCatalogs";
 import AdminChamproOrders from "./pages/admin/AdminChamproOrders";
+import AdminChamproPricing from "./pages/admin/AdminChamproPricing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
+          <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -119,6 +119,112 @@ export type Database = {
         }
         Relationships: []
       }
+      champro_pricing_rules: {
+        Row: {
+          champro_product_id: string
+          created_at: string
+          id: string
+          markup_percent: number
+          rush_markup_percent: number | null
+          updated_at: string
+        }
+        Insert: {
+          champro_product_id: string
+          created_at?: string
+          id?: string
+          markup_percent?: number
+          rush_markup_percent?: number | null
+          updated_at?: string
+        }
+        Update: {
+          champro_product_id?: string
+          created_at?: string
+          id?: string
+          markup_percent?: number
+          rush_markup_percent?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "champro_pricing_rules_champro_product_id_fkey"
+            columns: ["champro_product_id"]
+            isOneToOne: true
+            referencedRelation: "champro_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      champro_products: {
+        Row: {
+          created_at: string
+          default_lead_time_name: string | null
+          id: string
+          moq_custom: number
+          name: string
+          product_master: string
+          sport: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_lead_time_name?: string | null
+          id?: string
+          moq_custom?: number
+          name: string
+          product_master: string
+          sport: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_lead_time_name?: string | null
+          id?: string
+          moq_custom?: number
+          name?: string
+          product_master?: string
+          sport?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      champro_wholesale: {
+        Row: {
+          base_cost_per_unit: number
+          champro_product_id: string
+          created_at: string
+          express_plus_upcharge_cost_per_unit: number
+          express_upcharge_cost_per_unit: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          base_cost_per_unit: number
+          champro_product_id: string
+          created_at?: string
+          express_plus_upcharge_cost_per_unit?: number
+          express_upcharge_cost_per_unit?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          base_cost_per_unit?: number
+          champro_product_id?: string
+          created_at?: string
+          express_plus_upcharge_cost_per_unit?: number
+          express_upcharge_cost_per_unit?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "champro_wholesale_champro_product_id_fkey"
+            columns: ["champro_product_id"]
+            isOneToOne: true
+            referencedRelation: "champro_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       corporate_leads: {
         Row: {
           additional_info: string | null
