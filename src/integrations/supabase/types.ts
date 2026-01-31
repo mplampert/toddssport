@@ -83,6 +83,7 @@ export type Database = {
       champro_orders: {
         Row: {
           created_at: string
+          customer_email: string | null
           id: string
           order_type: Database["public"]["Enums"]["champro_order_type"]
           po: string
@@ -92,9 +93,11 @@ export type Database = {
           status: string
           sub_order_ids: string[] | null
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
+          customer_email?: string | null
           id?: string
           order_type: Database["public"]["Enums"]["champro_order_type"]
           po: string
@@ -104,9 +107,11 @@ export type Database = {
           status?: string
           sub_order_ids?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
+          customer_email?: string | null
           id?: string
           order_type?: Database["public"]["Enums"]["champro_order_type"]
           po?: string
@@ -116,6 +121,7 @@ export type Database = {
           status?: string
           sub_order_ids?: string[] | null
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
