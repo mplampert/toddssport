@@ -160,6 +160,36 @@ export type Database = {
           },
         ]
       }
+      champro_pricing_settings: {
+        Row: {
+          created_at: string
+          id: string
+          markup_percent: number
+          rush_markup_percent: number
+          scope: string
+          sport: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          markup_percent?: number
+          rush_markup_percent?: number
+          scope: string
+          sport?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          markup_percent?: number
+          rush_markup_percent?: number
+          scope?: string
+          sport?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       champro_products: {
         Row: {
           created_at: string
@@ -168,6 +198,7 @@ export type Database = {
           moq_custom: number
           name: string
           product_master: string
+          sku: string | null
           sport: string
           updated_at: string
         }
@@ -178,6 +209,7 @@ export type Database = {
           moq_custom?: number
           name: string
           product_master: string
+          sku?: string | null
           sport: string
           updated_at?: string
         }
@@ -188,6 +220,7 @@ export type Database = {
           moq_custom?: number
           name?: string
           product_master?: string
+          sku?: string | null
           sport?: string
           updated_at?: string
         }
