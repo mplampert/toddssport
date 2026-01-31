@@ -20,8 +20,10 @@ import { toast } from "sonner";
 import {
   type LeadTimeType,
   type GlobalPricing,
+  type ChamproCategory,
   calculatePerUnit,
   formatPrice,
+  getCategoryDisplayName,
 } from "@/lib/champroPricing";
 
 interface ProductPricing {
@@ -29,6 +31,7 @@ interface ProductPricing {
   baseCost: number;
   globalPricing: GlobalPricing;
   productMaster: string;
+  category: ChamproCategory;
 }
 
 export default function UniformDetail() {
@@ -43,6 +46,7 @@ export default function UniformDetail() {
   const [champroSessionId, setChamproSessionId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(12);
   const [leadTime, setLeadTime] = useState<LeadTimeType>("standard");
+  const [category, setCategory] = useState<ChamproCategory>("JERSEYS");
   const [teamName, setTeamName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   
@@ -105,6 +109,7 @@ export default function UniformDetail() {
           .single();
 
         if (wholesale && globalSettings) {
+          const productCategory = (product.category || "JERSEYS") as ChamproCategory;
           setProductPricing({
             moq: product.moq_custom,
             baseCost: Number(wholesale.base_cost),
@@ -113,8 +118,10 @@ export default function UniformDetail() {
               rushPercent: Number(globalSettings.rush_percent),
             },
             productMaster: product.product_master,
+            category: productCategory,
           });
           setQuantity(product.moq_custom);
+          setCategory(productCategory);
         }
       } catch (err) {
         console.error("Failed to fetch pricing:", err);
@@ -208,6 +215,7 @@ export default function UniformDetail() {
         body: {
           champroSessionId,
           sportSlug,
+          category,
           productMaster: productPricing?.productMaster,
           quantity,
           leadTime,
@@ -242,7 +250,7 @@ export default function UniformDetail() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [champroSessionId, sportSlug, productPricing, quantity, leadTime, teamName, customerEmail, sport?.name]);
+  }, [champroSessionId, sportSlug, category, productPricing, quantity, leadTime, teamName, customerEmail, sport?.name]);
 
   return (
     <div className="min-h-screen flex flex-col">

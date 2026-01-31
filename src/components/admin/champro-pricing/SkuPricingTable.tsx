@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -21,7 +22,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, Pencil } from "lucide-react";
-import { formatPrice, calculatePerUnit, type GlobalPricing } from "@/lib/champroPricing";
+import { formatPrice, calculatePerUnit, getCategoryDisplayName, type GlobalPricing, type ChamproCategory } from "@/lib/champroPricing";
 
 interface ProductWithPricing {
   id: string;
@@ -29,6 +30,7 @@ interface ProductWithPricing {
   sku: string | null;
   name: string;
   sport: string;
+  category: ChamproCategory;
   moq_custom: number;
   wholesale: {
     id: string;
@@ -40,6 +42,7 @@ interface SkuPricingTableProps {
   products: ProductWithPricing[];
   globalPricing: GlobalPricing;
   selectedSport: string | null;
+  selectedCategory: ChamproCategory | null;
   onRefresh: () => void;
 }
 
@@ -47,6 +50,7 @@ export function SkuPricingTable({
   products,
   globalPricing,
   selectedSport,
+  selectedCategory,
   onRefresh,
 }: SkuPricingTableProps) {
   const [editingProduct, setEditingProduct] = useState<ProductWithPricing | null>(null);
@@ -57,10 +61,14 @@ export function SkuPricingTable({
   const [moq, setMoq] = useState("");
   const [sku, setSku] = useState("");
 
-  // Filter products by sport if selected
-  const filteredProducts = selectedSport
-    ? products.filter((p) => p.sport === selectedSport)
-    : products;
+  // Filter products by sport and category
+  let filteredProducts = products;
+  if (selectedSport) {
+    filteredProducts = filteredProducts.filter((p) => p.sport === selectedSport);
+  }
+  if (selectedCategory) {
+    filteredProducts = filteredProducts.filter((p) => p.category === selectedCategory);
+  }
 
   function getRetailPrice(product: ProductWithPricing): string {
     if (!product.wholesale) return "—";
@@ -155,7 +163,9 @@ export function SkuPricingTable({
             <TableRow>
               <TableHead>SKU / Product</TableHead>
               <TableHead>Sport</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead className="text-right">Base Cost</TableHead>
+              <TableHead className="text-right">Markup</TableHead>
               <TableHead className="text-right">Retail (Std)</TableHead>
               <TableHead className="text-right">Retail (Rush)</TableHead>
               <TableHead className="text-right">MOQ</TableHead>
@@ -163,40 +173,57 @@ export function SkuPricingTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredProducts.map((product) => (
-              <TableRow key={product.id}>
-                <TableCell>
-                  <div>
-                    <p className="font-medium">{product.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {product.sku || product.product_master}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell className="capitalize">{product.sport}</TableCell>
-                <TableCell className="text-right">
-                  {product.wholesale
-                    ? formatPrice(product.wholesale.base_cost)
-                    : "—"}
-                </TableCell>
-                <TableCell className="text-right font-semibold text-accent">
-                  {getRetailPrice(product)}
-                </TableCell>
-                <TableCell className="text-right text-muted-foreground">
-                  {getRushPrice(product)}
-                </TableCell>
-                <TableCell className="text-right">{product.moq_custom}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openEditDialog(product)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
+            {filteredProducts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                  No SKUs found. Use "Seed SKUs" to import from Champro.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredProducts.map((product) => (
+                <TableRow key={product.id}>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium">{product.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {product.sku || product.product_master}
+                      </p>
+                    </div>
+                  </TableCell>
+                  <TableCell className="capitalize">{product.sport}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {getCategoryDisplayName(product.category)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {product.wholesale
+                      ? formatPrice(product.wholesale.base_cost)
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <span className="text-muted-foreground">{globalPricing.markupPercent}%</span>
+                    <span className="text-xs text-muted-foreground ml-1">global</span>
+                  </TableCell>
+                  <TableCell className="text-right font-semibold text-accent">
+                    {getRetailPrice(product)}
+                  </TableCell>
+                  <TableCell className="text-right text-muted-foreground">
+                    {getRushPrice(product)}
+                  </TableCell>
+                  <TableCell className="text-right">{product.moq_custom}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(product)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>
@@ -207,7 +234,7 @@ export function SkuPricingTable({
           <DialogHeader>
             <DialogTitle>Edit: {editingProduct?.name}</DialogTitle>
             <DialogDescription>
-              Update wholesale cost and product settings.
+              Update wholesale cost for this SKU. Markup is set globally.
             </DialogDescription>
           </DialogHeader>
 
@@ -255,12 +282,14 @@ export function SkuPricingTable({
                   <span className="text-sm text-muted-foreground">Standard Retail:</span>
                   <span className="font-bold text-accent">{formatPrice(previewRetail)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Rush Retail (+{globalPricing.rushPercent}%):</span>
-                  <span className="font-medium">{formatPrice(previewRush)}</span>
-                </div>
+                {globalPricing.rushPercent > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Rush Retail (+{globalPricing.rushPercent}%):</span>
+                    <span className="font-medium">{formatPrice(previewRush)}</span>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground pt-2">
-                  Using {globalPricing.markupPercent}% markup + {globalPricing.rushPercent}% rush fee
+                  Using {globalPricing.markupPercent}% global markup
                 </p>
               </div>
             )}
