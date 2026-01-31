@@ -123,13 +123,13 @@ serve(async (req) => {
 
       try {
         // Call Champro ProductInfo API
-        const productInfoUrl = `https://api.champrosports.com/v1/juice/ProductInfo?ProductMaster=${productMaster}`;
+        const productInfoUrl = `https://api.champrosports.com/api/Product/ProductInfo?ProductMaster=${productMaster}&APICustomerKey=${champroApiKey}`;
         
         console.log(`Fetching ProductInfo for ${productMaster}...`);
         
         const response = await fetch(productInfoUrl, {
+          method: "GET",
           headers: {
-            "Authorization": `Bearer ${champroApiKey}`,
             "Content-Type": "application/json",
           },
         });
