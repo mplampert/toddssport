@@ -38,13 +38,10 @@ const PRODUCT_MASTERS: Record<string, { sport: string; category: string; name: s
 interface ChamproProductInfoResponse {
   ProductMaster: string;
   MOQCustom: number;
-  Configurations?: Array<{
+  ProductSKUs?: Array<{
     SKU: string;
-    Configuration: string;
-    Sizes: Array<{
-      Size: string;
-      SKU: string;
-    }>;
+    Description?: string;
+    Size?: string;
   }>;
 }
 
@@ -122,8 +119,8 @@ serve(async (req) => {
       }
 
       try {
-        // Call Champro ProductInfo API
-        const productInfoUrl = `https://api.champrosports.com/api/Product/ProductInfo?ProductMaster=${productMaster}&APICustomerKey=${champroApiKey}`;
+        // Call Champro Order/ProductInfo API
+        const productInfoUrl = `https://api.champrosports.com/api/Order/ProductInfo?ProductMaster=${productMaster}&APICustomerKey=${champroApiKey}`;
         
         console.log(`Fetching ProductInfo for ${productMaster}...`);
         
@@ -142,12 +139,14 @@ serve(async (req) => {
         }
 
         const productInfo: ChamproProductInfoResponse = await response.json();
+        console.log(`ProductInfo response for ${productMaster}:`, JSON.stringify(productInfo, null, 2));
         
         const moqCustom = productInfo.MOQCustom || 12;
         let skusInserted = 0;
 
-        // If no configurations, just insert the base product
-        if (!productInfo.Configurations || productInfo.Configurations.length === 0) {
+        // Parse ProductSKUs array from the response
+        if (!productInfo.ProductSKUs || productInfo.ProductSKUs.length === 0) {
+          // If no SKUs returned, insert just the base product master
           const { error: upsertError } = await supabaseClient
             .from("champro_products")
             .upsert({
@@ -161,13 +160,16 @@ serve(async (req) => {
 
           if (!upsertError) skusInserted++;
         } else {
-          // Insert each configuration SKU
-          for (const configItem of productInfo.Configurations) {
-            // Insert the main configuration SKU
+          // Insert each SKU from ProductSKUs array
+          for (const skuItem of productInfo.ProductSKUs) {
+            const skuName = skuItem.Description 
+              ? `${config.name} - ${skuItem.Description}${skuItem.Size ? ` - ${skuItem.Size}` : ''}`
+              : `${config.name}${skuItem.Size ? ` - ${skuItem.Size}` : ''}`;
+
             const skuData = {
               product_master: productMaster,
-              sku: configItem.SKU,
-              name: `${config.name} - ${configItem.Configuration}`,
+              sku: skuItem.SKU,
+              name: skuName,
               sport: config.sport,
               category: config.category,
               moq_custom: moqCustom,
@@ -180,27 +182,7 @@ serve(async (req) => {
             if (!upsertError) {
               skusInserted++;
             } else {
-              console.error(`Error upserting SKU ${configItem.SKU}:`, upsertError);
-            }
-
-            // Optionally insert size-specific SKUs
-            if (configItem.Sizes) {
-              for (const size of configItem.Sizes) {
-                const sizeSku = {
-                  product_master: productMaster,
-                  sku: size.SKU,
-                  name: `${config.name} - ${configItem.Configuration} - ${size.Size}`,
-                  sport: config.sport,
-                  category: config.category,
-                  moq_custom: moqCustom,
-                };
-
-                const { error: sizeError } = await supabaseClient
-                  .from("champro_products")
-                  .upsert(sizeSku, { onConflict: "sku" });
-
-                if (!sizeError) skusInserted++;
-              }
+              console.error(`Error upserting SKU ${skuItem.SKU}:`, upsertError);
             }
           }
         }
