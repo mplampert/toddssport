@@ -125,67 +125,29 @@ export type Database = {
         }
         Relationships: []
       }
-      champro_pricing_rules: {
-        Row: {
-          champro_product_id: string
-          created_at: string
-          id: string
-          markup_percent: number
-          rush_markup_percent: number | null
-          updated_at: string
-        }
-        Insert: {
-          champro_product_id: string
-          created_at?: string
-          id?: string
-          markup_percent?: number
-          rush_markup_percent?: number | null
-          updated_at?: string
-        }
-        Update: {
-          champro_product_id?: string
-          created_at?: string
-          id?: string
-          markup_percent?: number
-          rush_markup_percent?: number | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "champro_pricing_rules_champro_product_id_fkey"
-            columns: ["champro_product_id"]
-            isOneToOne: true
-            referencedRelation: "champro_products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       champro_pricing_settings: {
         Row: {
           created_at: string
           id: string
           markup_percent: number
-          rush_markup_percent: number
+          rush_percent: number
           scope: string
-          sport: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           markup_percent?: number
-          rush_markup_percent?: number
+          rush_percent?: number
           scope: string
-          sport?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           markup_percent?: number
-          rush_markup_percent?: number
+          rush_percent?: number
           scope?: string
-          sport?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -228,29 +190,23 @@ export type Database = {
       }
       champro_wholesale: {
         Row: {
-          base_cost_per_unit: number
+          base_cost: number
           champro_product_id: string
           created_at: string
-          express_plus_upcharge_cost_per_unit: number
-          express_upcharge_cost_per_unit: number
           id: string
           updated_at: string
         }
         Insert: {
-          base_cost_per_unit: number
+          base_cost: number
           champro_product_id: string
           created_at?: string
-          express_plus_upcharge_cost_per_unit?: number
-          express_upcharge_cost_per_unit?: number
           id?: string
           updated_at?: string
         }
         Update: {
-          base_cost_per_unit?: number
+          base_cost?: number
           champro_product_id?: string
           created_at?: string
-          express_plus_upcharge_cost_per_unit?: number
-          express_upcharge_cost_per_unit?: number
           id?: string
           updated_at?: string
         }

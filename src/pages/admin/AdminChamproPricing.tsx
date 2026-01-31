@@ -5,8 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Filter, X } from "lucide-react";
 import { GlobalSettingsCard } from "@/components/admin/champro-pricing/GlobalSettingsCard";
-import { SportSettingsPanel } from "@/components/admin/champro-pricing/SportSettingsPanel";
 import { SkuPricingTable } from "@/components/admin/champro-pricing/SkuPricingTable";
+import { type GlobalPricing } from "@/lib/champroPricing";
 
 interface ProductWithPricing {
   id: string;
@@ -17,32 +17,13 @@ interface ProductWithPricing {
   moq_custom: number;
   wholesale: {
     id: string;
-    base_cost_per_unit: number;
-    express_upcharge_cost_per_unit: number;
-    express_plus_upcharge_cost_per_unit: number;
+    base_cost: number;
   } | null;
-  pricing: {
-    id: string;
-    markup_percent: number;
-    rush_markup_percent: number | null;
-  } | null;
-}
-
-interface GlobalSetting {
-  markup_percent: number;
-  rush_markup_percent: number;
-}
-
-interface SportSetting {
-  sport: string;
-  markup_percent: number;
-  rush_markup_percent: number;
 }
 
 export default function AdminChamproPricing() {
   const [products, setProducts] = useState<ProductWithPricing[]>([]);
-  const [globalSetting, setGlobalSetting] = useState<GlobalSetting>({ markup_percent: 50, rush_markup_percent: 50 });
-  const [sportSettings, setSportSettings] = useState<SportSetting[]>([]);
+  const [globalPricing, setGlobalPricing] = useState<GlobalPricing>({ markupPercent: 50, rushPercent: 20 });
   const [sports, setSports] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
@@ -67,11 +48,6 @@ export default function AdminChamproPricing() {
         .from("champro_wholesale")
         .select("*");
 
-      // Fetch pricing rules (SKU overrides)
-      const { data: pricingData } = await supabase
-        .from("champro_pricing_rules")
-        .select("*");
-
       // Fetch global setting
       const { data: globalData } = await supabase
         .from("champro_pricing_settings")
@@ -79,18 +55,24 @@ export default function AdminChamproPricing() {
         .eq("scope", "global")
         .single();
 
-      // Fetch sport settings
-      const { data: sportData } = await supabase
-        .from("champro_pricing_settings")
-        .select("*")
-        .eq("scope", "sport");
-
-      // Combine products with their pricing data
-      const combined: ProductWithPricing[] = (productsData || []).map((product) => ({
-        ...product,
-        wholesale: wholesaleData?.find((w) => w.champro_product_id === product.id) || null,
-        pricing: pricingData?.find((p) => p.champro_product_id === product.id) || null,
-      }));
+      // Combine products with their wholesale data
+      const combined: ProductWithPricing[] = (productsData || []).map((product) => {
+        const wholesale = wholesaleData?.find((w) => w.champro_product_id === product.id);
+        return {
+          id: product.id,
+          product_master: product.product_master,
+          sku: product.sku,
+          name: product.name,
+          sport: product.sport,
+          moq_custom: product.moq_custom,
+          wholesale: wholesale
+            ? {
+                id: wholesale.id,
+                base_cost: wholesale.base_cost,
+              }
+            : null,
+        };
+      });
 
       // Get unique sports
       const uniqueSports = [...new Set((productsData || []).map((p) => p.sport))].sort();
@@ -99,20 +81,10 @@ export default function AdminChamproPricing() {
       setSports(uniqueSports);
       
       if (globalData) {
-        setGlobalSetting({
-          markup_percent: globalData.markup_percent,
-          rush_markup_percent: globalData.rush_markup_percent,
+        setGlobalPricing({
+          markupPercent: globalData.markup_percent,
+          rushPercent: globalData.rush_percent,
         });
-      }
-
-      if (sportData) {
-        setSportSettings(
-          sportData.map((s) => ({
-            sport: s.sport!,
-            markup_percent: s.markup_percent,
-            rush_markup_percent: s.rush_markup_percent,
-          }))
-        );
       }
     } catch (err) {
       console.error("Error fetching data:", err);
@@ -133,7 +105,7 @@ export default function AdminChamproPricing() {
               Champro Pricing
             </h1>
             <p className="text-muted-foreground mt-1">
-              Manage wholesale costs and markup hierarchy (Global → Sport → SKU)
+              Manage wholesale costs and global markup/rush settings
             </p>
           </div>
         </div>
@@ -144,11 +116,8 @@ export default function AdminChamproPricing() {
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Settings Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <GlobalSettingsCard onUpdate={fetchAllData} />
-              <SportSettingsPanel sports={sports} onUpdate={fetchAllData} />
-            </div>
+            {/* Global Settings */}
+            <GlobalSettingsCard onUpdate={fetchAllData} />
 
             {/* Sport Filter */}
             <div className="flex items-center gap-2">
@@ -182,8 +151,7 @@ export default function AdminChamproPricing() {
             {/* SKU Table */}
             <SkuPricingTable
               products={products}
-              globalSetting={globalSetting}
-              sportSettings={sportSettings}
+              globalPricing={globalPricing}
               selectedSport={selectedSport}
               onRefresh={fetchAllData}
             />
