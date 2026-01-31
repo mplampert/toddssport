@@ -11,48 +11,37 @@ const corsHeaders = {
 type LeadTimeType = "standard" | "express" | "express_plus";
 
 interface Wholesale {
-  base_cost_per_unit: number;
-  express_upcharge_cost_per_unit: number;
-  express_plus_upcharge_cost_per_unit: number;
+  baseCost: number;
 }
 
-interface PricingRules {
-  markup_percent: number;
-  rush_markup_percent?: number | null;
+interface GlobalPricing {
+  markupPercent: number;
+  rushPercent: number;
 }
 
-function calculateRetailPricePerUnit(params: {
-  wholesale: Wholesale;
-  pricing: PricingRules;
-  leadTime: LeadTimeType;
-}): number {
-  const { wholesale, pricing, leadTime } = params;
+function calculatePerUnit(
+  wholesale: Wholesale,
+  pricing: GlobalPricing,
+  leadTime: LeadTimeType
+): number {
+  const baseRetail = wholesale.baseCost * (1 + pricing.markupPercent / 100);
 
-  const markup = pricing.markup_percent / 100;
-  const rushMarkup =
-    (pricing.rush_markup_percent ?? pricing.markup_percent) / 100;
-
-  const baseRetail = wholesale.base_cost_per_unit * (1 + markup);
-
-  let rushCost = 0;
-  if (leadTime === "express") {
-    rushCost = wholesale.express_upcharge_cost_per_unit;
-  } else if (leadTime === "express_plus") {
-    rushCost = wholesale.express_plus_upcharge_cost_per_unit;
+  if (leadTime === "standard") {
+    return baseRetail;
   }
 
-  const rushRetail = rushCost * (1 + rushMarkup);
-  return baseRetail + rushRetail;
+  // express / express_plus share same global rushPercent
+  const rushMultiplier = 1 + pricing.rushPercent / 100;
+  return baseRetail * rushMultiplier;
 }
 
-function calculateChamproOrderTotal(params: {
-  quantity: number;
-  wholesale: Wholesale;
-  pricing: PricingRules;
-  leadTime: LeadTimeType;
-}): number {
-  const perUnit = calculateRetailPricePerUnit(params);
-  return params.quantity * perUnit;
+function calculateOrderTotal(
+  quantity: number,
+  wholesale: Wholesale,
+  pricing: GlobalPricing,
+  leadTime: LeadTimeType
+): number {
+  return calculatePerUnit(wholesale, pricing, leadTime) * quantity;
 }
 
 function mapLeadTimeToChampro(leadTime: LeadTimeType): string {
@@ -113,7 +102,9 @@ serve(async (req) => {
     const {
       champroSessionId,
       sportSlug,
-      productMaster,
+      category,        // Optional: "JERSEYS" | "TSHIRTS" | "PANTS" | "OUTERWEAR"
+      skuCode,         // Optional: exact Champro SKU string
+      productMaster,   // Optional: fallback to productMaster lookup
       quantity = 1,
       leadTime = "standard",
       customerEmail,
@@ -124,6 +115,8 @@ serve(async (req) => {
     console.log("Checkout request:", {
       champroSessionId,
       sportSlug,
+      category,
+      skuCode,
       productMaster,
       quantity,
       leadTime,
@@ -137,13 +130,18 @@ serve(async (req) => {
       );
     }
 
-    // Look up product by productMaster or sport
-    let productQuery = supabase
-      .from("champro_products")
-      .select("*");
+    // Look up product by SKU, productMaster, or sport+category
+    let productQuery = supabase.from("champro_products").select("*");
 
-    if (productMaster) {
+    if (skuCode) {
+      // Exact SKU lookup
+      productQuery = productQuery.eq("sku", skuCode);
+    } else if (productMaster) {
+      // ProductMaster lookup
       productQuery = productQuery.eq("product_master", productMaster);
+    } else if (category) {
+      // Sport + category lookup - get first product
+      productQuery = productQuery.eq("sport", sportSlug).eq("category", category).limit(1);
     } else {
       // Fallback: get first product for this sport
       productQuery = productQuery.eq("sport", sportSlug).limit(1);
@@ -154,7 +152,7 @@ serve(async (req) => {
     if (productError || !products || products.length === 0) {
       console.error("Product lookup error:", productError);
       return new Response(
-        JSON.stringify({ error: "Product not found for this sport" }),
+        JSON.stringify({ error: "Product not found for this sport/category" }),
         { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -173,69 +171,68 @@ serve(async (req) => {
       );
     }
 
-    // Get wholesale pricing
+    // Get wholesale pricing for this SKU
     const { data: wholesale, error: wholesaleError } = await supabase
       .from("champro_wholesale")
       .select("*")
       .eq("champro_product_id", product.id)
-      .single();
+      .maybeSingle();
 
     if (wholesaleError || !wholesale) {
       console.error("Wholesale pricing not found:", wholesaleError);
       return new Response(
-        JSON.stringify({ error: "Pricing not configured for this product" }),
+        JSON.stringify({ error: "Pricing not configured for this SKU. Please set a base cost in Champro Pricing admin." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Get pricing rules
-    const { data: pricing, error: pricingError } = await supabase
-      .from("champro_pricing_rules")
+    // Get global pricing settings
+    const { data: globalSettings, error: globalError } = await supabase
+      .from("champro_pricing_settings")
       .select("*")
-      .eq("champro_product_id", product.id)
-      .single();
+      .eq("scope", "global")
+      .maybeSingle();
 
-    if (pricingError || !pricing) {
-      console.error("Pricing rules not found:", pricingError);
+    if (globalError || !globalSettings) {
+      console.error("Global pricing settings not found:", globalError);
       return new Response(
-        JSON.stringify({ error: "Pricing rules not configured for this product" }),
+        JSON.stringify({ error: "Global pricing settings not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    // Build pricing objects
+    const wholesaleData: Wholesale = {
+      baseCost: Number(wholesale.base_cost),
+    };
+
+    const globalPricing: GlobalPricing = {
+      markupPercent: Number(globalSettings.markup_percent),
+      rushPercent: Number(globalSettings.rush_percent),
+    };
 
     // Calculate total
-    const totalAmount = calculateChamproOrderTotal({
+    const totalAmount = calculateOrderTotal(
       quantity,
-      wholesale: {
-        base_cost_per_unit: Number(wholesale.base_cost_per_unit),
-        express_upcharge_cost_per_unit: Number(wholesale.express_upcharge_cost_per_unit),
-        express_plus_upcharge_cost_per_unit: Number(wholesale.express_plus_upcharge_cost_per_unit),
-      },
-      pricing: {
-        markup_percent: Number(pricing.markup_percent),
-        rush_markup_percent: pricing.rush_markup_percent ? Number(pricing.rush_markup_percent) : null,
-      },
-      leadTime: leadTime as LeadTimeType,
-    });
+      wholesaleData,
+      globalPricing,
+      leadTime as LeadTimeType
+    );
 
-    const perUnitPrice = calculateRetailPricePerUnit({
-      wholesale: {
-        base_cost_per_unit: Number(wholesale.base_cost_per_unit),
-        express_upcharge_cost_per_unit: Number(wholesale.express_upcharge_cost_per_unit),
-        express_plus_upcharge_cost_per_unit: Number(wholesale.express_plus_upcharge_cost_per_unit),
-      },
-      pricing: {
-        markup_percent: Number(pricing.markup_percent),
-        rush_markup_percent: pricing.rush_markup_percent ? Number(pricing.rush_markup_percent) : null,
-      },
-      leadTime: leadTime as LeadTimeType,
-    });
+    const perUnitPrice = calculatePerUnit(
+      wholesaleData,
+      globalPricing,
+      leadTime as LeadTimeType
+    );
 
     console.log("Calculated pricing:", {
       totalAmount,
       perUnitPrice,
       quantity,
       leadTime,
+      baseCost: wholesaleData.baseCost,
+      markup: globalPricing.markupPercent,
+      rushPercent: globalPricing.rushPercent,
     });
 
     // Create pending order in champro_orders
@@ -251,7 +248,9 @@ serve(async (req) => {
         request_payload: {
           champro_session_id: champroSessionId,
           sport_slug: sportSlug,
-          product_master: productMaster || product.product_master,
+          category: category || product.category,
+          sku: product.sku || product.product_master,
+          product_master: product.product_master,
           quantity,
           lead_time: leadTime,
           lead_time_name: mapLeadTimeToChampro(leadTime as LeadTimeType),
@@ -281,6 +280,10 @@ serve(async (req) => {
     // Calculate amounts in cents
     const unitAmountCents = Math.round(perUnitPrice * 100);
 
+    // Build product description
+    const categoryDisplay = category || product.category;
+    const leadTimeDisplay = leadTime === "standard" ? "Standard" : leadTime === "express" ? "10-Day Rush" : "5-Day Rush";
+
     // Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -291,10 +294,12 @@ serve(async (req) => {
             currency: "usd",
             product_data: {
               name: `Custom ${product.name}`,
-              description: `${quantity} units - ${leadTime === "standard" ? "Standard" : leadTime === "express" ? "10-Day Rush" : "5-Day Rush"} Production`,
+              description: `${quantity} units - ${categoryDisplay} - ${leadTimeDisplay} Production`,
               metadata: {
                 provider: "champro",
                 product_master: product.product_master,
+                sku: product.sku || "",
+                category: categoryDisplay,
                 champro_session_id: champroSessionId,
               },
             },
@@ -336,6 +341,8 @@ serve(async (req) => {
         order_id: order.id,
         champro_session_id: champroSessionId,
         product_master: product.product_master,
+        sku: product.sku || "",
+        category: categoryDisplay,
         sport_slug: sportSlug,
         quantity: quantity.toString(),
         lead_time: leadTime,
@@ -352,7 +359,7 @@ serve(async (req) => {
       JSON.stringify({ url: session.url, sessionId: session.id, orderId: order.id }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
+  } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Champro checkout error:", error);
     return new Response(

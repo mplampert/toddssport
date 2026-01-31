@@ -3,10 +3,10 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, DollarSign, Filter, X } from "lucide-react";
+import { Loader2, DollarSign, Filter, X, Download } from "lucide-react";
 import { GlobalSettingsCard } from "@/components/admin/champro-pricing/GlobalSettingsCard";
 import { SkuPricingTable } from "@/components/admin/champro-pricing/SkuPricingTable";
-import { type GlobalPricing } from "@/lib/champroPricing";
+import { type GlobalPricing, type ChamproCategory, getCategoryDisplayName } from "@/lib/champroPricing";
 
 interface ProductWithPricing {
   id: string;
@@ -14,6 +14,7 @@ interface ProductWithPricing {
   sku: string | null;
   name: string;
   sport: string;
+  category: ChamproCategory;
   moq_custom: number;
   wholesale: {
     id: string;
@@ -21,12 +22,17 @@ interface ProductWithPricing {
   } | null;
 }
 
+const CATEGORIES: ChamproCategory[] = ["JERSEYS", "TSHIRTS", "PANTS", "OUTERWEAR", "SHORTS", "ACCESSORIES"];
+
 export default function AdminChamproPricing() {
   const [products, setProducts] = useState<ProductWithPricing[]>([]);
-  const [globalPricing, setGlobalPricing] = useState<GlobalPricing>({ markupPercent: 50, rushPercent: 20 });
+  const [globalPricing, setGlobalPricing] = useState<GlobalPricing>({ markupPercent: 50, rushPercent: 0 });
   const [sports, setSports] = useState<string[]>([]);
+  const [categories, setCategories] = useState<ChamproCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<ChamproCategory | null>(null);
 
   useEffect(() => {
     fetchAllData();
@@ -39,7 +45,9 @@ export default function AdminChamproPricing() {
       const { data: productsData, error: productsError } = await supabase
         .from("champro_products")
         .select("*")
-        .order("sport");
+        .order("sport")
+        .order("category")
+        .order("name");
 
       if (productsError) throw productsError;
 
@@ -53,7 +61,7 @@ export default function AdminChamproPricing() {
         .from("champro_pricing_settings")
         .select("*")
         .eq("scope", "global")
-        .single();
+        .maybeSingle();
 
       // Combine products with their wholesale data
       const combined: ProductWithPricing[] = (productsData || []).map((product) => {
@@ -64,6 +72,7 @@ export default function AdminChamproPricing() {
           sku: product.sku,
           name: product.name,
           sport: product.sport,
+          category: product.category as ChamproCategory,
           moq_custom: product.moq_custom,
           wholesale: wholesale
             ? {
@@ -74,11 +83,13 @@ export default function AdminChamproPricing() {
         };
       });
 
-      // Get unique sports
+      // Get unique sports and categories
       const uniqueSports = [...new Set((productsData || []).map((p) => p.sport))].sort();
+      const uniqueCategories = [...new Set((productsData || []).map((p) => p.category))] as ChamproCategory[];
 
       setProducts(combined);
       setSports(uniqueSports);
+      setCategories(uniqueCategories.filter((c) => CATEGORIES.includes(c)));
       
       if (globalData) {
         setGlobalPricing({
@@ -94,6 +105,25 @@ export default function AdminChamproPricing() {
     }
   }
 
+  async function handleSeedSkus() {
+    setSeeding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("champro-seed-skus", {
+        body: {},
+      });
+
+      if (error) throw error;
+
+      toast.success(data.message || "SKUs seeded successfully");
+      fetchAllData();
+    } catch (err) {
+      console.error("Error seeding SKUs:", err);
+      toast.error("Failed to seed SKUs from Champro");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -105,9 +135,22 @@ export default function AdminChamproPricing() {
               Champro Pricing
             </h1>
             <p className="text-muted-foreground mt-1">
-              Manage wholesale costs and global markup/rush settings
+              Manage per-SKU wholesale costs with global markup settings
             </p>
           </div>
+          <Button onClick={handleSeedSkus} disabled={seeding} variant="outline">
+            {seeding ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Seeding...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4 mr-2" />
+                Seed SKUs from Champro
+              </>
+            )}
+          </Button>
         </div>
 
         {loading ? (
@@ -119,11 +162,12 @@ export default function AdminChamproPricing() {
             {/* Global Settings */}
             <GlobalSettingsCard onUpdate={fetchAllData} />
 
-            {/* Sport Filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Filter by sport:</span>
-              <div className="flex flex-wrap gap-2">
+            {/* Filters */}
+            <div className="space-y-3">
+              {/* Sport Filter */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Sport:</span>
                 {sports.map((sport) => (
                   <Button
                     key={sport}
@@ -141,8 +185,31 @@ export default function AdminChamproPricing() {
                     size="sm"
                     onClick={() => setSelectedSport(null)}
                   >
-                    <X className="w-4 h-4 mr-1" />
-                    Clear
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+
+              {/* Category Filter */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground ml-6">Category:</span>
+                {categories.map((category) => (
+                  <Button
+                    key={category}
+                    variant={selectedCategory === category ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedCategory(selectedCategory === category ? null : category)}
+                  >
+                    {getCategoryDisplayName(category)}
+                  </Button>
+                ))}
+                {selectedCategory && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedCategory(null)}
+                  >
+                    <X className="w-4 h-4" />
                   </Button>
                 )}
               </div>
@@ -153,6 +220,7 @@ export default function AdminChamproPricing() {
               products={products}
               globalPricing={globalPricing}
               selectedSport={selectedSport}
+              selectedCategory={selectedCategory}
               onRefresh={fetchAllData}
             />
           </div>

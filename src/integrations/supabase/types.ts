@@ -154,6 +154,7 @@ export type Database = {
       }
       champro_products: {
         Row: {
+          category: string
           created_at: string
           default_lead_time_name: string | null
           id: string
@@ -165,6 +166,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string
           created_at?: string
           default_lead_time_name?: string | null
           id?: string
@@ -176,6 +178,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string
           created_at?: string
           default_lead_time_name?: string | null
           id?: string

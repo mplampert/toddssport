@@ -1,4 +1,5 @@
 export type LeadTimeType = "standard" | "express" | "express_plus";
+export type ChamproCategory = "JERSEYS" | "TSHIRTS" | "PANTS" | "OUTERWEAR" | "SHORTS" | "ACCESSORIES";
 
 export interface Wholesale {
   baseCost: number;
@@ -9,12 +10,13 @@ export interface GlobalPricing {
   rushPercent: number;
 }
 
-export interface ChamproProduct {
+export interface ChamproSku {
   id: string;
   product_master: string;
   sku: string | null;
   name: string;
   sport: string;
+  category: ChamproCategory;
   moq_custom: number;
   default_lead_time_name: string | null;
 }
@@ -31,11 +33,13 @@ export function calculatePerUnit(
 ): number {
   const baseRetail = wholesale.baseCost * (1 + pricing.markupPercent / 100);
 
-  if (leadTime === "standard") return baseRetail;
+  if (leadTime === "standard") {
+    return baseRetail;
+  }
 
   // express / express_plus share same global rushPercent
-  const multiplier = 1 + pricing.rushPercent / 100;
-  return baseRetail * multiplier;
+  const rushMultiplier = 1 + pricing.rushPercent / 100;
+  return baseRetail * rushMultiplier;
 }
 
 /**
@@ -63,6 +67,28 @@ export function getLeadTimeDisplayName(leadTime: LeadTimeType): string {
       return "5-Day Rush (+$$)";
     default:
       return "Standard";
+  }
+}
+
+/**
+ * Get display name for category
+ */
+export function getCategoryDisplayName(category: ChamproCategory): string {
+  switch (category) {
+    case "JERSEYS":
+      return "Jerseys";
+    case "TSHIRTS":
+      return "T-Shirts";
+    case "PANTS":
+      return "Pants";
+    case "OUTERWEAR":
+      return "Outerwear";
+    case "SHORTS":
+      return "Shorts";
+    case "ACCESSORIES":
+      return "Accessories";
+    default:
+      return category;
   }
 }
 
