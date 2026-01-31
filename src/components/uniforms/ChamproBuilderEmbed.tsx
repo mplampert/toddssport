@@ -18,12 +18,17 @@ interface ChamproBuilderEmbedProps {
   sportSlug: string;
   embedKey: string;
   height?: string;
+  onCheckout?: (payload: {
+    champroSessionId: string;
+    sportSlug: string;
+  }) => void;
 }
 
 export function ChamproBuilderEmbed({
   sportSlug,
   embedKey,
   height = "800px",
+  onCheckout,
 }: ChamproBuilderEmbedProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -51,13 +56,20 @@ export function ChamproBuilderEmbed({
           // Design was saved - message contains the Session ID
           setSessionId(message);
           console.log("Design saved with Session ID:", message);
+
+          if (onCheckout) {
+            onCheckout({
+              champroSessionId: message,
+              sportSlug,
+            });
+          }
         }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, []);
+  }, [onCheckout, sportSlug]);
 
   if (!embedKey) {
     return (
