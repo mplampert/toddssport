@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
 import { ChamproBuilderEmbed, hasChamproBuilder } from "@/components/uniforms/ChamproBuilderEmbed";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function UniformDetail() {
   const { sport: sportSlug } = useParams<{ sport: string }>();
@@ -73,6 +74,24 @@ export default function UniformDetail() {
     window.location.href = "/#quote-form";
   };
 
+  const handleChamproCheckout = ({
+    champroSessionId,
+    sportSlug: designSport,
+  }: {
+    champroSessionId: string;
+    sportSlug: string;
+  }) => {
+    console.log("Champro design ready:", champroSessionId, designSport);
+    
+    toast.success(
+      `Your ${sport?.name || designSport} uniform design has been saved!`,
+      {
+        description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
+        duration: 10000,
+      }
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -129,6 +148,7 @@ export default function UniformDetail() {
                   sportSlug={sport.slug}
                   embedKey={embedKey}
                   height="850px"
+                  onCheckout={handleChamproCheckout}
                 />
               ) : (
                 <div className="bg-muted/50 rounded-lg p-8 text-center max-w-2xl mx-auto">
