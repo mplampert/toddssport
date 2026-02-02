@@ -34,11 +34,25 @@ export function Header() {
   const isServiceActive = serviceLinks.some(link => location.pathname === link.path);
 
   const scrollToQuote = () => {
-    const quoteSection = document.getElementById("quote-form");
-    if (quoteSection) {
-      quoteSection.scrollIntoView({ behavior: "smooth" });
-    } else if (location.pathname !== "/") {
-      window.location.href = "/#quote-form";
+    // Try to find any form section on the current page
+    const formIds = [
+      "quote-form",
+      "team-store-form", 
+      "fanwear-form",
+      "corporate-form",
+      "promo-form",
+      "contact-form"
+    ];
+    
+    const formSection = formIds
+      .map(id => document.getElementById(id))
+      .find(el => el !== null);
+    
+    if (formSection) {
+      formSection.scrollIntoView({ behavior: "smooth" });
+    } else {
+      // Navigate to contact page if no form found
+      window.location.href = "/contact";
     }
     setMobileMenuOpen(false);
   };
