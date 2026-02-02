@@ -15,6 +15,8 @@ import PromotionalProducts from "./pages/PromotionalProducts";
 import Contact from "./pages/Contact";
 import Catalogs from "./pages/Catalogs";
 import FindYourRep from "./pages/FindYourRep";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import Auth from "./pages/Auth";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import MyOrders from "./pages/MyOrders";
@@ -46,6 +48,8 @@ const App = () => (
           <Route path="/contact" element={<Contact />} />
           <Route path="/catalogs" element={<Catalogs />} />
           <Route path="/find-your-rep" element={<FindYourRep />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/my-orders" element={<MyOrders />} />
