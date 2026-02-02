@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -52,9 +53,6 @@ const Services = () => {
     fetchServices();
   }, []);
 
-  const scrollToQuote = () => {
-    window.location.href = "/#quote-form";
-  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -109,8 +107,8 @@ const Services = () => {
                       <p className="text-lg text-muted-foreground mb-6">
                         {service.long_description || service.short_description}
                       </p>
-                      <Button onClick={scrollToQuote} className="btn-cta">
-                        Get a Quote for {service.name}
+                      <Button asChild className="btn-cta">
+                        <Link to="/contact">Get a Quote for {service.name}</Link>
                       </Button>
                     </div>
                   </div>
@@ -129,8 +127,8 @@ const Services = () => {
             <p className="text-lg text-accent-foreground/90 mb-8 max-w-xl mx-auto">
               Let us help you create the perfect custom apparel for your team or organization.
             </p>
-            <Button onClick={scrollToQuote} size="lg" className="bg-primary text-primary-foreground hover:bg-navy-light">
-              Request a Free Quote
+            <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-navy-light">
+              <Link to="/contact">Request a Free Quote</Link>
             </Button>
           </div>
         </section>
