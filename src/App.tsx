@@ -14,6 +14,7 @@ import Corporate from "./pages/Corporate";
 import PromotionalProducts from "./pages/PromotionalProducts";
 import Contact from "./pages/Contact";
 import Catalogs from "./pages/Catalogs";
+import FindYourRep from "./pages/FindYourRep";
 import Auth from "./pages/Auth";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import MyOrders from "./pages/MyOrders";
@@ -21,6 +22,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminCatalogs from "./pages/admin/AdminCatalogs";
 import AdminChamproOrders from "./pages/admin/AdminChamproOrders";
 import AdminChamproPricing from "./pages/admin/AdminChamproPricing";
+import AdminReps from "./pages/admin/AdminReps";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +45,7 @@ const App = () => (
           <Route path="/promotional-products" element={<PromotionalProducts />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/catalogs" element={<Catalogs />} />
+          <Route path="/find-your-rep" element={<FindYourRep />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/my-orders" element={<MyOrders />} />
@@ -50,6 +53,7 @@ const App = () => (
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
           <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
+          <Route path="/admin/reps" element={<AdminReps />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

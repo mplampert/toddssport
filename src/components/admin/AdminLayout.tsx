@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign, LayoutDashboard } from "lucide-react";
+import { LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign, LayoutDashboard, Users } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
 
@@ -111,6 +111,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const navItems = [
     { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
     { path: "/admin/catalogs", label: "Catalogs", icon: BookOpen },
+    { path: "/admin/reps", label: "Sales Reps", icon: Users },
     { path: "/admin/champro-orders", label: "Champro Orders", icon: Package },
     { path: "/admin/champro-pricing", label: "Champro Pricing", icon: DollarSign },
   ];
