@@ -27,24 +27,17 @@ export default function FindYourRep() {
   const { toast } = useToast();
 
   const handleSearch = async () => {
-    if (!searchTerm.trim()) {
-      toast({
-        title: "Please enter a search term",
-        description: "Try searching by school name, city, zip code, or league.",
-        variant: "destructive",
-      });
-      return;
-    }
-
     setIsLoading(true);
     setHasSearched(true);
 
     try {
+      // Temporarily ignore search term - always fetch first 2 reps ordered by id
       const { data, error } = await supabase
         .from("reps")
         .select("*")
-        .or(`territory_value.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
-        .eq("active", true);
+        .eq("active", true)
+        .order("id")
+        .limit(2);
 
       if (error) throw error;
 
