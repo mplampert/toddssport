@@ -78,7 +78,7 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Address</h3>
                 <p className="text-muted-foreground">
-                  {settings.address || "393 Cabot St., Beverly, MA 01915"}
+                  {settings.address || <>393 Cabot St.<br />Beverly, MA 01915</>}
                 </p>
               </div>
 
