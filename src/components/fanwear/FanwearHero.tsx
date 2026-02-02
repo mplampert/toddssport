@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import fanwearHeroImg from "@/assets/fanwear-hero.jpg";
 
@@ -46,12 +47,12 @@ export function FanwearHero() {
               Request a Fanwear Store
             </Button>
             <Button 
-              onClick={scrollToForm}
+              asChild
               variant="outline"
               size="lg"
               className="text-lg px-8 py-6 bg-primary-foreground/10 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground font-semibold"
             >
-              Talk to a Rep
+              <Link to="/find-your-rep">Talk to a Rep</Link>
             </Button>
           </div>
         </div>
