@@ -93,6 +93,21 @@ const Contact = () => {
                 </p>
               </div>
             </div>
+
+            {/* Google Maps Embed */}
+            <div className="rounded-xl overflow-hidden shadow-lg border border-border">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2937.8991012440584!2d-70.88134492346!3d42.55051097117!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x89e31401c5e5e5e5%3A0x1234567890abcdef!2s393%20Cabot%20St%2C%20Beverly%2C%20MA%2001915!5e0!3m2!1sen!2sus!4v1700000000000!5m2!1sen!2sus"
+                width="100%"
+                height="400"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Todd's Sporting Goods Location"
+                className="w-full"
+              />
+            </div>
           </div>
         </section>
 
