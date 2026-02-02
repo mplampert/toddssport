@@ -67,17 +67,17 @@ export function Footer() {
           <div>
             <h4 className="font-bold text-lg mb-4">Contact Us</h4>
             <div className="flex flex-col gap-3">
-              <a href="tel:+15551234567" className="flex items-center gap-3 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="tel:+19789271600" className="flex items-center gap-3 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Phone size={18} />
-                (555) 123-4567
+                (978) 927-1600
               </a>
-              <a href="mailto:info@toddssportinggoods.com" className="flex items-center gap-3 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <a href="mailto:sales@toddssportinggoods.com" className="flex items-center gap-3 text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 <Mail size={18} />
-                info@toddssportinggoods.com
+                sales@toddssportinggoods.com
               </a>
               <div className="flex items-start gap-3 text-primary-foreground/70">
                 <MapPin size={18} className="mt-0.5 flex-shrink-0" />
-                123 Main Street<br />Hometown, USA 12345
+                393 Cabot St.<br />Beverly, MA 01915
               </div>
             </div>
           </div>

@@ -52,10 +52,10 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Phone</h3>
                 <a 
-                  href={`tel:${settings.phone?.replace(/[^0-9]/g, "") || "5551234567"}`}
+                  href={`tel:${settings.phone?.replace(/[^0-9]/g, "") || "9789271600"}`}
                   className="text-muted-foreground hover:text-accent transition-colors"
                 >
-                  {settings.phone || "(555) 123-4567"}
+                  {settings.phone || "(978) 927-1600"}
                 </a>
               </div>
 
@@ -65,10 +65,10 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Email</h3>
                 <a 
-                  href={`mailto:${settings.email || "info@toddssportinggoods.com"}`}
+                  href={`mailto:${settings.email || "sales@toddssportinggoods.com"}`}
                   className="text-muted-foreground hover:text-accent transition-colors"
                 >
-                  {settings.email || "info@toddssportinggoods.com"}
+                  {settings.email || "sales@toddssportinggoods.com"}
                 </a>
               </div>
 
@@ -78,7 +78,7 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Address</h3>
                 <p className="text-muted-foreground">
-                  {settings.address || "123 Main Street, Hometown, USA 12345"}
+                  {settings.address || "393 Cabot St., Beverly, MA 01915"}
                 </p>
               </div>
 
