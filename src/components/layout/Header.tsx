@@ -105,7 +105,7 @@ export function Header() {
               rel="noopener noreferrer"
               className="nav-link"
             >
-              FIND MY STORE
+              Find My Store
             </a>
 
             <Link
@@ -184,7 +184,7 @@ export function Header() {
                 className="nav-link py-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                FIND MY STORE
+                Find My Store
               </a>
 
               <Link
