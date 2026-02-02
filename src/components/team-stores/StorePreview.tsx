@@ -1,35 +1,25 @@
+import { Package, Heart, UserCheck, Gift } from "lucide-react";
+
 const previewCategories = [
   {
     title: "Player Packages",
-    items: [
-      { name: "Game Jersey", price: "$65.00" },
-      { name: "Practice Jersey", price: "$35.00" },
-      { name: "Team Shorts", price: "$28.00" },
-    ],
+    icon: Package,
+    items: ["Game Jerseys", "Practice Jerseys", "Team Shorts", "Warm-Ups"],
   },
   {
     title: "Fanwear & Spirit Wear",
-    items: [
-      { name: "Team Hoodie", price: "$48.00" },
-      { name: "Spirit T-Shirt", price: "$22.00" },
-      { name: "Rally Towel", price: "$12.00" },
-    ],
+    icon: Heart,
+    items: ["Team Hoodies", "Spirit T-Shirts", "Rally Towels", "Blankets"],
   },
   {
     title: "Coaches & Staff Gear",
-    items: [
-      { name: "Coaches Polo", price: "$42.00" },
-      { name: "Staff Jacket", price: "$68.00" },
-      { name: "Team Cap", price: "$24.00" },
-    ],
+    icon: UserCheck,
+    items: ["Coaches Polos", "Staff Jackets", "Team Caps", "Sideline Gear"],
   },
   {
-    title: "Accessories & Promo Items",
-    items: [
-      { name: "Team Bag", price: "$38.00" },
-      { name: "Water Bottle", price: "$15.00" },
-      { name: "Sticker Pack", price: "$8.00" },
-    ],
+    title: "Accessories & Extras",
+    icon: Gift,
+    items: ["Team Bags", "Water Bottles", "Stickers", "Lanyards"],
   },
 ];
 
@@ -38,35 +28,43 @@ export function StorePreview() {
     <section className="py-16 md:py-24 bg-secondary">
       <div className="container mx-auto px-4">
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-foreground">
-          What Your Store Could Look Like
+          What Your Store Could Include
         </h2>
         <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-          A preview of the types of products and categories available in a Todd's Team Store.
+          Every store is fully customized to your program. Here's a sample of what we can offer.
         </p>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          {previewCategories.map((category, categoryIndex) => (
-            <div 
-              key={categoryIndex}
-              className="bg-card rounded-xl border border-border p-6 shadow-sm"
-            >
-              <h3 className="font-bold text-lg text-foreground mb-4 pb-2 border-b border-border">
-                {category.title}
-              </h3>
-              <ul className="space-y-3">
-                {category.items.map((item, itemIndex) => (
-                  <li key={itemIndex} className="flex justify-between items-center">
-                    <span className="text-muted-foreground">{item.name}</span>
-                    <span className="font-semibold text-accent">{item.price}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          {previewCategories.map((category, categoryIndex) => {
+            const IconComponent = category.icon;
+            return (
+              <div 
+                key={categoryIndex}
+                className="bg-card rounded-xl border border-border p-6 shadow-sm hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border">
+                  <div className="p-2 bg-accent/10 rounded-lg">
+                    <IconComponent className="w-5 h-5 text-accent" />
+                  </div>
+                  <h3 className="font-bold text-lg text-foreground">
+                    {category.title}
+                  </h3>
+                </div>
+                <ul className="space-y-2">
+                  {category.items.map((item, itemIndex) => (
+                    <li key={itemIndex} className="flex items-center gap-2 text-muted-foreground">
+                      <span className="w-1.5 h-1.5 bg-accent rounded-full flex-shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
         </div>
         
         <p className="text-center text-sm text-muted-foreground mt-8">
-          * Sample products shown. Your store will be fully customized to your program's needs.
+          Pricing varies by program. We'll provide a custom quote based on your specific needs.
         </p>
       </div>
     </section>
