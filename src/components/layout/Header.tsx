@@ -21,6 +21,7 @@ const serviceLinks = [
 
 const navLinks = [
   { name: "Home", path: "/" },
+  { name: "Find Your Rep", path: "/find-your-rep" },
   { name: "Catalogs", path: "/catalogs" },
   { name: "Contact", path: "/contact" },
 ];
@@ -83,6 +84,13 @@ export function Header() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            <Link
+              to="/find-your-rep"
+              className={`nav-link ${location.pathname === "/find-your-rep" ? "nav-link-active" : ""}`}
+            >
+              Find Your Rep
+            </Link>
 
             <Link
               to="/catalogs"
@@ -152,6 +160,14 @@ export function Header() {
                   </div>
                 )}
               </div>
+
+              <Link
+                to="/find-your-rep"
+                className={`nav-link py-2 ${location.pathname === "/find-your-rep" ? "nav-link-active" : ""}`}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Find Your Rep
+              </Link>
 
               <Link
                 to="/catalogs"
