@@ -177,9 +177,9 @@ export default function TermsOfService() {
               </p>
               <div className="bg-muted/50 p-6 rounded-lg">
                 <p className="font-semibold text-foreground">Todd's Sporting Goods</p>
-                <p className="text-muted-foreground">Email: legal@toddssport.com</p>
-                <p className="text-muted-foreground">Phone: (555) 123-4567</p>
-                <p className="text-muted-foreground">Address: 123 Sports Drive, Springfield, IL 62701</p>
+                <p className="text-muted-foreground">Email: sales@toddssportinggoods.com</p>
+                <p className="text-muted-foreground">Phone: (978) 927-1600</p>
+                <p className="text-muted-foreground">Address: 393 Cabot St., Beverly, MA 01915</p>
               </div>
             </section>
           </div>
