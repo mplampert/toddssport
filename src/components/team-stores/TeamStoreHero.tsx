@@ -30,22 +30,13 @@ export function TeamStoreHero() {
           <p className="text-lg md:text-xl lg:text-2xl text-primary-foreground/90 mb-8 max-w-2xl leading-relaxed">
             Todd's Sporting Goods creates custom online team shops so your players, parents, and fans can order gear 24/7—without coaches chasing paper forms.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button 
-              onClick={scrollToForm}
-              size="lg"
-              className="btn-cta text-lg px-8 py-6 font-bold"
-            >
-              Request a Team Store
-            </Button>
-            <Button 
-              variant="outline"
-              size="lg"
-              className="text-lg px-8 py-6 bg-primary-foreground/10 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground font-semibold"
-            >
-              See Sample Store
-            </Button>
-          </div>
+          <Button 
+            onClick={scrollToForm}
+            size="lg"
+            className="btn-cta text-lg px-8 py-6 font-bold"
+          >
+            Request a Team Store
+          </Button>
         </div>
       </div>
     </section>
