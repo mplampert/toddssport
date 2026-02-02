@@ -57,7 +57,7 @@ export function CorporateHero() {
               onClick={scrollToBrands}
               size="lg" 
               variant="outline"
-              className="border-white text-white hover:bg-white hover:text-navy text-lg px-8"
+              className="border-white bg-white text-accent hover:bg-white/90 text-lg px-8"
             >
               See Brand Options
             </Button>
