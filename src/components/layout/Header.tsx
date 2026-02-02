@@ -85,12 +85,14 @@ export function Header() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Link
-              to="/find-your-rep"
-              className={`nav-link ${location.pathname === "/find-your-rep" ? "nav-link-active" : ""}`}
+            <a
+              href="https://tsgonline.chipply.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-link"
             >
-              Find Your Rep
-            </Link>
+              FIND MY STORE
+            </a>
 
             <Link
               to="/catalogs"
@@ -161,13 +163,15 @@ export function Header() {
                 )}
               </div>
 
-              <Link
-                to="/find-your-rep"
-                className={`nav-link py-2 ${location.pathname === "/find-your-rep" ? "nav-link-active" : ""}`}
+              <a
+                href="https://tsgonline.chipply.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="nav-link py-2"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Find Your Rep
-              </Link>
+                FIND MY STORE
+              </a>
 
               <Link
                 to="/catalogs"
