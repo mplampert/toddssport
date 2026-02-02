@@ -3,11 +3,8 @@ export function BrandPartners() {
     { name: "Nike", logo: "/brands/nike.png" },
     { name: "Under Armour", logo: "/brands/under-armour.png" },
     { name: "Adidas", logo: "/brands/adidas.png" },
-    { name: "Carhartt", logo: "/placeholder.svg" },
-    { name: "The North Face", logo: "/placeholder.svg" },
-    { name: "OGIO", logo: "/placeholder.svg" },
-    { name: "YETI", logo: "/placeholder.svg" },
-    { name: "Columbia", logo: "/placeholder.svg" },
+    { name: "Carhartt", logo: "/brands/carhartt.svg" },
+    { name: "The North Face", logo: "/brands/the-north-face.svg" },
   ];
 
   return (
