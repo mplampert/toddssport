@@ -5,11 +5,11 @@ interface Brand {
 }
 
 const defaultBrands: Brand[] = [
-  { id: "1", name: "Nike", logo_url: null },
-  { id: "2", name: "Under Armour", logo_url: null },
-  { id: "3", name: "Adidas", logo_url: null },
-  { id: "4", name: "The North Face", logo_url: null },
-  { id: "5", name: "Carhartt", logo_url: null },
+  { id: "1", name: "Nike", logo_url: "/brands/nike.png" },
+  { id: "2", name: "Under Armour", logo_url: "/brands/under-armour.png" },
+  { id: "3", name: "Adidas", logo_url: "/brands/adidas.png" },
+  { id: "4", name: "The North Face", logo_url: "/brands/the-north-face.svg" },
+  { id: "5", name: "Carhartt", logo_url: "/brands/carhartt.svg" },
 ];
 
 interface BrandsStripProps {
