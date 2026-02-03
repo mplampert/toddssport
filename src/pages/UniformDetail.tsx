@@ -137,69 +137,6 @@ export default function UniformDetail() {
     fetchPricing();
   }, [sportSlug]);
 
-  // Calculate current price
-  const perUnitPrice = productPricing
-    ? calculatePerUnit(
-        { baseCost: productPricing.baseCost },
-        productPricing.globalPricing,
-        leadTime
-      )
-    : 0;
-
-  const totalPrice = perUnitPrice * quantity;
-
-  // Show loading state
-  if (loadingSport) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-accent" />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!sport || sportError) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <h1 className="text-3xl font-bold text-foreground mb-4">Sport Not Found</h1>
-            <p className="text-muted-foreground mb-6">
-              We couldn't find uniforms for that sport.
-            </p>
-            <Button asChild>
-              <Link to="/uniforms">Browse All Sports</Link>
-            </Button>
-          </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Placeholder content - you can expand this per sport
-  const uniformTypes = [
-    "Game jerseys",
-    "Practice gear",
-    "Warm-ups & sideline apparel",
-    "Team bags & accessories",
-  ];
-
-  const decorationOptions = [
-    "Screen printing",
-    "Embroidery",
-    "Heat transfer",
-    "Sublimation",
-  ];
-
-  const scrollToQuote = () => {
-    window.location.href = "/#quote-form";
-  };
-
   // Called when design is saved in the Champro builder
   const handleDesignSaved = useCallback(({
     champroSessionId: sessionId,
@@ -269,6 +206,69 @@ export default function UniformDetail() {
       setIsCheckingOut(false);
     }
   }, [champroSessionId, sportSlug, category, productPricing, quantity, leadTime, teamName, customerEmail, sport?.title]);
+
+  // Calculate current price
+  const perUnitPrice = productPricing
+    ? calculatePerUnit(
+        { baseCost: productPricing.baseCost },
+        productPricing.globalPricing,
+        leadTime
+      )
+    : 0;
+
+  const totalPrice = perUnitPrice * quantity;
+
+  // Placeholder content
+  const uniformTypes = [
+    "Game jerseys",
+    "Practice gear",
+    "Warm-ups & sideline apparel",
+    "Team bags & accessories",
+  ];
+
+  const decorationOptions = [
+    "Screen printing",
+    "Embroidery",
+    "Heat transfer",
+    "Sublimation",
+  ];
+
+  const scrollToQuote = () => {
+    window.location.href = "/#quote-form";
+  };
+
+  // Show loading state
+  if (loadingSport) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!sport || sportError) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-foreground mb-4">Sport Not Found</h1>
+            <p className="text-muted-foreground mb-6">
+              We couldn't find uniforms for that sport.
+            </p>
+            <Button asChild>
+              <Link to="/uniforms">Browse All Sports</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
