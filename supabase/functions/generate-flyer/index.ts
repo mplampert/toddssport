@@ -343,6 +343,15 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       doc.setLineWidth(0.01);
       doc.roundedRect(cellX, cellY, cellWidth, actualCellHeight, 0.05, 0.05, 'FD');
 
+      // HARD CLIP: absolutely prevent any content from rendering outside the card.
+      // (This guarantees no long description/title can spill outside the rounded border.)
+      doc.saveGraphicsState();
+      doc.roundedRect(cellX, cellY, cellWidth, actualCellHeight, 0.05, 0.05, undefined as any);
+      // @ts-ignore - jsPDF clip/discardPath exist at runtime
+      doc.clip();
+      // @ts-ignore
+      doc.discardPath();
+
       // ===== IMAGE AREA - Constrained to fit within card =====
       // Image should take up about 50-55% of cell, leaving room for text
       const maxImageHeight = actualCellHeight * 0.5;
@@ -387,7 +396,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       const priceY = cellBottomY - cellPadding - 0.05;
       const absoluteMaxY = priceY - priceHeight; // Hard ceiling for title + description
       
-      console.log(`Cell ${i}: cellY=${cellY.toFixed(2)}, cellHeight=${actualCellHeight.toFixed(2)}, cellBottomY=${cellBottomY.toFixed(2)}, absoluteMaxY=${absoluteMaxY.toFixed(2)}`);
+      // Note: hard clip is applied above; nothing can render outside this card.
 
       // Product title - bold, max 2 lines
       doc.setFontSize(9);
@@ -403,10 +412,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       if (maxTitleLines > 0) {
         const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, maxTitleLines);
         for (const line of titleLines) {
-          if (textY + titleLineHeight > absoluteMaxY) {
-            console.log(`Title overflow prevented at textY=${textY.toFixed(2)}`);
-            break;
-          }
+          if (textY + titleLineHeight > absoluteMaxY) break;
           doc.text(line, textX, textY);
           textY += titleLineHeight;
         }
@@ -426,17 +432,12 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const remainingSpace = absoluteMaxY - textY;
         const maxFittingLines = Math.floor(remainingSpace / descLineHeight);
         
-        console.log(`Description: remainingSpace=${remainingSpace.toFixed(2)}, maxFittingLines=${maxFittingLines}`);
-        
         if (maxFittingLines > 0) {
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxFittingLines);
           
           for (let j = 0; j < descLines.length; j++) {
             // Double-check we won't overflow
-            if (textY + descLineHeight > absoluteMaxY) {
-              console.log(`Description line ${j} overflow prevented at textY=${textY.toFixed(2)}`);
-              break;
-            }
+            if (textY + descLineHeight > absoluteMaxY) break;
             doc.text(descLines[j], textX, textY);
             textY += descLineHeight;
           }
@@ -456,6 +457,9 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         
         doc.text(price, textX, priceY);
       }
+
+      // End clip region for this card
+      doc.restoreGraphicsState();
     }
   }
 
