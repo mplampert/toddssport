@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { useCart, CartItem } from "@/hooks/useCart";
 import { formatPrice } from "@/lib/champroPricing";
+import { supabase } from "@/integrations/supabase/client";
 import { 
   ShoppingCart, 
   Trash2, 
@@ -11,7 +13,8 @@ import {
   Plus, 
   ArrowLeft, 
   Loader2,
-  Package 
+  Package,
+  CreditCard
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -114,6 +117,7 @@ function CartItemRow({
 export default function Cart() {
   const navigate = useNavigate();
   const { items, loading, error, subtotal, removeItem, updateQuantity } = useCart();
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   const handleRemove = async (id: string) => {
     const success = await removeItem(id);
@@ -131,10 +135,59 @@ export default function Cart() {
     }
   };
 
-  const handleCheckout = () => {
-    // For now, redirect to contact page with cart context
-    toast.info("Checkout coming soon! Contact us to complete your order.");
-    navigate("/contact");
+  const handleCheckout = async () => {
+    if (items.length === 0) {
+      toast.error("Your cart is empty");
+      return;
+    }
+
+    // For now, checkout first item (multi-item checkout can be added later)
+    const item = items[0];
+    
+    if (!item.unit_price) {
+      toast.error("Price not available. Please contact us for a quote.");
+      return;
+    }
+
+    setCheckoutLoading(true);
+    
+    try {
+      const { data, error: invokeError } = await supabase.functions.invoke("champro-checkout", {
+        body: {
+          champroSessionId: item.champro_session_id,
+          sportSlug: item.sport_slug,
+          category: item.category,
+          productMaster: item.product_master,
+          quantity: item.quantity,
+          leadTime: item.lead_time,
+          teamName: item.team_name,
+        },
+      });
+
+      if (invokeError) {
+        console.error("Checkout error:", invokeError);
+        toast.error("Failed to start checkout. Please try again.");
+        return;
+      }
+
+      if (data?.error) {
+        console.error("Checkout API error:", data.error);
+        toast.error(data.error);
+        return;
+      }
+
+      if (data?.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        toast.error("Unable to create checkout session");
+      }
+    } catch (err) {
+      console.error("Checkout exception:", err);
+      toast.error("An error occurred. Please try again.");
+    } finally {
+      setCheckoutLoading(false);
+    }
   };
 
   return (
@@ -222,8 +275,19 @@ export default function Cart() {
                     onClick={handleCheckout}
                     className="w-full btn-cta"
                     size="lg"
+                    disabled={checkoutLoading || subtotal === 0}
                   >
-                    Proceed to Checkout
+                    {checkoutLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Creating checkout...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Pay Now
+                      </>
+                    )}
                   </Button>
 
                   <p className="text-xs text-muted-foreground text-center mt-4">
