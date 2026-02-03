@@ -333,15 +333,21 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       
       const cellX = margin + (col * (cellWidth + gapX));
       const cellY = y + (row * (cellHeight + gapY));
+      
+      // For 1 product, limit the cell height to be more reasonable
+      const actualCellHeight = productCount === 1 ? Math.min(cellHeight, 7.5) : cellHeight;
 
       // Cell background with subtle border
       doc.setFillColor(bgColor);
       doc.setDrawColor(borderColor);
       doc.setLineWidth(0.01);
-      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
+      doc.roundedRect(cellX, cellY, cellWidth, actualCellHeight, 0.05, 0.05, 'FD');
 
-      // ===== IMAGE AREA - Aspect square like preview =====
-      const imageSize = Math.min(cellWidth - (cellPadding * 2), (cellHeight * 0.55));
+      // ===== IMAGE AREA - Constrained to fit within card =====
+      // Image should take up about 50-55% of cell, leaving room for text
+      const maxImageHeight = actualCellHeight * 0.5;
+      const maxImageWidth = cellWidth - (cellPadding * 2);
+      const imageSize = Math.min(maxImageWidth, maxImageHeight);
       const imageX = cellX + (cellWidth - imageSize) / 2; // Center horizontally
       const imageY = cellY + cellPadding;
 
@@ -353,7 +359,6 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       if (imgData) {
         try {
           const format = getImageFormat(product.imageUrl || '');
-          // object-contain style - fit within square
           const imgPadding = imageSize * 0.05;
           doc.addImage(imgData, format, imageX + imgPadding, imageY + imgPadding, imageSize - (imgPadding * 2), imageSize - (imgPadding * 2));
         } catch (e) {
@@ -370,33 +375,34 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         doc.text('No Image', cellX + cellWidth / 2, imageY + imageSize / 2, { align: 'center' });
       }
 
-      // ===== TEXT CONTENT - Below image, STRICTLY within cell =====
-      const textStartY = imageY + imageSize + 0.1;
+      // ===== TEXT CONTENT - STRICTLY within cell boundaries =====
+      const textStartY = imageY + imageSize + 0.12;
       let textY = textStartY;
       const textMaxWidth = cellWidth - (cellPadding * 2);
       const textX = cellX + cellPadding;
       
-      // Calculate where price will be (bottom of cell) - STRICTLY enforced
-      const priceY = cellY + cellHeight - cellPadding - 0.1;
-      // Description must end well before price
-      const maxTextEndY = priceY - 0.15;
+      // ABSOLUTE boundary - price goes at bottom of cell, nothing beyond
+      const priceHeight = 0.2;
+      const priceY = cellY + actualCellHeight - cellPadding - 0.05;
+      const absoluteMaxY = priceY - priceHeight; // Hard stop for all text
 
-      // Product title - bold, max 2 lines (like line-clamp-2)
+      // Product title - bold, max 2 lines
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(primaryColor);
       const title = cleanText(product.title || 'Product');
       const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
+      const titleLineHeight = 0.13;
       
       for (const line of titleLines) {
-        if (textY >= maxTextEndY) break; // Stop if we'd overflow
+        if (textY + titleLineHeight > absoluteMaxY) break;
         doc.text(line, textX, textY);
-        textY += 0.12;
+        textY += titleLineHeight;
       }
-      textY += 0.02;
+      textY += 0.03;
 
-      // Product description - STRICT boundary enforcement
-      if (product.description && textY < maxTextEndY) {
+      // Product description - STRICTLY bounded
+      if (product.description && textY < absoluteMaxY) {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(mutedColor);
@@ -404,26 +410,22 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
         const descLineHeight = 0.1;
         
-        // Calculate exactly how many lines fit in remaining space
-        const remainingSpace = maxTextEndY - textY;
-        const maxFittingLines = Math.floor(remainingSpace / descLineHeight);
+        // Calculate EXACT number of lines that fit
+        const spaceForDesc = absoluteMaxY - textY;
+        const maxFittingLines = Math.floor(spaceForDesc / descLineHeight);
         
-        // Cap at reasonable max but never exceed what physically fits
-        const maxDescLines = Math.min(
-          productCount === 1 ? 10 : productCount === 2 ? 5 : 2,
-          Math.max(1, maxFittingLines)
-        );
-        
-        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
-        
-        for (const line of descLines) {
-          if (textY + descLineHeight > maxTextEndY) break; // STRICT: stop before overflow
-          doc.text(line, textX, textY);
-          textY += descLineHeight;
+        if (maxFittingLines > 0) {
+          const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxFittingLines);
+          
+          for (const line of descLines) {
+            if (textY + descLineHeight > absoluteMaxY) break;
+            doc.text(line, textX, textY);
+            textY += descLineHeight;
+          }
         }
       }
 
-      // ===== PRICE at bottom (mt-auto in preview) =====
+      // ===== PRICE at absolute bottom of cell =====
       if (product.priceLine) {
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
