@@ -404,6 +404,7 @@ export type Database = {
           price_line: string | null
           product_name: string
           products: Json | null
+          rep_id: string | null
           subtitle: string | null
           updated_at: string
         }
@@ -419,6 +420,7 @@ export type Database = {
           price_line?: string | null
           product_name: string
           products?: Json | null
+          rep_id?: string | null
           subtitle?: string | null
           updated_at?: string
         }
@@ -434,10 +436,19 @@ export type Database = {
           price_line?: string | null
           product_name?: string
           products?: Json | null
+          rep_id?: string | null
           subtitle?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "flyers_rep_id_fkey"
+            columns: ["rep_id"]
+            isOneToOne: false
+            referencedRelation: "reps"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promo_leads: {
         Row: {

@@ -14,12 +14,20 @@ interface ProductForFlyer {
   priceLine?: string;
 }
 
+interface RepInfo {
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
 interface FlyerData {
   flyerId?: string;  // If provided, update existing flyer
   flyerName?: string;
   clientName?: string;
   products: ProductForFlyer[];
   notesCta?: string;
+  repId?: string;
+  rep?: RepInfo;  // Populated from repId lookup
 }
 
 // Helper to convert Uint8Array to base64 without stack overflow
@@ -383,28 +391,69 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   }
 
   // ===== FOOTER =====
-  const footerY = pageHeight - margin - 0.35;
+  // Calculate footer height based on content
+  const hasRep = data.rep && data.rep.name;
+  const hasCta = data.notesCta && data.notesCta.trim();
+  const footerContentHeight = (hasRep ? 0.35 : 0) + (hasCta ? 0.18 : 0) + 0.25;
+  const footerY = pageHeight - margin - footerContentHeight;
 
   // Footer divider
   doc.setDrawColor(borderColor);
   doc.setLineWidth(0.015);
-  doc.line(margin, footerY - 0.1, pageWidth - margin, footerY - 0.1);
+  doc.line(margin, footerY - 0.05, pageWidth - margin, footerY - 0.05);
+
+  let currentY = footerY;
 
   // CTA text (if any)
-  if (data.notesCta) {
+  if (hasCta) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(mutedColor);
-    const ctaText = cleanText(data.notesCta);
-    doc.text(ctaText, pageWidth / 2, footerY + 0.05, { align: 'center' });
+    const ctaText = cleanText(data.notesCta!);
+    doc.text(ctaText, pageWidth / 2, currentY + 0.08, { align: 'center' });
+    currentY += 0.18;
+  }
+
+  // Rep info box
+  if (hasRep) {
+    const boxX = margin + contentWidth * 0.25;
+    const boxWidth = contentWidth * 0.5;
+    
+    // Light gray background box
+    doc.setFillColor('#f9fafb');
+    doc.roundedRect(boxX, currentY, boxWidth, 0.32, 0.03, 0.03, 'F');
+    
+    // "Your Sales Rep" label
+    doc.setFontSize(6);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedColor);
+    doc.text('YOUR SALES REP', pageWidth / 2, currentY + 0.08, { align: 'center' });
+    
+    // Rep name
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(primaryColor);
+    doc.text(data.rep!.name, pageWidth / 2, currentY + 0.18, { align: 'center' });
+    
+    // Rep contact info
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedColor);
+    let contactLine = data.rep!.email;
+    if (data.rep!.phone) {
+      contactLine += ` • ${data.rep!.phone}`;
+    }
+    doc.text(contactLine, pageWidth / 2, currentY + 0.27, { align: 'center' });
+    
+    currentY += 0.35;
   }
 
   // Contact info at bottom
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(mutedColor);
-  doc.text('www.toddssportinggoods.com', margin, footerY + 0.22);
-  doc.text('(978) 927-1600', pageWidth - margin, footerY + 0.22, { align: 'right' });
+  doc.text('www.toddssportinggoods.com', margin, pageHeight - margin - 0.05);
+  doc.text('(978) 927-1600', pageWidth - margin, pageHeight - margin - 0.05, { align: 'right' });
 
   // Return PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
@@ -466,6 +515,24 @@ serve(async (req) => {
       });
     }
 
+    // Fetch rep info if repId provided
+    if (body.repId) {
+      const { data: repData } = await supabaseClient
+        .from('reps')
+        .select('name, email, phone')
+        .eq('id', body.repId)
+        .single();
+      
+      if (repData) {
+        body.rep = {
+          name: repData.name,
+          email: repData.email,
+          phone: repData.phone,
+        };
+        console.log('Including rep:', body.rep.name);
+      }
+    }
+
     // Fetch logo
     const logoUrl = 'https://ookvohtvmjcgrfahigyr.supabase.co/storage/v1/object/public/brand-logos/todds-logo.png';
     const logoBase64 = await fetchImageAsBase64(logoUrl);
@@ -509,6 +576,7 @@ serve(async (req) => {
           client_name: body.clientName || null,
           products: body.products,
           notes_cta: body.notesCta || null,
+          rep_id: body.repId || null,
           pdf_url: pdfUrl,
         })
         .eq('id', body.flyerId)
@@ -532,6 +600,7 @@ serve(async (req) => {
           client_name: body.clientName || null,
           products: body.products,
           notes_cta: body.notesCta || null,
+          rep_id: body.repId || null,
           pdf_url: pdfUrl,
         })
         .select()

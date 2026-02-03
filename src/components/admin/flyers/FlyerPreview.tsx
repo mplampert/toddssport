@@ -8,15 +8,23 @@ interface ProductForFlyer {
   priceLine: string;
 }
 
+interface Rep {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
 interface FlyerPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientName: string;
   notesCta: string;
   products: ProductForFlyer[];
+  rep?: Rep;
 }
 
-export function FlyerPreview({ open, onOpenChange, clientName, notesCta, products }: FlyerPreviewProps) {
+export function FlyerPreview({ open, onOpenChange, clientName, notesCta, products, rep }: FlyerPreviewProps) {
   const validProducts = products.filter(p => p.title.trim());
   
   return (
@@ -117,6 +125,19 @@ export function FlyerPreview({ open, onOpenChange, clientName, notesCta, product
                 {notesCta}
               </p>
             )}
+            
+            {/* Rep Info */}
+            {rep && (
+              <div className="bg-gray-50 rounded-lg p-2 mb-2 text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Your Sales Rep</p>
+                <p className="text-sm font-semibold text-gray-800">{rep.name}</p>
+                <p className="text-xs text-gray-600">
+                  {rep.email}
+                  {rep.phone && ` • ${rep.phone}`}
+                </p>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>www.toddssportinggoods.com</span>
               <span>(978) 927-1600</span>
