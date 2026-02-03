@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, CheckCircle, Loader2, ShoppingCart } from "lucide-react";
+import { Loader2, ShoppingCart } from "lucide-react";
 import { ChamproBuilderEmbed, hasChamproBuilder } from "@/components/uniforms/ChamproBuilderEmbed";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +26,10 @@ import {
 } from "@/lib/champroPricing";
 import { getCartSessionId } from "@/lib/cartSession";
 import { Skeleton } from "@/components/ui/skeleton";
+import { UniformDetailHero } from "@/components/uniforms/UniformDetailHero";
+import { UniformBenefits } from "@/components/uniforms/UniformBenefits";
+import { UniformHowItWorks } from "@/components/uniforms/UniformHowItWorks";
+import { UniformFAQ } from "@/components/uniforms/UniformFAQ";
 
 interface ProductPricing {
   moq: number;
@@ -43,7 +47,7 @@ export default function UniformDetail() {
   const [embedKey, setEmbedKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  
+
   // Checkout form state
   const [champroSessionId, setChamproSessionId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(12);
@@ -51,7 +55,7 @@ export default function UniformDetail() {
   const [category, setCategory] = useState<ChamproCategory>("JERSEYS");
   const [teamName, setTeamName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  
+
   // Pricing state
   const [productPricing, setProductPricing] = useState<ProductPricing | null>(null);
   const [loadingPricing, setLoadingPricing] = useState(true);
@@ -84,7 +88,7 @@ export default function UniformDetail() {
   useEffect(() => {
     async function fetchPricing() {
       if (!sportSlug) return;
-      
+
       try {
         // Get product for this sport
         const { data: products, error: productError } = await supabase
@@ -140,67 +144,70 @@ export default function UniformDetail() {
   }, [sportSlug]);
 
   // Called when design is saved in the Champro builder - add to cart and redirect
-  const handleDesignSaved = useCallback(async ({
-    champroSessionId: sessionId,
-    sportSlug: savedSportSlug,
-  }: {
-    champroSessionId: string;
-    sportSlug: string;
-  }) => {
-    console.log("Champro design saved:", sessionId);
-    setChamproSessionId(sessionId);
-    
-    // Calculate current price for cart
-    const currentPerUnitPrice = productPricing
-      ? calculatePerUnit(
-          { baseCost: productPricing.baseCost },
-          productPricing.globalPricing,
-          leadTime
-        )
-      : null;
-    
-    // Add to cart via edge function
-    setIsCheckingOut(true);
-    try {
-      const cartSessionId = getCartSessionId();
-      
-      const { data, error } = await supabase.functions.invoke("champro-cart-item", {
-        body: {
-          champroSessionId: sessionId,
-          sportSlug: savedSportSlug,
-          sportTitle: sport?.title,
-          quantity,
-          leadTime,
-          teamName,
-          category,
-          productMaster: productPricing?.productMaster,
-          unitPrice: currentPerUnitPrice,
-          cartSessionId,
-        },
-      });
+  const handleDesignSaved = useCallback(
+    async ({
+      champroSessionId: sessionId,
+      sportSlug: savedSportSlug,
+    }: {
+      champroSessionId: string;
+      sportSlug: string;
+    }) => {
+      console.log("Champro design saved:", sessionId);
+      setChamproSessionId(sessionId);
 
-      if (error) {
-        console.error("Cart error:", error);
-        toast.error("Failed to add to cart. Please try again.");
-        return;
-      }
+      // Calculate current price for cart
+      const currentPerUnitPrice = productPricing
+        ? calculatePerUnit(
+            { baseCost: productPricing.baseCost },
+            productPricing.globalPricing,
+            leadTime
+          )
+        : null;
 
-      if (data?.success) {
-        toast.success("Design added to cart!", {
-          duration: 3000,
+      // Add to cart via edge function
+      setIsCheckingOut(true);
+      try {
+        const cartSessionId = getCartSessionId();
+
+        const { data, error } = await supabase.functions.invoke("champro-cart-item", {
+          body: {
+            champroSessionId: sessionId,
+            sportSlug: savedSportSlug,
+            sportTitle: sport?.title,
+            quantity,
+            leadTime,
+            teamName,
+            category,
+            productMaster: productPricing?.productMaster,
+            unitPrice: currentPerUnitPrice,
+            cartSessionId,
+          },
         });
-        // Redirect to cart
-        navigate("/cart");
-      } else {
-        toast.error(data?.error || "Failed to add to cart.");
+
+        if (error) {
+          console.error("Cart error:", error);
+          toast.error("Failed to add to cart. Please try again.");
+          return;
+        }
+
+        if (data?.success) {
+          toast.success("Design added to cart!", {
+            duration: 3000,
+          });
+          // Redirect to cart
+          navigate("/cart");
+        } else {
+          toast.error(data?.error || "Failed to add to cart.");
+        }
+      } catch (err) {
+        console.error("Cart add failed:", err);
+        toast.error("Unable to add to cart. Please try again.");
+      } finally {
+        setIsCheckingOut(false);
       }
-    } catch (err) {
-      console.error("Cart add failed:", err);
-      toast.error("Unable to add to cart. Please try again.");
-    } finally {
-      setIsCheckingOut(false);
-    }
-  }, [sport?.title, quantity, leadTime, teamName, category, productPricing, navigate]);
+    },
+    [sport?.title, quantity, leadTime, teamName, category, productPricing, navigate]
+  );
 
   // Called when user clicks checkout button
   const handleCheckout = useCallback(async () => {
@@ -242,13 +249,10 @@ export default function UniformDetail() {
         window.location.href = data.url;
       } else {
         // Fallback: show success message with session ID for manual processing
-        toast.success(
-          `Your ${sport?.title || sportSlug} uniform design has been saved!`,
-          {
-            description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
-            duration: 10000,
-          }
-        );
+        toast.success(`Your ${sport?.title || sportSlug} uniform design has been saved!`, {
+          description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
+          duration: 10000,
+        });
       }
     } catch (err) {
       console.error("Checkout failed:", err);
@@ -256,33 +260,24 @@ export default function UniformDetail() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [champroSessionId, sportSlug, category, productPricing, quantity, leadTime, teamName, customerEmail, sport?.title]);
+  }, [
+    champroSessionId,
+    sportSlug,
+    category,
+    productPricing,
+    quantity,
+    leadTime,
+    teamName,
+    customerEmail,
+    sport?.title,
+  ]);
 
   // Calculate current price
   const perUnitPrice = productPricing
-    ? calculatePerUnit(
-        { baseCost: productPricing.baseCost },
-        productPricing.globalPricing,
-        leadTime
-      )
+    ? calculatePerUnit({ baseCost: productPricing.baseCost }, productPricing.globalPricing, leadTime)
     : 0;
 
   const totalPrice = perUnitPrice * quantity;
-
-  // Placeholder content
-  const uniformTypes = [
-    "Game jerseys",
-    "Practice gear",
-    "Warm-ups & sideline apparel",
-    "Team bags & accessories",
-  ];
-
-  const decorationOptions = [
-    "Screen printing",
-    "Embroidery",
-    "Heat transfer",
-    "Sublimation",
-  ];
 
   const scrollToQuote = () => {
     window.location.href = "/#quote-form";
@@ -308,9 +303,7 @@ export default function UniformDetail() {
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-3xl font-bold text-foreground mb-4">Sport Not Found</h1>
-            <p className="text-muted-foreground mb-6">
-              We couldn't find uniforms for that sport.
-            </p>
+            <p className="text-muted-foreground mb-6">We couldn't find uniforms for that sport.</p>
             <Button asChild>
               <Link to="/uniforms">Browse All Sports</Link>
             </Button>
@@ -321,53 +314,37 @@ export default function UniformDetail() {
     );
   }
 
+  const hasBuilder = hasChamproBuilder(sport.slug);
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
         {/* Hero Section */}
-        <section className="relative min-h-[50vh] md:min-h-[60vh] flex items-center">
-          <div 
-            className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${sport.image_url || '/placeholder.svg'})` }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/95 via-charcoal/85 to-charcoal/60" />
-          
-          <div className="container mx-auto px-4 relative z-10">
-            <Link 
-              to="/uniforms" 
-              className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-accent mb-6 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to All Sports
-            </Link>
-            
-            <div className="flex items-center gap-4 mb-4">
-              {sport.icon && <span className="text-5xl md:text-6xl">{sport.icon}</span>}
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-primary-foreground">
-                {sport.title} Uniforms
-              </h1>
-            </div>
-            <p className="text-lg md:text-xl text-primary-foreground/90 max-w-2xl">
-              {sport.description}
-            </p>
-          </div>
-        </section>
+        <UniformDetailHero
+          title={sport.title}
+          description={sport.description}
+          icon={sport.icon || undefined}
+          imageUrl={sport.image_url || undefined}
+        />
+
+        {/* Benefits Cards */}
+        <UniformBenefits />
 
         {/* Custom Builder Section */}
-        {hasChamproBuilder(sport.slug) && (
-          <section className="py-16 md:py-24 bg-background">
+        {hasBuilder && (
+          <section id="uniform-builder" className="py-16 md:py-24 bg-background">
             <div className="container mx-auto px-4">
               <div className="text-center mb-10">
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
                   Design Your {sport.title} Uniforms
                 </h2>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Use our interactive uniform builder to customize colors, add your team name, 
-                  and see your design come to life.
+                  Use our interactive uniform builder to customize colors, add your team name, and see
+                  your design come to life.
                 </p>
               </div>
-              
+
               {loadingKey ? (
                 <div className="flex items-center justify-center py-20">
                   <Loader2 className="w-8 h-8 animate-spin text-accent" />
@@ -398,7 +375,8 @@ export default function UniformDetail() {
                       ) : (
                         <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
                           <p className="text-sm text-muted-foreground">
-                            Complete your design in the builder above, then click "Process Design" to save it.
+                            Complete your design in the builder above, then click "Process Design" to
+                            save it.
                           </p>
                         </div>
                       )}
@@ -407,21 +385,31 @@ export default function UniformDetail() {
                         {/* Quantity */}
                         <div className="space-y-2">
                           <Label htmlFor="quantity">
-                            Quantity <span className="text-muted-foreground text-xs">(min {productPricing?.moq || 12})</span>
+                            Quantity{" "}
+                            <span className="text-muted-foreground text-xs">
+                              (min {productPricing?.moq || 12})
+                            </span>
                           </Label>
                           <Input
                             id="quantity"
                             type="number"
                             min={productPricing?.moq || 12}
                             value={quantity}
-                            onChange={(e) => setQuantity(Math.max(productPricing?.moq || 1, parseInt(e.target.value) || 1))}
+                            onChange={(e) =>
+                              setQuantity(
+                                Math.max(productPricing?.moq || 1, parseInt(e.target.value) || 1)
+                              )
+                            }
                           />
                         </div>
 
                         {/* Lead Time */}
                         <div className="space-y-2">
                           <Label htmlFor="leadTime">Production Time</Label>
-                          <Select value={leadTime} onValueChange={(v) => setLeadTime(v as LeadTimeType)}>
+                          <Select
+                            value={leadTime}
+                            onValueChange={(v) => setLeadTime(v as LeadTimeType)}
+                          >
                             <SelectTrigger id="leadTime">
                               <SelectValue />
                             </SelectTrigger>
@@ -463,7 +451,9 @@ export default function UniformDetail() {
                         <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-muted-foreground">Price per unit:</span>
-                            <span className="font-medium text-foreground">{formatPrice(perUnitPrice)}</span>
+                            <span className="font-medium text-foreground">
+                              {formatPrice(perUnitPrice)}
+                            </span>
                           </div>
                           <div className="flex justify-between items-center mb-2">
                             <span className="text-muted-foreground">Quantity:</span>
@@ -472,7 +462,9 @@ export default function UniformDetail() {
                           <div className="border-t border-border pt-2 mt-2">
                             <div className="flex justify-between items-center">
                               <span className="font-semibold text-foreground">Subtotal:</span>
-                              <span className="text-xl font-bold text-accent">{formatPrice(totalPrice)}</span>
+                              <span className="text-xl font-bold text-accent">
+                                {formatPrice(totalPrice)}
+                              </span>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
                               + shipping calculated at checkout
@@ -517,69 +509,32 @@ export default function UniformDetail() {
           </section>
         )}
 
-        {/* Content Section */}
-        <section className="py-16 md:py-24 bg-secondary/30">
-          <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-2 gap-12 max-w-5xl mx-auto">
-              {/* Uniform Types */}
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-6">
-                  {sport.title} Uniform Options
-                </h2>
-                <p className="text-muted-foreground mb-6">
-                  We offer a complete range of {sport.title.toLowerCase()} apparel and accessories 
-                  for youth, high school, club, and adult programs.
-                </p>
-                <ul className="space-y-3">
-                  {uniformTypes.map((type, index) => (
-                    <li key={index} className="flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-accent flex-shrink-0" />
-                      <span className="text-foreground">{type}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+        {/* How It Works Section */}
+        <UniformHowItWorks />
 
-              {/* Decoration Options */}
-              <div>
-                <h2 className="text-2xl font-bold text-foreground mb-6">
-                  Customization Options
-                </h2>
-                <p className="text-muted-foreground mb-6">
-                  Add your team logo, player names, and numbers with our professional 
-                  decoration services.
-                </p>
-                <ul className="space-y-3">
-                  {decorationOptions.map((option, index) => (
-                    <li key={index} className="flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-accent flex-shrink-0" />
-                      <span className="text-foreground">{option}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+        {/* FAQ Section */}
+        <UniformFAQ sportName={sport.title} />
 
-            {/* CTA for sports without builder */}
-            {!hasChamproBuilder(sport.slug) && (
-              <div className="mt-16 text-center p-8 bg-accent/10 rounded-xl border border-accent/20 max-w-3xl mx-auto">
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  Request a Custom Quote
-                </h3>
+        {/* CTA for sports without builder */}
+        {!hasBuilder && (
+          <section className="py-16 bg-background">
+            <div className="container mx-auto px-4">
+              <div className="text-center p-8 bg-accent/10 rounded-xl border border-accent/20 max-w-3xl mx-auto">
+                <h3 className="text-xl font-bold text-foreground mb-2">Request a Custom Quote</h3>
                 <p className="text-muted-foreground mb-6">
-                  Contact us for a personalized {sport.title.toLowerCase()} uniform consultation 
-                  and quote.
+                  Contact us for a personalized {sport.title.toLowerCase()} uniform consultation and
+                  quote.
                 </p>
                 <Button onClick={scrollToQuote} className="btn-cta">
                   Request a {sport.title} Uniform Quote
                 </Button>
               </div>
-            )}
-          </div>
-        </section>
+            </div>
+          </section>
+        )}
 
         {/* Other Sports */}
-        <section className="py-16 bg-background border-t border-border">
+        <section className="py-16 bg-secondary/30 border-t border-border">
           <div className="container mx-auto px-4">
             <h2 className="text-2xl font-bold text-foreground mb-8 text-center">
               Explore Other Sports
@@ -587,17 +542,15 @@ export default function UniformDetail() {
             <div className="flex flex-wrap justify-center gap-3">
               {allCards
                 .filter((s) => s.id !== sport.id)
-                .slice(0, 6)
+                .slice(0, 8)
                 .map((s) => (
                   <Link
                     key={s.id}
                     to={`/uniforms/${s.slug}`}
-                    className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-full border border-border hover:border-accent hover:shadow-md transition-all"
+                    className="flex items-center gap-2 px-4 py-2 bg-background rounded-full border border-border hover:border-accent hover:shadow-md transition-all"
                   >
                     {s.icon && <span className="text-lg">{s.icon}</span>}
-                    <span className="font-medium text-foreground hover:text-accent">
-                      {s.title}
-                    </span>
+                    <span className="font-medium text-foreground hover:text-accent">{s.title}</span>
                   </Link>
                 ))}
             </div>
