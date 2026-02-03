@@ -133,6 +133,7 @@ export type Database = {
       }
       champro_orders: {
         Row: {
+          champro_order_number: string | null
           created_at: string
           customer_email: string | null
           id: string
@@ -140,6 +141,7 @@ export type Database = {
           po: string
           request_payload: Json
           response_payload: Json | null
+          sent_to_champro: boolean
           session_id: string | null
           status: string
           sub_order_ids: string[] | null
@@ -147,6 +149,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          champro_order_number?: string | null
           created_at?: string
           customer_email?: string | null
           id?: string
@@ -154,6 +157,7 @@ export type Database = {
           po: string
           request_payload: Json
           response_payload?: Json | null
+          sent_to_champro?: boolean
           session_id?: string | null
           status?: string
           sub_order_ids?: string[] | null
@@ -161,6 +165,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          champro_order_number?: string | null
           created_at?: string
           customer_email?: string | null
           id?: string
@@ -168,6 +173,7 @@ export type Database = {
           po?: string
           request_payload?: Json
           response_payload?: Json | null
+          sent_to_champro?: boolean
           session_id?: string | null
           status?: string
           sub_order_ids?: string[] | null
