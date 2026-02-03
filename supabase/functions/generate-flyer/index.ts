@@ -118,6 +118,29 @@ function wrapTextWithEllipsis(doc: jsPDF, text: string, maxWidth: number, maxLin
   return lines;
 }
 
+// Calculate grid layout based on product count
+function getGridLayout(productCount: number): { cols: number; rows: number; layout: (number | -1)[][] } {
+  switch (productCount) {
+    case 1:
+      return { cols: 1, rows: 1, layout: [[0]] };
+    case 2:
+      return { cols: 2, rows: 1, layout: [[0, 1]] };
+    case 3:
+      // 3 equal columns
+      return { cols: 3, rows: 1, layout: [[0, 1, 2]] };
+    case 4:
+      // 2x2 grid
+      return { cols: 2, rows: 2, layout: [[0, 1], [2, 3]] };
+    case 5:
+      // 3 on top, 2 centered below (-1 = empty cell)
+      return { cols: 3, rows: 2, layout: [[0, 1, 2], [-1, 3, 4]] };
+    case 6:
+    default:
+      // 3x2 grid
+      return { cols: 3, rows: 2, layout: [[0, 1, 2], [3, 4, 5]] };
+  }
+}
+
 // Generate PDF using jsPDF
 async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Promise<Uint8Array> {
   // Create PDF - Letter size (8.5 x 11 inches)
@@ -188,25 +211,22 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   doc.setDrawColor(lightGrayColor);
   doc.setLineWidth(0.01);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 0.2;
+  y += 0.15;
 
   // ===== PRODUCTS GRID =====
   const products = data.products.slice(0, 6); // Max 6 products
   const productCount = products.length;
+  const gridLayout = getGridLayout(productCount);
   
-  // Always use 2 columns
-  const cols = 2;
-  const rows = Math.ceil(productCount / cols);
+  // Calculate cell dimensions
+  const footerHeight = 0.65;
+  const availableHeight = pageHeight - y - margin - footerHeight - 0.1;
+  const gapX = 0.12;
+  const gapY = 0.1;
   
-  // Calculate cell dimensions - ensure equal heights
-  const footerHeight = 0.7;
-  const availableHeight = pageHeight - y - margin - footerHeight - 0.15;
-  const gapX = 0.15;
-  const gapY = 0.12;
-  
-  const cellWidth = (contentWidth - gapX) / cols;
-  const cellHeight = (availableHeight - (gapY * (rows - 1))) / rows;
-  const cellPadding = 0.12;
+  const cellWidth = (contentWidth - (gapX * (gridLayout.cols - 1))) / gridLayout.cols;
+  const cellHeight = (availableHeight - (gapY * (gridLayout.rows - 1))) / gridLayout.rows;
+  const cellPadding = 0.1;
 
   // Pre-fetch all product images
   const productImages: (string | null)[] = [];
@@ -219,106 +239,130 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     }
   }
 
-  // Fixed layout proportions for consistent tiles
-  const imageHeightRatio = 0.48; // Image takes ~48% of cell height
-  const priceAreaHeight = 0.35; // Reserve space for price at bottom
+  // Fixed layout proportions - adjust based on grid size
+  const getImageHeightRatio = () => {
+    if (productCount === 1) return 0.55;
+    if (productCount <= 2) return 0.50;
+    if (productCount <= 4) return 0.45;
+    return 0.40;
+  };
+  const imageHeightRatio = getImageHeightRatio();
 
-  for (let i = 0; i < products.length; i++) {
-    const product = products[i];
-    const col = i % cols;
-    const row = Math.floor(i / cols);
-    
-    const cellX = margin + (col * (cellWidth + gapX));
-    const cellY = y + (row * (cellHeight + gapY));
-
-    // Cell background - clean white with subtle border
-    doc.setFillColor('#ffffff');
-    doc.setDrawColor(lightGrayColor);
-    doc.setLineWidth(0.008);
-    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
-
-    // ===== IMAGE AREA (top portion) =====
-    const imgData = productImages[i];
-    const imageAreaHeight = cellHeight * imageHeightRatio;
-    const imageY = cellY + cellPadding;
-    const imageWidth = cellWidth - (cellPadding * 2);
-    const imageHeight = imageAreaHeight - cellPadding;
-
-    if (imgData) {
-      try {
-        const format = getImageFormat(product.imageUrl || '');
-        // Center image in the image area
-        doc.addImage(
-          imgData, 
-          format, 
-          cellX + cellPadding, 
-          imageY, 
-          imageWidth, 
-          imageHeight
-        );
-      } catch (e) {
-        console.log('Could not add product image:', e);
+  // Render products based on layout
+  for (let row = 0; row < gridLayout.rows; row++) {
+    for (let col = 0; col < gridLayout.cols; col++) {
+      const productIndex = gridLayout.layout[row][col];
+      if (productIndex === -1 || productIndex >= products.length) {
+        continue; // Skip empty cells (for centered layouts like 5 products)
       }
-    } else {
-      // Subtle "No Image" text instead of a box
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'italic');
-      doc.setTextColor(mutedGray);
-      doc.text('No image provided', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
-    }
 
-    // ===== TEXT AREA (middle portion) =====
-    let textY = cellY + imageAreaHeight + 0.08;
-    const textMaxWidth = cellWidth - (cellPadding * 2);
-
-    // Product title - BOLD, wrap to 2 lines max with ellipsis
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(darkColor);
-    const title = cleanText(product.title || 'Product');
-    const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
-    
-    const lineHeight = 0.16;
-    for (const line of titleLines) {
-      doc.text(line, cellX + cellPadding, textY);
-      textY += lineHeight;
-    }
-    textY += 0.04; // Small gap after title
-
-    // Product description - max 3 lines with ellipsis
-    if (product.description) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(grayColor);
+      const product = products[productIndex];
       
-      const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-      const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, 3);
+      // Calculate cell position
+      let cellX = margin + (col * (cellWidth + gapX));
+      const cellY = y + (row * (cellHeight + gapY));
       
-      const descLineHeight = 0.13;
-      for (const line of descLines) {
-        doc.text(line, cellX + cellPadding, textY);
-        textY += descLineHeight;
+      // For 5 products, center the bottom 2
+      if (productCount === 5 && row === 1) {
+        const bottomCellCount = 2;
+        const totalBottomWidth = (bottomCellCount * cellWidth) + ((bottomCellCount - 1) * gapX);
+        const bottomStartX = margin + (contentWidth - totalBottomWidth) / 2;
+        const adjustedCol = col - 1; // Shift index (layout has null at position 0 of row 1)
+        if (adjustedCol >= 0) {
+          cellX = bottomStartX + (adjustedCol * (cellWidth + gapX));
+        }
       }
-    }
 
-    // ===== PRICE (bottom of cell) =====
-    if (product.priceLine) {
-      const priceY = cellY + cellHeight - cellPadding - 0.05;
-      doc.setFontSize(12);
+      // Cell background - clean white with subtle border
+      doc.setFillColor('#ffffff');
+      doc.setDrawColor(lightGrayColor);
+      doc.setLineWidth(0.008);
+      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.04, 0.04, 'FD');
+
+      // ===== IMAGE AREA (top portion) =====
+      const imgData = productImages[productIndex];
+      const imageAreaHeight = cellHeight * imageHeightRatio;
+      const imageY = cellY + cellPadding;
+      const imageWidth = cellWidth - (cellPadding * 2);
+      const imageHeight = imageAreaHeight - cellPadding;
+
+      if (imgData) {
+        try {
+          const format = getImageFormat(product.imageUrl || '');
+          doc.addImage(
+            imgData, 
+            format, 
+            cellX + cellPadding, 
+            imageY, 
+            imageWidth, 
+            imageHeight
+          );
+        } catch (e) {
+          console.log('Could not add product image:', e);
+        }
+      } else {
+        // Subtle "No Image" text
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor(mutedGray);
+        doc.text('No image provided', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
+      }
+
+      // ===== TEXT AREA =====
+      let textY = cellY + imageAreaHeight + 0.06;
+      const textMaxWidth = cellWidth - (cellPadding * 2);
+
+      // Product title - BOLD, wrap to 2 lines max with ellipsis
+      const titleFontSize = productCount <= 2 ? 12 : productCount <= 4 ? 11 : 10;
+      doc.setFontSize(titleFontSize);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(redColor);
+      doc.setTextColor(darkColor);
+      const title = cleanText(product.title || 'Product');
+      const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
       
-      let price = cleanText(product.priceLine);
-      // Add $ if not present and looks like a number
-      if (/^\d/.test(price) && !price.startsWith('$')) {
-        price = '$' + price;
+      const lineHeight = productCount <= 2 ? 0.17 : 0.15;
+      for (const line of titleLines) {
+        doc.text(line, cellX + cellPadding, textY);
+        textY += lineHeight;
       }
-      // Add "each" if just a price
-      if (/^\$[\d.]+$/.test(price)) {
-        price = price + ' each';
+      textY += 0.03;
+
+      // Product description - max 3 lines with ellipsis
+      if (product.description) {
+        const descFontSize = productCount <= 2 ? 9 : productCount <= 4 ? 8 : 7;
+        doc.setFontSize(descFontSize);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(grayColor);
+        
+        const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
+        const maxDescLines = productCount <= 2 ? 4 : 3;
+        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
+        
+        const descLineHeight = productCount <= 2 ? 0.13 : 0.11;
+        for (const line of descLines) {
+          doc.text(line, cellX + cellPadding, textY);
+          textY += descLineHeight;
+        }
       }
-      
-      doc.text(price, cellX + cellPadding, priceY);
+
+      // ===== PRICE (bottom of cell) =====
+      if (product.priceLine) {
+        const priceY = cellY + cellHeight - cellPadding - 0.03;
+        const priceFontSize = productCount <= 2 ? 13 : productCount <= 4 ? 12 : 11;
+        doc.setFontSize(priceFontSize);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(redColor);
+        
+        let price = cleanText(product.priceLine);
+        if (/^\d/.test(price) && !price.startsWith('$')) {
+          price = '$' + price;
+        }
+        if (/^\$[\d.]+$/.test(price)) {
+          price = price + ' each';
+        }
+        
+        doc.text(price, cellX + cellPadding, priceY);
+      }
     }
   }
 
