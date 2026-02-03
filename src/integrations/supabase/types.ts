@@ -208,36 +208,48 @@ export type Database = {
           category: string
           created_at: string
           default_lead_time_name: string | null
+          has_sizes: boolean
           id: string
           moq_custom: number
+          msrp: number | null
           name: string
+          parent_category: string | null
           product_master: string
           sku: string | null
           sport: string
+          type: string
           updated_at: string
         }
         Insert: {
           category?: string
           created_at?: string
           default_lead_time_name?: string | null
+          has_sizes?: boolean
           id?: string
           moq_custom?: number
+          msrp?: number | null
           name: string
+          parent_category?: string | null
           product_master: string
           sku?: string | null
           sport: string
+          type?: string
           updated_at?: string
         }
         Update: {
           category?: string
           created_at?: string
           default_lead_time_name?: string | null
+          has_sizes?: boolean
           id?: string
           moq_custom?: number
+          msrp?: number | null
           name?: string
+          parent_category?: string | null
           product_master?: string
           sku?: string | null
           sport?: string
+          type?: string
           updated_at?: string
         }
         Relationships: []
