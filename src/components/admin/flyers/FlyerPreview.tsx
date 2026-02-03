@@ -119,7 +119,7 @@ export function FlyerPreview({ open, onOpenChange, clientName, notesCta, product
             )}
             <div className="flex items-center justify-between text-xs text-gray-500">
               <span>www.toddssportinggoods.com</span>
-              <span>(507) 625-5643</span>
+              <span>(978) 927-1600</span>
             </div>
           </div>
         </div>

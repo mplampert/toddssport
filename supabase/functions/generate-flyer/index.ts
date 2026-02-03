@@ -404,7 +404,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(mutedColor);
   doc.text('www.toddssportinggoods.com', margin, footerY + 0.22);
-  doc.text('(507) 625-5643', pageWidth - margin, footerY + 0.22, { align: 'right' });
+  doc.text('(978) 927-1600', pageWidth - margin, footerY + 0.22, { align: 'right' });
 
   // Return PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
