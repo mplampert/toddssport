@@ -76,10 +76,12 @@ export default function UniformDetail() {
       if (!sportSlug) return;
 
       try {
+        // Only fetch sellable products (type="product"), not categories
         const { data: products, error: productError } = await supabase
           .from("champro_products")
           .select("*")
           .eq("sport", sportSlug)
+          .eq("type", "product")
           .limit(1);
 
         if (productError || !products || products.length === 0) {
