@@ -187,34 +187,45 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     0.08, 0.08, 'S'
   );
 
-  let y = margin + 0.15;
+  let y = margin + 0.2;
 
   // ===== HEADER =====
-  // Logo on left
+  // Logo on left - use the asset from the project
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', margin + 0.05, y, 1.3, 0.5);
+      doc.addImage(logoBase64, 'PNG', margin + 0.08, y, 1.4, 0.45);
     } catch (e) {
       console.log('Could not add logo:', e);
+      // Fallback: just show company name text
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(darkColor);
+      doc.text("Todd's Sporting Goods", margin + 0.08, y + 0.25);
     }
+  } else {
+    // No logo available - show company name text
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkColor);
+    doc.text("Todd's Sporting Goods", margin + 0.08, y + 0.25);
   }
 
   // Client name on right - LARGE and prominent
   if (data.clientName) {
-    doc.setFontSize(22);
+    doc.setFontSize(20);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
     const clientName = cleanText(data.clientName);
-    doc.text(clientName, pageWidth - margin - 0.05, y + 0.28, { align: 'right' });
+    doc.text(clientName, pageWidth - margin - 0.08, y + 0.22, { align: 'right' });
   }
 
   // Tagline
-  doc.setFontSize(8);
+  doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(redColor);
-  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin - 0.05, y + 0.48, { align: 'right' });
+  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin - 0.08, y + 0.38, { align: 'right' });
 
-  y += 0.7;
+  y += 0.6;
 
   // Header divider
   doc.setDrawColor(lightGrayColor);
@@ -250,11 +261,12 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   }
 
   // Fixed layout proportions - adjust based on grid size
+  // Reduce image height to prevent overlap with text
   const getImageHeightRatio = () => {
-    if (productCount === 1) return 0.55;
-    if (productCount <= 2) return 0.50;
-    if (productCount <= 4) return 0.45;
-    return 0.40;
+    if (productCount === 1) return 0.50;
+    if (productCount <= 2) return 0.45;
+    if (productCount <= 4) return 0.40;
+    return 0.35;
   };
   const imageHeightRatio = getImageHeightRatio();
 
@@ -277,7 +289,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const bottomCellCount = 2;
         const totalBottomWidth = (bottomCellCount * cellWidth) + ((bottomCellCount - 1) * gapX);
         const bottomStartX = margin + (contentWidth - totalBottomWidth) / 2;
-        const adjustedCol = col - 1; // Shift index (layout has null at position 0 of row 1)
+        const adjustedCol = col - 1; // Shift index (layout has -1 at position 0 of row 1)
         if (adjustedCol >= 0) {
           cellX = bottomStartX + (adjustedCol * (cellWidth + gapX));
         }
@@ -388,34 +400,49 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   }
 
   // ===== FOOTER =====
-  const footerY = pageHeight - margin - footerHeight + 0.08;
+  const footerY = pageHeight - margin - footerHeight + 0.05;
 
   // Footer divider
   doc.setDrawColor(lightGrayColor);
   doc.setLineWidth(0.01);
-  doc.line(margin, footerY - 0.08, pageWidth - margin, footerY - 0.08);
+  doc.line(margin, footerY - 0.05, pageWidth - margin, footerY - 0.05);
 
-  // CTA box (red banner) - more compact
+  // CTA box (red banner) - taller to fit multi-line content
   if (data.notesCta) {
-    doc.setFillColor(redColor);
-    doc.roundedRect(margin, footerY - 0.02, contentWidth, 0.32, 0.05, 0.05, 'F');
+    const ctaText = cleanText(data.notesCta);
+    // Check if text has multiple lines (contains newlines or is very long)
+    const ctaLines = ctaText.split('\n').filter(l => l.trim());
+    const bannerHeight = ctaLines.length > 1 ? 0.45 : 0.35;
     
-    doc.setFontSize(10);
+    doc.setFillColor(redColor);
+    doc.roundedRect(margin, footerY, contentWidth, bannerHeight, 0.05, 0.05, 'F');
+    
+    doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#ffffff');
-    doc.text(cleanText(data.notesCta), pageWidth / 2, footerY + 0.18, { align: 'center' });
+    
+    // Render each line centered
+    let ctaY = footerY + 0.15;
+    for (const line of ctaLines) {
+      doc.text(line.trim(), pageWidth / 2, ctaY, { align: 'center' });
+      ctaY += 0.14;
+    }
+    
+    // Footer info below banner
+    const infoY = footerY + bannerHeight + 0.12;
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(grayColor);
+    doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, infoY);
+    doc.text('toddssport.lovable.app', pageWidth - margin, infoY, { align: 'right' });
+  } else {
+    // No CTA - just footer info
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(grayColor);
+    doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, footerY + 0.1);
+    doc.text('toddssport.lovable.app', pageWidth - margin, footerY + 0.1, { align: 'right' });
   }
-
-  // Footer info - single clean line
-  const infoY = data.notesCta ? footerY + 0.45 : footerY + 0.1;
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(grayColor);
-  
-  // Left side: company info
-  doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, infoY);
-  // Right side: website
-  doc.text('toddssport.lovable.app', pageWidth - margin, infoY, { align: 'right' });
 
   // Return PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
