@@ -257,13 +257,9 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       }
     }
 
-    // Image height ratio based on product count
-    const getImageHeightRatio = () => {
-      if (productCount === 1) return 0.55;
-      if (productCount <= 2) return 0.50;
-      if (productCount <= 4) return 0.45;
-      return 0.42;
-    };
+    // Fixed layout: Image takes square area at top, text below
+    // Reserve fixed space for text block at bottom
+    const textBlockHeight = productCount <= 2 ? 1.0 : productCount <= 4 ? 0.9 : 0.8;
 
     // Render products in grid
     for (let row = 0; row < gridLayout.rows; row++) {
@@ -296,28 +292,28 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         doc.setLineWidth(0.01);
         doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
 
-        // ===== IMAGE AREA =====
-        const imageHeightRatio = getImageHeightRatio();
-        const imageAreaHeight = (cellHeight - cellPadding * 2) * imageHeightRatio;
+        // ===== IMAGE AREA - Fixed height, not squished =====
+        // Image gets all space except what's needed for text block at bottom
+        const imageAreaHeight = cellHeight - textBlockHeight - (cellPadding * 2);
         const imageY = cellY + cellPadding;
-        const imageWidth = cellWidth - (cellPadding * 2);
+        const availableImageWidth = cellWidth - (cellPadding * 2);
         const imageX = cellX + cellPadding;
 
         // Light gray background for image area
         doc.setFillColor('#f9fafb');
-        doc.roundedRect(imageX, imageY, imageWidth, imageAreaHeight, 0.04, 0.04, 'F');
+        doc.roundedRect(imageX, imageY, availableImageWidth, imageAreaHeight, 0.04, 0.04, 'F');
 
         const imgData = productImages[productIndex];
         if (imgData) {
           try {
             const format = getImageFormat(product.imageUrl || '');
-            // Center image within the container, maintaining aspect ratio
-            doc.addImage(imgData, format, imageX, imageY, imageWidth, imageAreaHeight);
+            // Fit image within container maintaining aspect ratio (contain-style)
+            doc.addImage(imgData, format, imageX, imageY, availableImageWidth, imageAreaHeight);
           } catch (e) {
             console.log('Could not add product image:', e);
-            doc.setFontSize(8);
+            doc.setFontSize(9);
             doc.setFont('helvetica', 'italic');
-            doc.setTextColor(mutedColor);
+            doc.setTextColor('#9ca3af');
             doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
           }
         } else {
@@ -328,28 +324,30 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
           doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
         }
 
-        // ===== TEXT CONTENT =====
-        let textY = cellY + cellPadding + imageAreaHeight + 0.12;
+        // ===== TEXT CONTENT - Below image area =====
+        // Text starts after image area with clear separation
+        const textStartY = cellY + cellPadding + imageAreaHeight + 0.15;
+        let textY = textStartY;
         const textMaxWidth = cellWidth - (cellPadding * 2);
 
         // Product title - bold, max 2 lines
-        const titleFontSize = productCount <= 2 ? 11 : productCount <= 4 ? 10 : 9;
+        const titleFontSize = productCount <= 2 ? 10 : productCount <= 4 ? 9 : 8;
         doc.setFontSize(titleFontSize);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(primaryColor);
         const title = cleanText(product.title || 'Product');
         const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
         
-        const lineHeight = productCount <= 2 ? 0.16 : 0.14;
+        const lineHeight = productCount <= 2 ? 0.15 : 0.13;
         for (const line of titleLines) {
           doc.text(line, cellX + cellPadding, textY);
           textY += lineHeight;
         }
-        textY += 0.04;
+        textY += 0.03;
 
         // Product description - max 2-3 lines
         if (product.description) {
-          const descFontSize = productCount <= 2 ? 8 : 7;
+          const descFontSize = productCount <= 2 ? 7 : 6;
           doc.setFontSize(descFontSize);
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(mutedColor);
@@ -358,7 +356,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
           const maxDescLines = productCount <= 2 ? 3 : 2;
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
           
-          const descLineHeight = productCount <= 2 ? 0.12 : 0.10;
+          const descLineHeight = productCount <= 2 ? 0.11 : 0.09;
           for (const line of descLines) {
             doc.text(line, cellX + cellPadding, textY);
             textY += descLineHeight;
