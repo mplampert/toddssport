@@ -265,17 +265,6 @@ export default function UniformDetail() {
                     height="850px"
                     onCheckout={handleDesignSaved}
                   />
-
-                  {/* Info message about the flow */}
-                  <div className="mt-8 max-w-2xl mx-auto">
-                    <div className="bg-card border border-border rounded-xl p-6 shadow-lg text-center">
-                      <p className="text-muted-foreground">
-                        Complete your design in the builder above, then click{" "}
-                        <span className="font-semibold text-foreground">"Process Design"</span> to save
-                        it and add to your cart.
-                      </p>
-                    </div>
-                  </div>
                 </>
               ) : (
                 <div className="bg-muted/50 rounded-lg p-8 text-center max-w-2xl mx-auto">
