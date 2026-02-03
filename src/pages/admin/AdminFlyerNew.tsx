@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye, Save } from "lucide-react";
@@ -17,6 +18,13 @@ interface ProductForFlyer {
   title: string;
   description: string;
   priceLine: string;
+}
+
+interface Rep {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
 }
 
 const emptyProduct: ProductForFlyer = {
@@ -43,6 +51,33 @@ export default function AdminFlyerNew() {
   const [clientName, setClientName] = useState("");
   const [notesCta, setNotesCta] = useState("");
   const [products, setProducts] = useState<ProductForFlyer[]>([{ ...emptyProduct }]);
+  const [selectedRepId, setSelectedRepId] = useState<string>("");
+  const [reps, setReps] = useState<Rep[]>([]);
+  const [repsLoading, setRepsLoading] = useState(true);
+
+  // Load reps on mount
+  useEffect(() => {
+    loadReps();
+  }, []);
+
+  const loadReps = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('reps')
+        .select('id, name, email, phone')
+        .eq('active', true)
+        .order('name');
+      
+      if (error) throw error;
+      setReps(data || []);
+    } catch (error) {
+      console.error('Error loading reps:', error);
+    } finally {
+      setRepsLoading(false);
+    }
+  };
+
+  const selectedRep = reps.find(r => r.id === selectedRepId);
 
   // Load flyer data when editing
   useEffect(() => {
@@ -65,6 +100,9 @@ export default function AdminFlyerNew() {
         setFlyerName(data.product_name || '');
         setClientName(data.client_name || '');
         setNotesCta(data.notes_cta || '');
+        // Type assertion needed since types.ts doesn't have rep_id yet
+        const flyerData = data as typeof data & { rep_id?: string };
+        setSelectedRepId(flyerData.rep_id || '');
         
         // Parse products from JSONB
         const loadedProducts = data.products as unknown as ProductForFlyer[] | null;
@@ -219,6 +257,7 @@ export default function AdminFlyerNew() {
         client_name: clientName || null,
         products: validProducts as unknown as null,  // Cast for Supabase JSONB
         notes_cta: notesCta || null,
+        rep_id: selectedRepId || null,
       };
 
       if (isEditMode && id) {
@@ -301,6 +340,7 @@ export default function AdminFlyerNew() {
           clientName: clientName || undefined,
           products: validProducts,
           notesCta: notesCta || undefined,
+          repId: selectedRepId || undefined,
         },
       });
 
@@ -378,7 +418,22 @@ export default function AdminFlyerNew() {
                   onChange={(e) => setClientName(e.target.value)}
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="space-y-2">
+                <Label htmlFor="salesRep">Sales Rep</Label>
+                <Select value={selectedRepId} onValueChange={setSelectedRepId}>
+                  <SelectTrigger id="salesRep">
+                    <SelectValue placeholder="Select a sales rep (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {reps.map((rep) => (
+                      <SelectItem key={rep.id} value={rep.id}>
+                        {rep.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="notesCta">Footer CTA / Notes</Label>
                 <Textarea
                   id="notesCta"
@@ -589,6 +644,7 @@ export default function AdminFlyerNew() {
           clientName={clientName}
           notesCta={notesCta}
           products={products}
+          rep={selectedRep}
         />
       </div>
     </AdminLayout>
