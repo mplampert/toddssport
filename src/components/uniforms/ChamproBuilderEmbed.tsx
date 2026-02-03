@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 // Champro Custom Builder category mappings
 const CHAMPRO_CATEGORIES: Record<string, { id: number; name: string }> = {
@@ -22,6 +24,8 @@ interface ChamproBuilderEmbedProps {
     champroSessionId: string;
     sportSlug: string;
   }) => void;
+  /** If true, automatically POST to /api/champro/order when design is saved */
+  autoSubmitOrder?: boolean;
 }
 
 export function ChamproBuilderEmbed({
@@ -29,9 +33,11 @@ export function ChamproBuilderEmbed({
   embedKey,
   height = "800px",
   onCheckout,
+  autoSubmitOrder = false,
 }: ChamproBuilderEmbedProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const category = CHAMPRO_CATEGORIES[sportSlug];
 
@@ -43,6 +49,44 @@ export function ChamproBuilderEmbed({
     }
     // Fallback to all categories
     return `${baseUrl}?lic=${embedKey}`;
+  };
+
+  /**
+   * Submit the design to Champro Order API via our backend
+   */
+  const submitToChampro = async (champroSessionId: string) => {
+    setIsSubmitting(true);
+    try {
+      console.log("Submitting design to Champro API:", { champroSessionId, sportSlug });
+      
+      const { data, error } = await supabase.functions.invoke("champro-order", {
+        body: {
+          champroSessionId,
+          sportSlug,
+        },
+      });
+
+      if (error) {
+        console.error("Champro order error:", error);
+        toast.error("Failed to submit order to Champro. Please contact us with your session ID.");
+        return;
+      }
+
+      if (data?.success) {
+        console.log("Champro order submitted successfully:", data);
+        toast.success("Design submitted to Champro!", {
+          description: `Order PO: ${data.orderPO}`,
+        });
+      } else {
+        console.error("Champro order failed:", data);
+        toast.error(data?.error || "Order submission failed. Please contact us.");
+      }
+    } catch (err) {
+      console.error("Error submitting to Champro:", err);
+      toast.error("Unable to submit order. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Listen for messages from the Custom Builder iframe
@@ -57,11 +101,17 @@ export function ChamproBuilderEmbed({
           setSessionId(message);
           console.log("Design saved with Session ID:", message);
 
+          // Call the onCheckout callback if provided
           if (onCheckout) {
             onCheckout({
               champroSessionId: message,
               sportSlug,
             });
+          }
+
+          // Auto-submit to Champro API if enabled
+          if (autoSubmitOrder) {
+            submitToChampro(message);
           }
         }
       }
@@ -69,7 +119,7 @@ export function ChamproBuilderEmbed({
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onCheckout, sportSlug]);
+  }, [onCheckout, sportSlug, autoSubmitOrder]);
 
   if (!embedKey) {
     return (
@@ -97,7 +147,15 @@ export function ChamproBuilderEmbed({
         />
       </div>
 
-      {sessionId && (
+      {isSubmitting && (
+        <div className="mt-4 p-4 bg-accent/10 rounded-lg border border-accent/20 animate-pulse">
+          <p className="text-sm text-accent font-medium">
+            Submitting your design to Champro...
+          </p>
+        </div>
+      )}
+
+      {sessionId && !isSubmitting && (
         <div className="mt-4 p-4 bg-accent/10 rounded-lg border border-accent/20">
           <p className="text-sm text-muted-foreground">
             Your design has been saved.{" "}
