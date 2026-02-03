@@ -61,6 +61,10 @@ interface NormalizedProduct {
   category: string;
   moq_custom: number;
   default_lead_time_name: string | null;
+  type: "category" | "product";
+  msrp: number | null;
+  has_sizes: boolean;
+  parent_category: string | null;
 }
 
 /**
@@ -105,9 +109,13 @@ async function fetchCategoryProducts(
       return await fetchFromCustomBuilder(categorySlug, categoryInfo);
     }
 
-    // Parse ProductSKUs if available
+    // Parse ProductSKUs if available - these are actual sellable products
     if (data.ProductSKUs && Array.isArray(data.ProductSKUs)) {
       for (const sku of data.ProductSKUs) {
+        const hasSku = !!(sku.SKU && sku.SKU.trim());
+        const hasPrice = !!(sku.MSRP || sku.Price || sku.Cost);
+        const hasSizes = !!(sku.Sizes && sku.Sizes.length > 0);
+        
         products.push({
           product_master: sku.ProductMaster || sku.SKU?.split("-")[0] || categorySlug,
           sku: sku.SKU || null,
@@ -116,6 +124,11 @@ async function fetchCategoryProducts(
           category: categoryInfo.category,
           moq_custom: sku.MOQCustom || sku.MinQty || 1,
           default_lead_time_name: sku.LeadTime || "JUICE Standard",
+          // Classify as product only if it has SKU, price, and sizes
+          type: (hasSku && hasPrice && hasSizes) ? "product" : "category",
+          msrp: sku.MSRP || sku.Price || null,
+          has_sizes: hasSizes,
+          parent_category: categorySlug,
         });
       }
     }
@@ -123,6 +136,10 @@ async function fetchCategoryProducts(
     // Parse Products array if available (alternate response format)
     if (data.Products && Array.isArray(data.Products)) {
       for (const product of data.Products) {
+        const hasSku = !!(product.SKU && product.SKU.trim());
+        const hasPrice = !!(product.MSRP || product.Price || product.Cost);
+        const hasSizes = !!(product.Sizes && product.Sizes.length > 0);
+        
         products.push({
           product_master: product.ProductMaster || product.StyleNumber || categorySlug,
           sku: product.SKU || null,
@@ -131,6 +148,10 @@ async function fetchCategoryProducts(
           category: categoryInfo.category,
           moq_custom: product.MOQCustom || product.MinimumQuantity || 1,
           default_lead_time_name: product.LeadTimeName || "JUICE Standard",
+          type: (hasSku && hasPrice && hasSizes) ? "product" : "category",
+          msrp: product.MSRP || product.Price || null,
+          has_sizes: hasSizes,
+          parent_category: categorySlug,
         });
       }
     }
@@ -177,7 +198,7 @@ async function fetchFromCustomBuilder(
     if (!response.ok) {
       console.log(`[${categorySlug}] Custom Builder API returned ${response.status}`);
       
-      // Create a placeholder product for this category so we at least track it
+      // Create a placeholder CATEGORY entry for this (not a sellable product)
       products.push({
         product_master: `CHAMPRO-${categorySlug.toUpperCase()}`,
         sku: null,
@@ -186,6 +207,10 @@ async function fetchFromCustomBuilder(
         category: categoryInfo.category,
         moq_custom: 12, // Default MOQ for custom products
         default_lead_time_name: "JUICE Standard",
+        type: "category", // This is a category, not a sellable product
+        msrp: null,
+        has_sizes: false,
+        parent_category: null,
       });
       
       return { products, status: "partial", error: `CB API returned ${response.status}` };
@@ -197,6 +222,10 @@ async function fetchFromCustomBuilder(
     // Try to extract product/style information from CB response
     if (data.Styles && Array.isArray(data.Styles)) {
       for (const style of data.Styles) {
+        const hasSku = !!(style.SKU && style.SKU.trim());
+        const hasPrice = !!(style.MSRP || style.Price);
+        const hasSizes = !!(style.Sizes && style.Sizes.length > 0);
+        
         products.push({
           product_master: style.StyleNumber || style.Code || `${categorySlug}-style`,
           sku: style.SKU || null,
@@ -205,12 +234,20 @@ async function fetchFromCustomBuilder(
           category: categoryInfo.category,
           moq_custom: style.MinQty || 12,
           default_lead_time_name: style.LeadTime || "JUICE Standard",
+          type: (hasSku && hasPrice && hasSizes) ? "product" : "category",
+          msrp: style.MSRP || style.Price || null,
+          has_sizes: hasSizes,
+          parent_category: categorySlug,
         });
       }
     }
 
     if (data.Products && Array.isArray(data.Products)) {
       for (const product of data.Products) {
+        const hasSku = !!(product.SKU && product.SKU.trim());
+        const hasPrice = !!(product.MSRP || product.Price);
+        const hasSizes = !!(product.Sizes && product.Sizes.length > 0);
+        
         products.push({
           product_master: product.Code || product.ProductMaster || `${categorySlug}-product`,
           sku: product.SKU || null,
@@ -219,11 +256,15 @@ async function fetchFromCustomBuilder(
           category: categoryInfo.category,
           moq_custom: product.MinQty || 12,
           default_lead_time_name: "JUICE Standard",
+          type: (hasSku && hasPrice && hasSizes) ? "product" : "category",
+          msrp: product.MSRP || product.Price || null,
+          has_sizes: hasSizes,
+          parent_category: categorySlug,
         });
       }
     }
 
-    // If still no products, create placeholder
+    // If still no products, create placeholder category
     if (products.length === 0) {
       products.push({
         product_master: `CHAMPRO-${categorySlug.toUpperCase()}`,
@@ -233,8 +274,12 @@ async function fetchFromCustomBuilder(
         category: categoryInfo.category,
         moq_custom: 12,
         default_lead_time_name: "JUICE Standard",
+        type: "category",
+        msrp: null,
+        has_sizes: false,
+        parent_category: null,
       });
-      return { products, status: "partial", error: "No products found in CB response, created placeholder" };
+      return { products, status: "partial", error: "No products found in CB response, created placeholder category" };
     }
 
     return { products, status: "success" };
@@ -242,7 +287,7 @@ async function fetchFromCustomBuilder(
     const errorMsg = error instanceof Error ? error.message : "Unknown error";
     console.error(`[${categorySlug}] Custom Builder fallback error: ${errorMsg}`);
     
-    // Create placeholder even on error
+    // Create placeholder category even on error
     products.push({
       product_master: `CHAMPRO-${categorySlug.toUpperCase()}`,
       sku: null,
@@ -251,6 +296,10 @@ async function fetchFromCustomBuilder(
       category: categoryInfo.category,
       moq_custom: 12,
       default_lead_time_name: "JUICE Standard",
+      type: "category",
+      msrp: null,
+      has_sizes: false,
+      parent_category: null,
     });
     
     return { products, status: "error", error: errorMsg };
@@ -349,6 +398,10 @@ Deno.serve(async (req) => {
               category: p.category,
               moq_custom: p.moq_custom,
               default_lead_time_name: p.default_lead_time_name,
+              type: p.type,
+              msrp: p.msrp,
+              has_sizes: p.has_sizes,
+              parent_category: p.parent_category,
             })),
             { onConflict: "product_master", ignoreDuplicates: false }
           )

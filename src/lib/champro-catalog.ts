@@ -88,6 +88,7 @@ export async function syncChamproCatalog(category?: ChamproCategorySlug): Promis
 export async function getChamproProducts(filters?: {
   sport?: string;
   category?: string;
+  type?: "category" | "product";
 }) {
   let query = supabase
     .from("champro_products")
@@ -102,11 +103,79 @@ export async function getChamproProducts(filters?: {
   if (filters?.category) {
     query = query.eq("category", filters.category);
   }
+  if (filters?.type) {
+    query = query.eq("type", filters.type);
+  }
 
   const { data, error } = await query;
 
   if (error) {
     console.error("Error fetching Champro products:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+/**
+ * Get only sellable products (type="product" with SKU, price, and sizes)
+ * Use this for flyer product picker, order builder, and Stripe line items
+ */
+export async function getSellableProducts(filters?: {
+  sport?: string;
+  category?: string;
+  parentCategory?: string;
+}) {
+  let query = supabase
+    .from("champro_products")
+    .select("*")
+    .eq("type", "product")
+    .not("sku", "is", null)
+    .order("sport")
+    .order("category")
+    .order("name");
+
+  if (filters?.sport) {
+    query = query.eq("sport", filters.sport);
+  }
+  if (filters?.category) {
+    query = query.eq("category", filters.category);
+  }
+  if (filters?.parentCategory) {
+    query = query.eq("parent_category", filters.parentCategory);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching sellable products:", error);
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+/**
+ * Get only categories (type="category") for navigation/filtering
+ */
+export async function getChamproCategories(filters?: {
+  sport?: string;
+}) {
+  let query = supabase
+    .from("champro_products")
+    .select("*")
+    .eq("type", "category")
+    .order("sport")
+    .order("name");
+
+  if (filters?.sport) {
+    query = query.eq("sport", filters.sport);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching Champro categories:", error);
     throw new Error(error.message);
   }
 
