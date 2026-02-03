@@ -102,14 +102,16 @@ export default function AdminFlyers() {
     }
   };
 
-  const handlePrint = (url: string) => {
-    // Open HTML in new window for printing
-    const printWindow = window.open(url, '_blank');
-    if (printWindow) {
-      printWindow.addEventListener('load', () => {
-        printWindow.print();
+  const handleViewPdf = (url: string | null) => {
+    if (!url) {
+      toast({
+        title: "PDF not available",
+        description: "This flyer doesn't have a PDF file. Please regenerate it.",
+        variant: "destructive",
       });
+      return;
     }
+    window.open(url, '_blank');
   };
 
   return (
@@ -186,15 +188,15 @@ export default function AdminFlyers() {
                         </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {flyer.pdf_url && (
+                          {flyer.pdf_url ? (
                             <>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handlePrint(flyer.pdf_url!)}
+                                onClick={() => handleViewPdf(flyer.pdf_url)}
                               >
                                 <Download className="mr-1 h-3 w-3" />
-                                View/Print
+                                View PDF
                               </Button>
                               <Button
                                 variant="ghost"
@@ -206,6 +208,8 @@ export default function AdminFlyers() {
                                 </a>
                               </Button>
                             </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">No PDF</span>
                           )}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>

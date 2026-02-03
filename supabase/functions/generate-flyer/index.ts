@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { jsPDF } from "https://esm.sh/jspdf@2.5.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -20,190 +21,223 @@ interface FlyerData {
   notesCta?: string;
 }
 
-function generateProductCell(product: ProductForFlyer): string {
-  return `
-    <div class="product-cell">
-      ${product.imageUrl ? `
-        <div class="product-image-container">
-          <img src="${product.imageUrl}" alt="${product.title}" class="product-image" />
-        </div>
-      ` : `
-        <div class="product-image-container product-image-placeholder">
-          <span>No Image</span>
-        </div>
-      `}
-      <h3 class="product-title">${product.title}</h3>
-      ${product.description ? `<p class="product-description">${product.description}</p>` : ''}
-      ${product.priceLine ? `<p class="product-price">${product.priceLine}</p>` : ''}
-    </div>
-  `;
+// Helper to fetch image and convert to base64 data URL
+async function fetchImageAsBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    
+    const contentType = response.headers.get('content-type') || 'image/png';
+    const buffer = await response.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    return `data:${contentType};base64,${base64}`;
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    return null;
+  }
 }
 
-function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
-  const productCount = data.products.length;
-  const gridClass = productCount <= 2 ? 'grid-2' : productCount <= 4 ? 'grid-4' : 'grid-6';
-  
-  const productsHtml = data.products.map(p => generateProductCell(p)).join('');
+// Helper to get image format from URL or content type
+function getImageFormat(url: string): 'PNG' | 'JPEG' {
+  const lowerUrl = url.toLowerCase();
+  if (lowerUrl.includes('.jpg') || lowerUrl.includes('.jpeg') || lowerUrl.includes('jpeg')) {
+    return 'JPEG';
+  }
+  return 'PNG';
+}
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      width: 8.5in;
-      height: 11in;
-      padding: 0.4in;
-      background: white;
+// Generate PDF using jsPDF
+async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Promise<Uint8Array> {
+  // Create PDF - Letter size (8.5 x 11 inches)
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'in',
+    format: 'letter',
+  });
+
+  const pageWidth = 8.5;
+  const pageHeight = 11;
+  const margin = 0.5;
+  const contentWidth = pageWidth - (margin * 2);
+
+  // Colors
+  const redColor = '#dc2626';
+  const darkColor = '#111827';
+  const grayColor = '#6b7280';
+  const lightGrayColor = '#e5e7eb';
+
+  // ===== HEADER =====
+  let y = margin;
+
+  // Draw border around page
+  doc.setDrawColor(redColor);
+  doc.setLineWidth(0.03);
+  doc.roundedRect(margin - 0.1, margin - 0.1, contentWidth + 0.2, pageHeight - margin * 2 + 0.2, 0.1, 0.1, 'S');
+
+  // Logo on left
+  if (logoBase64) {
+    try {
+      doc.addImage(logoBase64, 'PNG', margin + 0.1, y, 1.2, 0.5);
+    } catch (e) {
+      console.log('Could not add logo:', e);
     }
-    .flyer {
-      width: 100%;
-      height: 100%;
-      border: 3px solid #dc2626;
-      border-radius: 12px;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
+  }
+
+  // Header text on right
+  const headerX = pageWidth - margin - 0.1;
+  
+  if (data.clientName) {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkColor);
+    doc.text(data.clientName, headerX, y + 0.2, { align: 'right' });
+    y += 0.25;
+  }
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(redColor);
+  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', headerX, y + 0.25, { align: 'right' });
+
+  y += 0.6;
+
+  // Header divider
+  doc.setDrawColor(lightGrayColor);
+  doc.setLineWidth(0.02);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 0.2;
+
+  // ===== PRODUCTS GRID =====
+  const productCount = data.products.length;
+  const cols = 2;
+  const rows = Math.ceil(productCount / cols);
+  
+  // Calculate available height for products
+  const footerHeight = 0.9;
+  const availableHeight = pageHeight - y - margin - footerHeight;
+  
+  const cellWidth = (contentWidth - 0.2) / cols;
+  const cellHeight = Math.min(availableHeight / rows, 2.8);
+  const cellPadding = 0.1;
+  const imageHeight = cellHeight * 0.45;
+
+  // Pre-fetch all product images
+  const productImages: (string | null)[] = [];
+  for (const product of data.products) {
+    if (product.imageUrl) {
+      const imgData = await fetchImageAsBase64(product.imageUrl);
+      productImages.push(imgData);
+    } else {
+      productImages.push(null);
     }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 2px solid #e5e7eb;
-      margin-bottom: 16px;
-    }
-    .logo {
-      height: 40px;
-    }
-    .header-text {
-      text-align: right;
-    }
-    .client-name {
-      font-size: 16px;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 2px;
-    }
-    .tagline {
-      color: #dc2626;
-      font-weight: 600;
-      font-size: 11px;
-    }
-    .products-grid {
-      flex: 1;
-      display: grid;
-      gap: 16px;
-      align-content: start;
-    }
-    .grid-2 {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .grid-4 {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .grid-6 {
-      grid-template-columns: repeat(2, 1fr);
-    }
-    .product-cell {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      background: #fafafa;
-    }
-    .product-image-container {
-      width: 100%;
-      height: ${productCount <= 2 ? '180px' : productCount <= 4 ? '120px' : '90px'};
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 10px;
-      background: white;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .product-image {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-    .product-image-placeholder {
-      border: 1px dashed #d1d5db;
-      color: #9ca3af;
-      font-size: 12px;
-    }
-    .product-title {
-      font-size: ${productCount <= 2 ? '16px' : '14px'};
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 4px;
-    }
-    .product-description {
-      font-size: ${productCount <= 2 ? '12px' : '11px'};
-      color: #6b7280;
-      margin-bottom: 8px;
-      line-height: 1.4;
-    }
-    .product-price {
-      font-size: ${productCount <= 2 ? '14px' : '12px'};
-      font-weight: 700;
-      color: #dc2626;
-      margin-top: auto;
-    }
-    .footer {
-      margin-top: 16px;
-      padding-top: 12px;
-      border-top: 2px solid #e5e7eb;
-    }
-    .cta {
-      background: #dc2626;
-      color: white;
-      padding: 12px;
-      border-radius: 8px;
-      text-align: center;
-      font-weight: 700;
-      font-size: 14px;
-      margin-bottom: 10px;
-    }
-    .footer-info {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 11px;
-      color: #6b7280;
-    }
-  </style>
-</head>
-<body>
-  <div class="flyer">
-    <div class="header">
-      <img src="${logoUrl}" alt="Todd's Logo" class="logo" />
-      <div class="header-text">
-        ${data.clientName ? `<div class="client-name">${data.clientName}</div>` : ''}
-        <div class="tagline">CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS</div>
-      </div>
-    </div>
+  }
+
+  for (let i = 0; i < data.products.length; i++) {
+    const product = data.products[i];
+    const col = i % cols;
+    const row = Math.floor(i / cols);
     
-    <div class="products-grid ${gridClass}">
-      ${productsHtml}
-    </div>
+    const cellX = margin + (col * (cellWidth + 0.1));
+    const cellY = y + (row * (cellHeight + 0.1));
+
+    // Cell background
+    doc.setFillColor('#fafafa');
+    doc.setDrawColor(lightGrayColor);
+    doc.setLineWidth(0.01);
+    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.08, 0.08, 'FD');
+
+    let textY = cellY + cellPadding;
+
+    // Product image
+    const imgData = productImages[i];
+    if (imgData) {
+      try {
+        const imgX = cellX + cellPadding;
+        const imgWidth = cellWidth - (cellPadding * 2);
+        
+        // White background for image area
+        doc.setFillColor('#ffffff');
+        doc.roundedRect(imgX, textY, imgWidth, imageHeight, 0.05, 0.05, 'F');
+        
+        // Add image centered in container
+        const format = getImageFormat(product.imageUrl || '');
+        doc.addImage(imgData, format, imgX + 0.1, textY + 0.05, imgWidth - 0.2, imageHeight - 0.1);
+      } catch (e) {
+        console.log('Could not add product image:', e);
+      }
+    } else {
+      // Placeholder
+      doc.setFillColor('#ffffff');
+      doc.setDrawColor('#d1d5db');
+      doc.setLineWidth(0.01);
+      doc.setLineDashPattern([0.05, 0.05], 0);
+      doc.roundedRect(cellX + cellPadding, textY, cellWidth - (cellPadding * 2), imageHeight, 0.05, 0.05, 'FD');
+      doc.setLineDashPattern([], 0);
+      
+      doc.setFontSize(8);
+      doc.setTextColor('#9ca3af');
+      doc.text('No Image', cellX + cellWidth / 2, textY + imageHeight / 2 + 0.05, { align: 'center' });
+    }
+
+    textY += imageHeight + 0.15;
+
+    // Product title
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(darkColor);
+    const titleLines = doc.splitTextToSize(product.title, cellWidth - (cellPadding * 2));
+    doc.text(titleLines.slice(0, 2), cellX + cellPadding, textY);
+    textY += titleLines.slice(0, 2).length * 0.16;
+
+    // Product description
+    if (product.description) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(grayColor);
+      const descLines = doc.splitTextToSize(product.description, cellWidth - (cellPadding * 2));
+      doc.text(descLines.slice(0, 2), cellX + cellPadding, textY + 0.08);
+      textY += descLines.slice(0, 2).length * 0.14;
+    }
+
+    // Price line
+    if (product.priceLine) {
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(redColor);
+      doc.text(product.priceLine, cellX + cellPadding, cellY + cellHeight - cellPadding - 0.05);
+    }
+  }
+
+  // ===== FOOTER =====
+  const footerY = pageHeight - margin - footerHeight;
+
+  // Footer divider
+  doc.setDrawColor(lightGrayColor);
+  doc.setLineWidth(0.02);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  // CTA box
+  if (data.notesCta) {
+    doc.setFillColor(redColor);
+    doc.roundedRect(margin, footerY + 0.1, contentWidth, 0.4, 0.08, 0.08, 'F');
     
-    <div class="footer">
-      ${data.notesCta ? `<div class="cta">${data.notesCta}</div>` : ''}
-      <div class="footer-info">
-        <div><strong>Todd's</strong> — Your Partner in Team & Promotional Apparel</div>
-        <div>toddssport.lovable.app | Contact Your Rep Today</div>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor('#ffffff');
+    doc.text(data.notesCta, pageWidth / 2, footerY + 0.35, { align: 'center' });
+  }
+
+  // Footer info
+  const infoY = data.notesCta ? footerY + 0.65 : footerY + 0.25;
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(grayColor);
+  doc.text("Todd's — Your Partner in Team & Promotional Apparel", margin, infoY);
+  doc.text('toddssport.lovable.app | Contact Your Rep Today', pageWidth - margin, infoY, { align: 'right' });
+
+  // Return PDF as Uint8Array
+  const pdfOutput = doc.output('arraybuffer');
+  return new Uint8Array(pdfOutput);
 }
 
 serve(async (req) => {
@@ -252,7 +286,7 @@ serve(async (req) => {
     }
 
     const body: FlyerData = await req.json();
-    console.log('Generating flyer with', body.products?.length || 0, 'products');
+    console.log('Generating PDF flyer with', body.products?.length || 0, 'products');
 
     if (!body.products || body.products.length === 0) {
       return new Response(JSON.stringify({ error: 'At least one product is required' }), {
@@ -261,36 +295,37 @@ serve(async (req) => {
       });
     }
 
-    // Generate HTML
+    // Fetch logo
     const logoUrl = 'https://ookvohtvmjcgrfahigyr.supabase.co/storage/v1/object/public/brand-logos/todds-logo.png';
-    const html = generateFlyerHTML(body, logoUrl);
+    const logoBase64 = await fetchImageAsBase64(logoUrl);
 
+    // Generate PDF
+    const pdfBytes = await generateFlyerPDF(body, logoBase64);
+    console.log('PDF generated, size:', pdfBytes.length, 'bytes');
+
+    // Upload PDF to storage
     const flyerId = crypto.randomUUID();
-    const htmlFileName = `${flyerId}.html`;
-    
-    // Store HTML file
-    const htmlBlob = new Blob([html], { type: 'text/html' });
-    const htmlArrayBuffer = await htmlBlob.arrayBuffer();
-    const htmlUint8Array = new Uint8Array(htmlArrayBuffer);
+    const pdfFileName = `${flyerId}.pdf`;
     
     const { error: uploadError } = await supabaseClient.storage
       .from('flyers')
-      .upload(htmlFileName, htmlUint8Array, {
-        contentType: 'text/html',
+      .upload(pdfFileName, pdfBytes, {
+        contentType: 'application/pdf',
         upsert: true,
       });
 
     if (uploadError) {
       console.error('Upload error:', uploadError);
-      throw new Error(`Failed to upload HTML: ${uploadError.message}`);
+      throw new Error(`Failed to upload PDF: ${uploadError.message}`);
     }
 
     // Get public URL
     const { data: urlData } = supabaseClient.storage
       .from('flyers')
-      .getPublicUrl(htmlFileName);
+      .getPublicUrl(pdfFileName);
 
-    const htmlUrl = urlData.publicUrl;
+    const pdfUrl = urlData.publicUrl;
+    console.log('PDF uploaded to:', pdfUrl);
 
     // Insert flyer record
     const { data: flyer, error: insertError } = await supabaseClient
@@ -300,7 +335,7 @@ serve(async (req) => {
         client_name: body.clientName || null,
         products: body.products,
         notes_cta: body.notesCta || null,
-        pdf_url: htmlUrl,
+        pdf_url: pdfUrl,
       })
       .select()
       .single();
@@ -316,7 +351,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         flyer,
-        downloadUrl: htmlUrl,
+        downloadUrl: pdfUrl,
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
