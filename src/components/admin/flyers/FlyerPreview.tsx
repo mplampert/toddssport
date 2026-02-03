@@ -125,7 +125,7 @@ export function FlyerPreview({ open, onOpenChange, clientName, clientInfo, notes
                   {product.title || 'Product Title'}
                 </h3>
                 {product.description && (
-                  <p className="text-xs text-gray-600 mb-2 line-clamp-2">
+                  <p className={`text-gray-600 mb-2 ${validProducts.length === 1 ? 'text-sm line-clamp-[10]' : validProducts.length === 2 ? 'text-xs line-clamp-5' : 'text-xs line-clamp-2'}`}>
                     {product.description}
                   </p>
                 )}

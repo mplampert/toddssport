@@ -324,7 +324,8 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
 
     // Fixed layout: Image takes square area at top, text below
     // Reserve fixed space for text block at bottom
-    const textBlockHeight = productCount <= 2 ? 1.0 : productCount <= 4 ? 0.9 : 0.8;
+    // For 1 product, we have lots of space so allow much more text
+    const textBlockHeight = productCount === 1 ? 2.0 : productCount === 2 ? 1.2 : productCount <= 4 ? 0.9 : 0.8;
 
     // Render products in grid
     for (let row = 0; row < gridLayout.rows; row++) {
@@ -432,18 +433,19 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         }
         textY += 0.03;
 
-        // Product description - max 2-3 lines
+        // Product description - allow more lines for fewer products
         if (product.description) {
-          const descFontSize = productCount <= 2 ? 7 : 6;
+          const descFontSize = productCount === 1 ? 9 : productCount === 2 ? 8 : 6;
           doc.setFontSize(descFontSize);
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(mutedColor);
           
           const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-          const maxDescLines = productCount <= 2 ? 3 : 2;
+          // For 1 product, allow up to 10 lines; for 2 products, 5 lines
+          const maxDescLines = productCount === 1 ? 10 : productCount === 2 ? 5 : 2;
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
           
-          const descLineHeight = productCount <= 2 ? 0.11 : 0.09;
+          const descLineHeight = productCount === 1 ? 0.14 : productCount === 2 ? 0.12 : 0.09;
           for (const line of descLines) {
             doc.text(line, cellX + cellPadding, textY);
             textY += descLineHeight;
