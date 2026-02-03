@@ -391,6 +391,48 @@ export type Database = {
         }
         Relationships: []
       }
+      flyers: {
+        Row: {
+          bullet_points: string[] | null
+          created_at: string
+          fundraising_line: string | null
+          id: string
+          image_url: string | null
+          notes_cta: string | null
+          pdf_url: string | null
+          price_line: string | null
+          product_name: string
+          subtitle: string | null
+          updated_at: string
+        }
+        Insert: {
+          bullet_points?: string[] | null
+          created_at?: string
+          fundraising_line?: string | null
+          id?: string
+          image_url?: string | null
+          notes_cta?: string | null
+          pdf_url?: string | null
+          price_line?: string | null
+          product_name: string
+          subtitle?: string | null
+          updated_at?: string
+        }
+        Update: {
+          bullet_points?: string[] | null
+          created_at?: string
+          fundraising_line?: string | null
+          id?: string
+          image_url?: string | null
+          notes_cta?: string | null
+          pdf_url?: string | null
+          price_line?: string | null
+          product_name?: string
+          subtitle?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       promo_leads: {
         Row: {
           company_name: string

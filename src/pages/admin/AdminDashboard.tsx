@@ -7,7 +7,8 @@ import {
   Users, 
   TrendingUp,
   ShoppingCart,
-  ArrowRight
+  ArrowRight,
+  FileText,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,14 @@ const adminSections = [
     path: "/admin/champro-pricing",
     color: "text-amber-500",
     bgColor: "bg-amber-500/10",
+  },
+  {
+    title: "Sales Flyers",
+    description: "Create and manage product sales flyers",
+    icon: FileText,
+    path: "/admin/flyers",
+    color: "text-purple-500",
+    bgColor: "bg-purple-500/10",
   },
 ];
 

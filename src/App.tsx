@@ -28,6 +28,8 @@ import AdminChamproOrders from "./pages/admin/AdminChamproOrders";
 import AdminChamproPricing from "./pages/admin/AdminChamproPricing";
 import AdminReps from "./pages/admin/AdminReps";
 import AdminUniforms from "./pages/admin/AdminUniforms";
+import AdminFlyers from "./pages/admin/AdminFlyers";
+import AdminFlyerNew from "./pages/admin/AdminFlyerNew";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +66,8 @@ const App = () => (
           <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
           <Route path="/admin/reps" element={<AdminReps />} />
           <Route path="/admin/uniforms" element={<AdminUniforms />} />
+          <Route path="/admin/flyers" element={<AdminFlyers />} />
+          <Route path="/admin/flyers/new" element={<AdminFlyerNew />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

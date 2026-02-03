@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.champro-cart-item]
 verify_jwt = false
+
+[functions.generate-flyer]
+verify_jwt = false
