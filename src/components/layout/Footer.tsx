@@ -21,7 +21,9 @@ export function Footer() {
             {/* Social Icons */}
             <div className="flex gap-3">
               <a 
-                href="#" 
+                href="https://www.facebook.com/Toddsscreenprintingandembroidery" 
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-primary-foreground/10 flex items-center justify-center hover:bg-accent transition-colors"
                 aria-label="Facebook"
               >
