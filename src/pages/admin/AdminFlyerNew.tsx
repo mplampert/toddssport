@@ -49,6 +49,13 @@ export default function AdminFlyerNew() {
   
   const [flyerName, setFlyerName] = useState("");
   const [clientName, setClientName] = useState("");
+  const [clientContactName, setClientContactName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [clientAddress, setClientAddress] = useState("");
+  const [clientCity, setClientCity] = useState("");
+  const [clientState, setClientState] = useState("");
+  const [clientZip, setClientZip] = useState("");
   const [notesCta, setNotesCta] = useState("");
   const [products, setProducts] = useState<ProductForFlyer[]>([{ ...emptyProduct }]);
   const [selectedRepId, setSelectedRepId] = useState<string>("");
@@ -100,10 +107,25 @@ export default function AdminFlyerNew() {
         setFlyerName(data.product_name || '');
         setClientName(data.client_name || '');
         setNotesCta(data.notes_cta || '');
-        // Type assertion needed since types.ts doesn't have rep_id yet
-        const flyerData = data as typeof data & { rep_id?: string };
+        // Type assertion needed since types.ts doesn't have new columns yet
+        const flyerData = data as typeof data & { 
+          rep_id?: string;
+          client_contact_name?: string;
+          client_email?: string;
+          client_phone?: string;
+          client_address?: string;
+          client_city?: string;
+          client_state?: string;
+          client_zip?: string;
+        };
         setSelectedRepId(flyerData.rep_id || '');
-        
+        setClientContactName(flyerData.client_contact_name || '');
+        setClientEmail(flyerData.client_email || '');
+        setClientPhone(flyerData.client_phone || '');
+        setClientAddress(flyerData.client_address || '');
+        setClientCity(flyerData.client_city || '');
+        setClientState(flyerData.client_state || '');
+        setClientZip(flyerData.client_zip || '');
         // Parse products from JSONB
         const loadedProducts = data.products as unknown as ProductForFlyer[] | null;
         if (loadedProducts && Array.isArray(loadedProducts) && loadedProducts.length > 0) {
@@ -255,6 +277,13 @@ export default function AdminFlyerNew() {
       const flyerData = {
         product_name: flyerName || `Flyer - ${validProducts.length} products`,
         client_name: clientName || null,
+        client_contact_name: clientContactName || null,
+        client_email: clientEmail || null,
+        client_phone: clientPhone || null,
+        client_address: clientAddress || null,
+        client_city: clientCity || null,
+        client_state: clientState || null,
+        client_zip: clientZip || null,
         products: validProducts as unknown as null,  // Cast for Supabase JSONB
         notes_cta: notesCta || null,
         rep_id: selectedRepId || null,
@@ -338,6 +367,13 @@ export default function AdminFlyerNew() {
           flyerId: isEditMode ? id : undefined,
           flyerName: flyerName || `Flyer - ${validProducts.length} products`,
           clientName: clientName || undefined,
+          clientContactName: clientContactName || undefined,
+          clientEmail: clientEmail || undefined,
+          clientPhone: clientPhone || undefined,
+          clientAddress: clientAddress || undefined,
+          clientCity: clientCity || undefined,
+          clientState: clientState || undefined,
+          clientZip: clientZip || undefined,
           products: validProducts,
           notesCta: notesCta || undefined,
           repId: selectedRepId || undefined,
@@ -417,6 +453,72 @@ export default function AdminFlyerNew() {
                   value={clientName}
                   onChange={(e) => setClientName(e.target.value)}
                 />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientContactName">Contact Person</Label>
+                <Input
+                  id="clientContactName"
+                  placeholder="e.g., John Smith"
+                  value={clientContactName}
+                  onChange={(e) => setClientContactName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientEmail">Client Email</Label>
+                <Input
+                  id="clientEmail"
+                  type="email"
+                  placeholder="e.g., coach@school.edu"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientPhone">Client Phone</Label>
+                <Input
+                  id="clientPhone"
+                  placeholder="e.g., (555) 123-4567"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="clientAddress">Street Address</Label>
+                <Input
+                  id="clientAddress"
+                  placeholder="e.g., 123 Main Street"
+                  value={clientAddress}
+                  onChange={(e) => setClientAddress(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientCity">City</Label>
+                <Input
+                  id="clientCity"
+                  placeholder="e.g., Boston"
+                  value={clientCity}
+                  onChange={(e) => setClientCity(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="clientState">State</Label>
+                  <Input
+                    id="clientState"
+                    placeholder="e.g., MA"
+                    value={clientState}
+                    onChange={(e) => setClientState(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientZip">ZIP Code</Label>
+                  <Input
+                    id="clientZip"
+                    placeholder="e.g., 02101"
+                    value={clientZip}
+                    onChange={(e) => setClientZip(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="salesRep">Sales Rep</Label>
@@ -642,6 +744,15 @@ export default function AdminFlyerNew() {
           open={showPreview}
           onOpenChange={setShowPreview}
           clientName={clientName}
+          clientInfo={{
+            contactName: clientContactName,
+            email: clientEmail,
+            phone: clientPhone,
+            address: clientAddress,
+            city: clientCity,
+            state: clientState,
+            zip: clientZip,
+          }}
           notesCta={notesCta}
           products={products}
           rep={selectedRep}

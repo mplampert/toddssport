@@ -394,7 +394,14 @@ export type Database = {
       flyers: {
         Row: {
           bullet_points: string[] | null
+          client_address: string | null
+          client_city: string | null
+          client_contact_name: string | null
+          client_email: string | null
           client_name: string | null
+          client_phone: string | null
+          client_state: string | null
+          client_zip: string | null
           created_at: string
           fundraising_line: string | null
           id: string
@@ -410,7 +417,14 @@ export type Database = {
         }
         Insert: {
           bullet_points?: string[] | null
+          client_address?: string | null
+          client_city?: string | null
+          client_contact_name?: string | null
+          client_email?: string | null
           client_name?: string | null
+          client_phone?: string | null
+          client_state?: string | null
+          client_zip?: string | null
           created_at?: string
           fundraising_line?: string | null
           id?: string
@@ -426,7 +440,14 @@ export type Database = {
         }
         Update: {
           bullet_points?: string[] | null
+          client_address?: string | null
+          client_city?: string | null
+          client_contact_name?: string | null
+          client_email?: string | null
           client_name?: string | null
+          client_phone?: string | null
+          client_state?: string | null
+          client_zip?: string | null
           created_at?: string
           fundraising_line?: string | null
           id?: string

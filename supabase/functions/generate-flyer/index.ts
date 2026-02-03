@@ -20,14 +20,32 @@ interface RepInfo {
   phone: string | null;
 }
 
+interface ClientInfo {
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
 interface FlyerData {
   flyerId?: string;  // If provided, update existing flyer
   flyerName?: string;
   clientName?: string;
+  clientContactName?: string;
+  clientEmail?: string;
+  clientPhone?: string;
+  clientAddress?: string;
+  clientCity?: string;
+  clientState?: string;
+  clientZip?: string;
   products: ProductForFlyer[];
   notesCta?: string;
   repId?: string;
   rep?: RepInfo;  // Populated from repId lookup
+  clientInfo?: ClientInfo;  // Populated from individual fields
 }
 
 // Helper to convert Uint8Array to base64 without stack overflow
@@ -187,8 +205,9 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
 
   // ===== HEADER - Matching preview layout =====
   // Left: Todd's logo
-  // Right: "Prepared for" + Client name
-  const headerHeight = 0.6;
+  // Right: "Prepared for" + Client name + Client info
+  const hasClientInfo = data.clientInfo && (data.clientInfo.contactName || data.clientInfo.email || data.clientInfo.phone || data.clientInfo.address);
+  const headerHeight = hasClientInfo ? 0.9 : 0.6;
   
   if (logoBase64) {
     try {
@@ -207,20 +226,58 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     doc.text("Todd's Sporting Goods", margin, y + 0.3);
   }
 
-  // Client name on right with "Prepared for" label
-  if (data.clientName) {
+  // Client name and info on right with "Prepared for" label
+  if (data.clientName || hasClientInfo) {
+    let clientY = y + 0.15;
+    
     // "Prepared for" label
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(mutedColor);
-    doc.text('Prepared for', pageWidth - margin, y + 0.15, { align: 'right' });
+    doc.text('Prepared for', pageWidth - margin, clientY, { align: 'right' });
+    clientY += 0.18;
     
-    // Client name - larger and bold
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(primaryColor);
-    const clientName = cleanText(data.clientName);
-    doc.text(clientName, pageWidth - margin, y + 0.38, { align: 'right' });
+    // Client/Team name - larger and bold
+    if (data.clientName) {
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor);
+      const clientName = cleanText(data.clientName);
+      doc.text(clientName, pageWidth - margin, clientY, { align: 'right' });
+      clientY += 0.18;
+    }
+    
+    // Client contact details
+    if (data.clientInfo) {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(mutedColor);
+      
+      if (data.clientInfo.contactName) {
+        doc.text(cleanText(data.clientInfo.contactName), pageWidth - margin, clientY, { align: 'right' });
+        clientY += 0.12;
+      }
+      if (data.clientInfo.email) {
+        doc.text(cleanText(data.clientInfo.email), pageWidth - margin, clientY, { align: 'right' });
+        clientY += 0.12;
+      }
+      if (data.clientInfo.phone) {
+        doc.text(cleanText(data.clientInfo.phone), pageWidth - margin, clientY, { align: 'right' });
+        clientY += 0.12;
+      }
+      if (data.clientInfo.address) {
+        doc.text(cleanText(data.clientInfo.address), pageWidth - margin, clientY, { align: 'right' });
+        clientY += 0.12;
+      }
+      // City, State ZIP
+      const cityStateZip = [
+        data.clientInfo.city,
+        data.clientInfo.state ? `${data.clientInfo.state}${data.clientInfo.zip ? ' ' + data.clientInfo.zip : ''}` : data.clientInfo.zip
+      ].filter(Boolean).join(', ');
+      if (cityStateZip) {
+        doc.text(cleanText(cityStateZip), pageWidth - margin, clientY, { align: 'right' });
+      }
+    }
   }
 
   y += headerHeight;
@@ -537,6 +594,17 @@ serve(async (req) => {
       });
     }
 
+    // Populate client info from individual fields
+    body.clientInfo = {
+      contactName: body.clientContactName,
+      email: body.clientEmail,
+      phone: body.clientPhone,
+      address: body.clientAddress,
+      city: body.clientCity,
+      state: body.clientState,
+      zip: body.clientZip,
+    };
+
     // Fetch rep info if repId provided
     if (body.repId) {
       const { data: repData } = await supabaseClient
@@ -596,6 +664,13 @@ serve(async (req) => {
         .update({
           product_name: body.flyerName || `Flyer - ${body.products.length} products`,
           client_name: body.clientName || null,
+          client_contact_name: body.clientContactName || null,
+          client_email: body.clientEmail || null,
+          client_phone: body.clientPhone || null,
+          client_address: body.clientAddress || null,
+          client_city: body.clientCity || null,
+          client_state: body.clientState || null,
+          client_zip: body.clientZip || null,
           products: body.products,
           notes_cta: body.notesCta || null,
           rep_id: body.repId || null,
@@ -620,6 +695,13 @@ serve(async (req) => {
           id: flyerId,
           product_name: body.flyerName || `Flyer - ${body.products.length} products`,
           client_name: body.clientName || null,
+          client_contact_name: body.clientContactName || null,
+          client_email: body.clientEmail || null,
+          client_phone: body.clientPhone || null,
+          client_address: body.clientAddress || null,
+          client_city: body.clientCity || null,
+          client_state: body.clientState || null,
+          client_zip: body.clientZip || null,
           products: body.products,
           notes_cta: body.notesCta || null,
           rep_id: body.repId || null,
