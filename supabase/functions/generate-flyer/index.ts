@@ -375,33 +375,45 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         doc.text('No Image', cellX + cellWidth / 2, imageY + imageSize / 2, { align: 'center' });
       }
 
-      // ===== TEXT CONTENT - STRICTLY within cell boundaries =====
+      // ===== TEXT CONTENT - ABSOLUTELY bounded within cell =====
       const textStartY = imageY + imageSize + 0.12;
       let textY = textStartY;
       const textMaxWidth = cellWidth - (cellPadding * 2);
       const textX = cellX + cellPadding;
       
-      // ABSOLUTE boundary - price goes at bottom of cell, nothing beyond
-      const priceHeight = 0.2;
-      const priceY = cellY + actualCellHeight - cellPadding - 0.05;
-      const absoluteMaxY = priceY - priceHeight; // Hard stop for all text
+      // ABSOLUTE boundaries - nothing can go beyond these
+      const cellBottomY = cellY + actualCellHeight;
+      const priceHeight = 0.18;
+      const priceY = cellBottomY - cellPadding - 0.05;
+      const absoluteMaxY = priceY - priceHeight; // Hard ceiling for title + description
+      
+      console.log(`Cell ${i}: cellY=${cellY.toFixed(2)}, cellHeight=${actualCellHeight.toFixed(2)}, cellBottomY=${cellBottomY.toFixed(2)}, absoluteMaxY=${absoluteMaxY.toFixed(2)}`);
 
       // Product title - bold, max 2 lines
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(primaryColor);
       const title = cleanText(product.title || 'Product');
-      const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
       const titleLineHeight = 0.13;
       
-      for (const line of titleLines) {
-        if (textY + titleLineHeight > absoluteMaxY) break;
-        doc.text(line, textX, textY);
-        textY += titleLineHeight;
+      // Calculate how many title lines we can fit
+      const titleSpace = absoluteMaxY - textY;
+      const maxTitleLines = Math.min(2, Math.floor(titleSpace / titleLineHeight));
+      
+      if (maxTitleLines > 0) {
+        const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, maxTitleLines);
+        for (const line of titleLines) {
+          if (textY + titleLineHeight > absoluteMaxY) {
+            console.log(`Title overflow prevented at textY=${textY.toFixed(2)}`);
+            break;
+          }
+          doc.text(line, textX, textY);
+          textY += titleLineHeight;
+        }
       }
       textY += 0.03;
 
-      // Product description - STRICTLY bounded
+      // Product description - STRICTLY bounded, truncate with ellipsis
       if (product.description && textY < absoluteMaxY) {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
@@ -410,16 +422,22 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
         const descLineHeight = 0.1;
         
-        // Calculate EXACT number of lines that fit
-        const spaceForDesc = absoluteMaxY - textY;
-        const maxFittingLines = Math.floor(spaceForDesc / descLineHeight);
+        // Calculate EXACT number of lines that can fit
+        const remainingSpace = absoluteMaxY - textY;
+        const maxFittingLines = Math.floor(remainingSpace / descLineHeight);
+        
+        console.log(`Description: remainingSpace=${remainingSpace.toFixed(2)}, maxFittingLines=${maxFittingLines}`);
         
         if (maxFittingLines > 0) {
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxFittingLines);
           
-          for (const line of descLines) {
-            if (textY + descLineHeight > absoluteMaxY) break;
-            doc.text(line, textX, textY);
+          for (let j = 0; j < descLines.length; j++) {
+            // Double-check we won't overflow
+            if (textY + descLineHeight > absoluteMaxY) {
+              console.log(`Description line ${j} overflow prevented at textY=${textY.toFixed(2)}`);
+              break;
+            }
+            doc.text(descLines[j], textX, textY);
             textY += descLineHeight;
           }
         }
