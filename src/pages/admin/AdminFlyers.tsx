@@ -49,6 +49,7 @@ export default function AdminFlyers() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const fetchFlyers = async () => {
     try {
@@ -139,6 +140,77 @@ export default function AdminFlyers() {
   const isPdfUrl = (url: string | null): boolean => {
     if (!url) return false;
     return url.toLowerCase().includes('.pdf');
+  };
+
+  const handleDownload = async (flyer: Flyer) => {
+    setDownloadingId(flyer.id);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        toast({
+          title: "Not authenticated",
+          description: "Please log in to download flyers.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const response = await supabase.functions.invoke('download-flyer', {
+        body: null,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Use fetch directly to get the binary response with proper headers
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const fetchResponse = await fetch(`${supabaseUrl}/functions/v1/download-flyer?id=${flyer.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionData.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!fetchResponse.ok) {
+        const errorData = await fetchResponse.json().catch(() => ({ error: 'Download failed' }));
+        throw new Error(errorData.error || 'Download failed');
+      }
+
+      // Get the blob and trigger download
+      const blob = await fetchResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Get filename from Content-Disposition header or use default
+      const contentDisposition = fetchResponse.headers.get('Content-Disposition');
+      let filename = `todds-flyer-${flyer.id}.pdf`;
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match) filename = match[1];
+      }
+      
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Download started",
+        description: "Your flyer PDF is downloading.",
+      });
+    } catch (error: any) {
+      console.error('Error downloading flyer:', error);
+      toast({
+        title: "Download failed",
+        description: error.message || "Could not download the flyer. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   return (
@@ -256,15 +328,15 @@ export default function AdminFlyers() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                asChild
+                                onClick={() => handleDownload(flyer)}
+                                disabled={downloadingId === flyer.id}
                               >
-                                <a 
-                                  href={flyer.pdf_url} 
-                                  download={`todds-flyer-${flyer.id}.pdf`}
-                                >
+                                {downloadingId === flyer.id ? (
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                ) : (
                                   <Download className="mr-1 h-3 w-3" />
-                                  Download
-                                </a>
+                                )}
+                                Download
                               </Button>
                             </>
                           ) : (
