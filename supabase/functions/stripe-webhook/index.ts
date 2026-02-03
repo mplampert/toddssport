@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
 
@@ -9,6 +8,11 @@ const corsHeaders = {
 };
 
 const CHAMPRO_BASE_URL = "https://api.champrosports.com";
+
+const logStep = (step: string, details?: unknown) => {
+  const detailsStr = details ? ` - ${JSON.stringify(details)}` : '';
+  console.log(`[STRIPE-WEBHOOK] ${step}${detailsStr}`);
+};
 
 function mapLeadTimeToChampro(leadTime: string): string {
   switch (leadTime) {
@@ -33,7 +37,87 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   return { firstName, lastName };
 }
 
-serve(async (req) => {
+// Call Champro API through the Fixie proxy for static IP
+async function callChamproViaProxy(
+  endpoint: string,
+  method: string,
+  body?: unknown
+): Promise<Response> {
+  const fixieProxyUrl = Deno.env.get("FIXIE_PROXY_URL");
+  const targetUrl = `${CHAMPRO_BASE_URL}${endpoint}`;
+
+  logStep("Calling Champro API", { endpoint, method, hasProxy: !!fixieProxyUrl });
+
+  if (fixieProxyUrl) {
+    // Parse proxy URL to get auth credentials
+    // Format: http://user:pass@host:port
+    const proxyUrlObj = new URL(fixieProxyUrl);
+    const proxyAuth = `${proxyUrlObj.username}:${proxyUrlObj.password}`;
+    const proxyHost = proxyUrlObj.hostname;
+    const proxyPort = proxyUrlObj.port || "80";
+
+    // Use Deno's native proxy support via CONNECT
+    // For HTTPS targets through HTTP proxy, we use the Proxy-Authorization header
+    const proxyAuthHeader = btoa(proxyAuth);
+
+    const response = await fetch(targetUrl, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        "Proxy-Authorization": `Basic ${proxyAuthHeader}`,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    return response;
+  } else {
+    // Direct call (for testing or if proxy not configured)
+    logStep("WARNING: No proxy configured, making direct API call");
+    const response = await fetch(targetUrl, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return response;
+  }
+}
+
+// Send failure notification via the notify-order-failure edge function
+async function notifyOrderFailure(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  payload: {
+    orderId: string;
+    po: string;
+    customerEmail?: string;
+    errorMessage: string;
+    champroResponse?: unknown;
+    stripeSessionId?: string;
+  }
+): Promise<void> {
+  try {
+    logStep("Sending failure notification", { orderId: payload.orderId });
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/notify-order-failure`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      logStep("Failure notification sent successfully");
+    } else {
+      logStep("Failed to send notification", { status: response.status });
+    }
+  } catch (error) {
+    logStep("Error sending notification", { error: String(error) });
+  }
+}
+
+Deno.serve(async (req: Request) => {
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -75,7 +159,7 @@ serve(async (req) => {
       event = JSON.parse(body);
     }
 
-    console.log("Received Stripe webhook event:", event.type);
+    logStep("Received event", { type: event.type });
 
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -90,7 +174,7 @@ serve(async (req) => {
       const teamName = session.metadata?.team_name;
       const customerName = session.metadata?.customer_name;
 
-      console.log("Checkout completed:", {
+      logStep("Checkout completed", {
         orderId,
         champroSessionId,
         sportSlug,
@@ -134,12 +218,37 @@ serve(async (req) => {
         };
       }
 
-      console.log("Shipping details:", shipTo);
+      logStep("Shipping details", shipTo);
 
       // Update order in Supabase
       if (supabaseUrl && supabaseServiceKey && orderId) {
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
         
+        // First, check if order was already sent to Champro (idempotency check)
+        const { data: existingOrder, error: fetchError } = await supabase
+          .from("champro_orders")
+          .select("id, sent_to_champro, po")
+          .eq("id", orderId)
+          .single();
+
+        if (fetchError) {
+          logStep("Error fetching order", { error: fetchError.message });
+          return new Response(JSON.stringify({ received: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        if (existingOrder?.sent_to_champro) {
+          logStep("Order already sent to Champro, skipping", { orderId });
+          return new Response(JSON.stringify({ received: true }), {
+            status: 200,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const po = existingOrder?.po || `WEB-${orderId}`;
+
         // Update order status to paid
         const { data: order, error: updateError } = await supabase
           .from("champro_orders")
@@ -165,20 +274,20 @@ serve(async (req) => {
           .single();
 
         if (updateError) {
-          console.error("Error updating order:", updateError);
+          logStep("Error updating order to paid", { error: updateError.message });
         } else {
-          console.log("Order updated to paid:", order.id);
+          logStep("Order updated to paid", { orderId: order.id });
         }
 
         // Call Champro PlaceOrder API if configured
         if (champroApiKey && champroSessionId) {
-          console.log("Calling Champro PlaceOrder API...");
+          logStep("Calling Champro PlaceOrder API via proxy...");
 
           const champroPayload = {
             APICustomerKey: champroApiKey,
             Orders: [
               {
-                PO: order?.po || `WEB-${orderId}`,
+                PO: po,
                 OrderType: "CUSTOM",
                 SessionId: champroSessionId,
                 ShipToLastName: shipTo.lastName,
@@ -199,56 +308,96 @@ serve(async (req) => {
             ],
           };
 
-          console.log("Champro PlaceOrder payload:", JSON.stringify(champroPayload, null, 2));
+          logStep("Champro PlaceOrder payload", champroPayload);
 
           try {
-            const champroRes = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(champroPayload),
-            });
+            const champroRes = await callChamproViaProxy(
+              "/api/Order/PlaceOrder",
+              "POST",
+              champroPayload
+            );
 
             const champroData = await champroRes.json();
-            console.log("Champro PlaceOrder response:", JSON.stringify(champroData, null, 2));
+            logStep("Champro PlaceOrder response", champroData);
 
-            // Update order with Champro response
-            if (champroData.OK === "True" || champroData.OK === true) {
+            // Check for success - Champro returns OK: "True" or orders with OrderNumber
+            const isSuccess = 
+              champroData.OK === "True" || 
+              champroData.OK === true ||
+              (champroData.Orders && champroData.Orders.length > 0 && champroData.Orders[0].OrderNumber);
+
+            if (isSuccess) {
+              // Extract order number from response
+              const champroOrderNumber = champroData.Orders?.[0]?.OrderNumber || 
+                                         champroData.Orders?.[0]?.SalesID ||
+                                         null;
+
               await supabase
                 .from("champro_orders")
                 .update({
                   status: "submitted_to_champro",
                   response_payload: champroData,
-                  sub_order_ids: champroData.Orders?.map((o: { OrderNumber: string }) => o.OrderNumber) || [],
+                  sent_to_champro: true,
+                  champro_order_number: champroOrderNumber,
+                  sub_order_ids: champroData.Orders?.map((o: { OrderNumber?: string; SalesID?: string }) => 
+                    o.OrderNumber || o.SalesID
+                  ).filter(Boolean) || [],
                 })
                 .eq("id", orderId);
 
-              console.log("Order submitted to Champro successfully");
+              logStep("Order submitted to Champro successfully", { champroOrderNumber });
             } else {
+              // Champro API call failed - update status and notify
+              const errorMessage = champroData.RequestErrors?.[0]?.Response ||
+                                   champroData.Orders?.[0]?.OrderErrors?.[0]?.Response ||
+                                   champroData.error ||
+                                   "Unknown Champro API error";
+
               await supabase
                 .from("champro_orders")
                 .update({
                   status: "paid_error_champro",
                   response_payload: champroData,
+                  sent_to_champro: false,
                 })
                 .eq("id", orderId);
 
-              console.error("Champro PlaceOrder failed:", champroData);
+              logStep("Champro PlaceOrder failed", { errorMessage, champroData });
+
+              // Send notification
+              await notifyOrderFailure(supabaseUrl, supabaseServiceKey, {
+                orderId,
+                po,
+                customerEmail: session.customer_email || undefined,
+                errorMessage,
+                champroResponse: champroData,
+                stripeSessionId: session.id,
+              });
             }
           } catch (champroError) {
-            console.error("Error calling Champro API:", champroError);
+            const errorMessage = champroError instanceof Error ? champroError.message : String(champroError);
+            logStep("Error calling Champro API", { error: errorMessage });
             
             await supabase
               .from("champro_orders")
               .update({
                 status: "paid_error_champro",
-                response_payload: { error: String(champroError) },
+                response_payload: { error: errorMessage },
+                sent_to_champro: false,
               })
               .eq("id", orderId);
+
+            // Send notification
+            await notifyOrderFailure(supabaseUrl, supabaseServiceKey, {
+              orderId,
+              po,
+              customerEmail: session.customer_email || undefined,
+              errorMessage,
+              stripeSessionId: session.id,
+            });
           }
         } else {
-          console.log("Champro API not configured or no session ID - order ready for manual processing");
+          logStep("Champro API not configured or no session ID - order ready for manual processing");
         }
       }
     }
