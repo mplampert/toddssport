@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -8,13 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, ArrowLeft } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function AdminFlyerNew() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [formData, setFormData] = useState({
     clientName: "",
@@ -34,6 +36,90 @@ export default function AdminFlyerNew() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file (JPG, PNG, etc.)",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 5MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({
+          title: "Not authenticated",
+          description: "Please log in to upload images.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Generate unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+
+      // Upload to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('flyer-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('flyer-images')
+        .getPublicUrl(fileName);
+
+      setFormData(prev => ({ ...prev, imageUrl: urlData.publicUrl }));
+
+      toast({
+        title: "Image uploaded",
+        description: "Product image uploaded successfully.",
+      });
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Upload failed",
+        description: error.message || "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setFormData(prev => ({ ...prev, imageUrl: "" }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -165,16 +251,74 @@ export default function AdminFlyerNew() {
                   />
                 </div>
 
+                {/* Product Image Upload */}
                 <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Product Image URL</Label>
-                  <Input
-                    id="imageUrl"
-                    name="imageUrl"
-                    type="url"
-                    placeholder="https://example.com/product-image.jpg"
-                    value={formData.imageUrl}
-                    onChange={handleChange}
-                  />
+                  <Label>Product Image</Label>
+                  <div className="flex items-start gap-4">
+                    {formData.imageUrl ? (
+                      <div className="relative">
+                        <img 
+                          src={formData.imageUrl} 
+                          alt="Product preview" 
+                          className="w-24 h-24 object-cover rounded-md border"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6"
+                          onClick={handleRemoveImage}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-24 h-24 rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center bg-muted/50">
+                        <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                      </div>
+                    )}
+                    <div className="flex-1 space-y-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        className="hidden"
+                        id="productImage"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploading}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Image
+                          </>
+                        )}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Or paste a URL below
+                      </p>
+                      <Input
+                        id="imageUrl"
+                        name="imageUrl"
+                        type="url"
+                        placeholder="https://example.com/product-image.jpg"
+                        value={formData.imageUrl}
+                        onChange={handleChange}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -258,7 +402,7 @@ export default function AdminFlyerNew() {
             <Button type="button" variant="outline" asChild>
               <Link to="/admin/flyers">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={isGenerating}>
+            <Button type="submit" disabled={isGenerating || isUploading}>
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
