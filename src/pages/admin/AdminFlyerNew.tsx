@@ -8,8 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2 } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye } from "lucide-react";
 import { Link } from "react-router-dom";
+import { FlyerPreview } from "@/components/admin/flyers/FlyerPreview";
 
 interface ProductForFlyer {
   imageUrl: string;
@@ -30,6 +31,7 @@ export default function AdminFlyerNew() {
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const [flyerName, setFlyerName] = useState("");
@@ -397,6 +399,14 @@ export default function AdminFlyerNew() {
             <Button type="button" variant="outline" asChild>
               <Link to="/admin/flyers">Cancel</Link>
             </Button>
+            <Button 
+              type="button" 
+              variant="secondary" 
+              onClick={() => setShowPreview(true)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Preview
+            </Button>
             <Button type="submit" disabled={isGenerating || uploadingIndex !== null}>
               {isGenerating ? (
                 <>
@@ -412,6 +422,14 @@ export default function AdminFlyerNew() {
             </Button>
           </div>
         </form>
+        
+        <FlyerPreview
+          open={showPreview}
+          onOpenChange={setShowPreview}
+          clientName={clientName}
+          notesCta={notesCta}
+          products={products}
+        />
       </div>
     </AdminLayout>
   );
