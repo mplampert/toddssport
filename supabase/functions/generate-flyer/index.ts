@@ -150,7 +150,7 @@ function getGridLayout(productCount: number): { cols: number; rows: number; layo
   }
 }
 
-// Generate PDF using jsPDF
+// Generate PDF using jsPDF - Matching the React preview layout exactly
 async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Promise<Uint8Array> {
   // Create PDF - Letter size (8.5 x 11 inches)
   const doc = new jsPDF({
@@ -161,288 +161,252 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
 
   const pageWidth = 8.5;
   const pageHeight = 11;
-  const margin = 0.5;
+  const margin = 0.4; // Consistent page margins
   const contentWidth = pageWidth - (margin * 2);
 
-  // Colors
-  const redColor = '#dc2626';
-  const darkColor = '#1f2937';
-  const grayColor = '#6b7280';
-  const lightGrayColor = '#e5e7eb';
-  const mutedGray = '#9ca3af';
+  // Colors - matching the preview design system (no red border)
+  const primaryColor = '#1a1a2e';  // Dark navy/black for text
+  const mutedColor = '#6b7280';    // Gray for secondary text
+  const borderColor = '#e5e7eb';   // Light gray for borders
+  const accentColor = '#0ea5e9';   // Sky blue accent for prices
+  const bgColor = '#ffffff';
 
   // ===== WHITE BACKGROUND =====
-  doc.setFillColor('#ffffff');
+  doc.setFillColor(bgColor);
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  // ===== RED BORDER =====
-  const borderPadding = 0.12;
-  doc.setDrawColor(redColor);
-  doc.setLineWidth(0.035);
-  doc.roundedRect(
-    margin - borderPadding, 
-    margin - borderPadding, 
-    contentWidth + (borderPadding * 2), 
-    pageHeight - (margin * 2) + (borderPadding * 2), 
-    0.08, 0.08, 'S'
-  );
+  let y = margin;
 
-  let y = margin + 0.2;
-
-  // ===== HEADER =====
-  // Logo on left - use the asset from the project
+  // ===== HEADER - Matching preview layout =====
+  // Left: Todd's logo
+  // Right: "Prepared for" + Client name
+  const headerHeight = 0.6;
+  
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', margin + 0.08, y, 1.4, 0.45);
+      doc.addImage(logoBase64, 'PNG', margin, y + 0.05, 1.3, 0.45);
     } catch (e) {
       console.log('Could not add logo:', e);
-      // Fallback: just show company name text
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(darkColor);
-      doc.text("Todd's Sporting Goods", margin + 0.08, y + 0.25);
+      doc.setTextColor(primaryColor);
+      doc.text("Todd's Sporting Goods", margin, y + 0.3);
     }
   } else {
-    // No logo available - show company name text
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(darkColor);
-    doc.text("Todd's Sporting Goods", margin + 0.08, y + 0.25);
+    doc.setTextColor(primaryColor);
+    doc.text("Todd's Sporting Goods", margin, y + 0.3);
   }
 
-  // Client name on right - LARGE and prominent
+  // Client name on right with "Prepared for" label
   if (data.clientName) {
-    doc.setFontSize(20);
+    // "Prepared for" label
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(mutedColor);
+    doc.text('Prepared for', pageWidth - margin, y + 0.15, { align: 'right' });
+    
+    // Client name - larger and bold
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(darkColor);
+    doc.setTextColor(primaryColor);
     const clientName = cleanText(data.clientName);
-    doc.text(clientName, pageWidth - margin - 0.08, y + 0.22, { align: 'right' });
+    doc.text(clientName, pageWidth - margin, y + 0.38, { align: 'right' });
   }
 
-  // Tagline
-  doc.setFontSize(7);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(redColor);
-  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin - 0.08, y + 0.38, { align: 'right' });
+  y += headerHeight;
 
-  y += 0.6;
-
-  // Header divider
-  doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.01);
+  // Header divider line
+  doc.setDrawColor(borderColor);
+  doc.setLineWidth(0.015);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 0.2; // More space after header
+  y += 0.25;
 
-  // ===== PRODUCTS GRID =====
-  const products = data.products.slice(0, 6); // Max 6 products
+  // ===== PRODUCTS GRID - Matching preview =====
+  const products = data.products.filter(p => p.title?.trim()).slice(0, 6);
   const productCount = products.length;
-  const gridLayout = getGridLayout(productCount);
   
-  // Calculate cell dimensions with better spacing
-  const footerHeight = 0.7;
-  const gridTopMargin = 0.08; // Space between header divider and grid
-  const availableHeight = pageHeight - y - margin - footerHeight - gridTopMargin;
-  const gapX = 0.15; // ~11pt gap between columns
-  const gapY = 0.15; // ~11pt gap between rows
-  
-  const cellWidth = (contentWidth - (gapX * (gridLayout.cols - 1))) / gridLayout.cols;
-  const cellHeight = (availableHeight - (gapY * (gridLayout.rows - 1))) / gridLayout.rows;
-  const cellPadding = 0.12; // ~9pt padding inside each tile
+  if (productCount === 0) {
+    // No products - show placeholder message
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(mutedColor);
+    doc.text('Add products to generate flyer', pageWidth / 2, y + 1, { align: 'center' });
+  } else {
+    const gridLayout = getGridLayout(productCount);
+    
+    // Calculate grid dimensions with proper spacing
+    const footerHeight = 0.55;
+    const availableHeight = pageHeight - y - margin - footerHeight;
+    const gapX = 0.2;  // Gap between columns
+    const gapY = 0.2;  // Gap between rows
+    
+    const cellWidth = (contentWidth - (gapX * (gridLayout.cols - 1))) / gridLayout.cols;
+    const cellHeight = (availableHeight - (gapY * (gridLayout.rows - 1))) / gridLayout.rows;
+    const cellPadding = 0.15;
 
-  // Pre-fetch all product images
-  const productImages: (string | null)[] = [];
-  for (const product of products) {
-    if (product.imageUrl && product.imageUrl.trim()) {
-      const imgData = await fetchImageAsBase64(product.imageUrl);
-      productImages.push(imgData);
-    } else {
-      productImages.push(null);
-    }
-  }
-
-  // Fixed layout proportions - adjust based on grid size
-  // Reduce image height to prevent overlap with text
-  const getImageHeightRatio = () => {
-    if (productCount === 1) return 0.50;
-    if (productCount <= 2) return 0.45;
-    if (productCount <= 4) return 0.40;
-    return 0.35;
-  };
-  const imageHeightRatio = getImageHeightRatio();
-
-  // Render products based on layout
-  for (let row = 0; row < gridLayout.rows; row++) {
-    for (let col = 0; col < gridLayout.cols; col++) {
-      const productIndex = gridLayout.layout[row][col];
-      if (productIndex === -1 || productIndex >= products.length) {
-        continue; // Skip empty cells (for centered layouts like 5 products)
-      }
-
-      const product = products[productIndex];
-      
-      // Calculate cell position
-      let cellX = margin + (col * (cellWidth + gapX));
-      const cellY = y + (row * (cellHeight + gapY));
-      
-      // For 5 products, center the bottom 2
-      if (productCount === 5 && row === 1) {
-        const bottomCellCount = 2;
-        const totalBottomWidth = (bottomCellCount * cellWidth) + ((bottomCellCount - 1) * gapX);
-        const bottomStartX = margin + (contentWidth - totalBottomWidth) / 2;
-        const adjustedCol = col - 1; // Shift index (layout has -1 at position 0 of row 1)
-        if (adjustedCol >= 0) {
-          cellX = bottomStartX + (adjustedCol * (cellWidth + gapX));
-        }
-      }
-
-      // Cell background - clean white with subtle border
-      doc.setFillColor('#ffffff');
-      doc.setDrawColor(lightGrayColor);
-      doc.setLineWidth(0.01);
-      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
-
-      // ===== IMAGE AREA (top portion) =====
-      const imgData = productImages[productIndex];
-      const imageAreaHeight = cellHeight * imageHeightRatio;
-      const imageY = cellY + cellPadding;
-      const imageWidth = cellWidth - (cellPadding * 2);
-      const imageHeight = imageAreaHeight - cellPadding;
-
-      if (imgData) {
-        try {
-          const format = getImageFormat(product.imageUrl || '');
-          console.log(`Adding image for product ${productIndex}: ${product.title}, format: ${format}`);
-          doc.addImage(
-            imgData, 
-            format, 
-            cellX + cellPadding, 
-            imageY, 
-            imageWidth, 
-            imageHeight
-          );
-        } catch (e) {
-          console.log('Could not add product image:', e);
-          // Show placeholder on error
-          doc.setFillColor('#f3f4f6');
-          doc.roundedRect(cellX + cellPadding, imageY, imageWidth, imageHeight, 0.03, 0.03, 'F');
-          doc.setFontSize(8);
-          doc.setFont('helvetica', 'italic');
-          doc.setTextColor(mutedGray);
-          doc.text('Image unavailable', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
-        }
+    // Pre-fetch all product images
+    const productImages: (string | null)[] = [];
+    for (const product of products) {
+      if (product.imageUrl && product.imageUrl.trim()) {
+        const imgData = await fetchImageAsBase64(product.imageUrl);
+        productImages.push(imgData);
       } else {
-        // Light gray placeholder box with "No Image" text
-        doc.setFillColor('#f3f4f6');
-        doc.roundedRect(cellX + cellPadding, imageY, imageWidth, imageHeight, 0.03, 0.03, 'F');
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'italic');
-        doc.setTextColor(mutedGray);
-        doc.text('No Image', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
+        productImages.push(null);
       }
+    }
 
-      // ===== TEXT AREA =====
-      let textY = cellY + imageAreaHeight + 0.06;
-      const textMaxWidth = cellWidth - (cellPadding * 2);
+    // Image height ratio based on product count
+    const getImageHeightRatio = () => {
+      if (productCount === 1) return 0.55;
+      if (productCount <= 2) return 0.50;
+      if (productCount <= 4) return 0.45;
+      return 0.42;
+    };
 
-      // Product title - BOLD, wrap to 2 lines max with ellipsis
-      const titleFontSize = productCount <= 2 ? 12 : productCount <= 4 ? 11 : 10;
-      doc.setFontSize(titleFontSize);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(darkColor);
-      const title = cleanText(product.title || 'Product');
-      const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
-      
-      const lineHeight = productCount <= 2 ? 0.17 : 0.15;
-      for (const line of titleLines) {
-        doc.text(line, cellX + cellPadding, textY);
-        textY += lineHeight;
-      }
-      textY += 0.03;
-
-      // Product description - max 3 lines with ellipsis
-      if (product.description) {
-        const descFontSize = productCount <= 2 ? 9 : productCount <= 4 ? 8 : 7;
-        doc.setFontSize(descFontSize);
-        doc.setFont('helvetica', 'normal');
-        doc.setTextColor(grayColor);
-        
-        const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-        const maxDescLines = productCount <= 2 ? 4 : 3;
-        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
-        
-        const descLineHeight = productCount <= 2 ? 0.13 : 0.11;
-        for (const line of descLines) {
-          doc.text(line, cellX + cellPadding, textY);
-          textY += descLineHeight;
+    // Render products in grid
+    for (let row = 0; row < gridLayout.rows; row++) {
+      for (let col = 0; col < gridLayout.cols; col++) {
+        const productIndex = gridLayout.layout[row][col];
+        if (productIndex === -1 || productIndex >= products.length) {
+          continue;
         }
-      }
 
-      // ===== PRICE (bottom of cell with proper padding) =====
-      if (product.priceLine) {
-        const priceFontSize = productCount <= 2 ? 13 : productCount <= 4 ? 12 : 11;
-        // Position price with enough bottom padding (cellPadding + extra space for text height)
-        const priceY = cellY + cellHeight - cellPadding - 0.08;
-        doc.setFontSize(priceFontSize);
+        const product = products[productIndex];
+        
+        // Calculate cell position
+        let cellX = margin + (col * (cellWidth + gapX));
+        const cellY = y + (row * (cellHeight + gapY));
+        
+        // For 5 products, center the bottom 2
+        if (productCount === 5 && row === 1) {
+          const bottomCellCount = 2;
+          const totalBottomWidth = (bottomCellCount * cellWidth) + ((bottomCellCount - 1) * gapX);
+          const bottomStartX = margin + (contentWidth - totalBottomWidth) / 2;
+          const adjustedCol = col - 1;
+          if (adjustedCol >= 0) {
+            cellX = bottomStartX + (adjustedCol * (cellWidth + gapX));
+          }
+        }
+
+        // Cell background with subtle border
+        doc.setFillColor(bgColor);
+        doc.setDrawColor(borderColor);
+        doc.setLineWidth(0.01);
+        doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
+
+        // ===== IMAGE AREA =====
+        const imageHeightRatio = getImageHeightRatio();
+        const imageAreaHeight = (cellHeight - cellPadding * 2) * imageHeightRatio;
+        const imageY = cellY + cellPadding;
+        const imageWidth = cellWidth - (cellPadding * 2);
+        const imageX = cellX + cellPadding;
+
+        // Light gray background for image area
+        doc.setFillColor('#f9fafb');
+        doc.roundedRect(imageX, imageY, imageWidth, imageAreaHeight, 0.04, 0.04, 'F');
+
+        const imgData = productImages[productIndex];
+        if (imgData) {
+          try {
+            const format = getImageFormat(product.imageUrl || '');
+            // Center image within the container, maintaining aspect ratio
+            doc.addImage(imgData, format, imageX, imageY, imageWidth, imageAreaHeight);
+          } catch (e) {
+            console.log('Could not add product image:', e);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(mutedColor);
+            doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
+          }
+        } else {
+          // "No Image" placeholder text
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor('#9ca3af');
+          doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
+        }
+
+        // ===== TEXT CONTENT =====
+        let textY = cellY + cellPadding + imageAreaHeight + 0.12;
+        const textMaxWidth = cellWidth - (cellPadding * 2);
+
+        // Product title - bold, max 2 lines
+        const titleFontSize = productCount <= 2 ? 11 : productCount <= 4 ? 10 : 9;
+        doc.setFontSize(titleFontSize);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(redColor);
+        doc.setTextColor(primaryColor);
+        const title = cleanText(product.title || 'Product');
+        const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
         
-        let price = cleanText(product.priceLine);
-        if (/^\d/.test(price) && !price.startsWith('$')) {
-          price = '$' + price;
+        const lineHeight = productCount <= 2 ? 0.16 : 0.14;
+        for (const line of titleLines) {
+          doc.text(line, cellX + cellPadding, textY);
+          textY += lineHeight;
         }
-        if (/^\$[\d.]+$/.test(price)) {
-          price = price + ' each';
+        textY += 0.04;
+
+        // Product description - max 2-3 lines
+        if (product.description) {
+          const descFontSize = productCount <= 2 ? 8 : 7;
+          doc.setFontSize(descFontSize);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(mutedColor);
+          
+          const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
+          const maxDescLines = productCount <= 2 ? 3 : 2;
+          const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
+          
+          const descLineHeight = productCount <= 2 ? 0.12 : 0.10;
+          for (const line of descLines) {
+            doc.text(line, cellX + cellPadding, textY);
+            textY += descLineHeight;
+          }
         }
-        
-        doc.text(price, cellX + cellPadding, priceY);
+
+        // ===== PRICE at bottom =====
+        if (product.priceLine) {
+          const priceFontSize = productCount <= 2 ? 12 : productCount <= 4 ? 11 : 10;
+          const priceY = cellY + cellHeight - cellPadding - 0.05;
+          doc.setFontSize(priceFontSize);
+          doc.setFont('helvetica', 'bold');
+          doc.setTextColor(accentColor);
+          
+          let price = cleanText(product.priceLine);
+          if (/^\d/.test(price) && !price.startsWith('$')) {
+            price = '$' + price;
+          }
+          
+          doc.text(price, cellX + cellPadding, priceY);
+        }
       }
     }
   }
 
   // ===== FOOTER =====
-  const footerY = pageHeight - margin - footerHeight + 0.05;
+  const footerY = pageHeight - margin - 0.35;
 
   // Footer divider
-  doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.01);
-  doc.line(margin, footerY - 0.05, pageWidth - margin, footerY - 0.05);
+  doc.setDrawColor(borderColor);
+  doc.setLineWidth(0.015);
+  doc.line(margin, footerY - 0.1, pageWidth - margin, footerY - 0.1);
 
-  // CTA box (red banner) - taller to fit multi-line content
+  // CTA text (if any)
   if (data.notesCta) {
-    const ctaText = cleanText(data.notesCta);
-    // Check if text has multiple lines (contains newlines or is very long)
-    const ctaLines = ctaText.split('\n').filter(l => l.trim());
-    const bannerHeight = ctaLines.length > 1 ? 0.45 : 0.35;
-    
-    doc.setFillColor(redColor);
-    doc.roundedRect(margin, footerY, contentWidth, bannerHeight, 0.05, 0.05, 'F');
-    
     doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor('#ffffff');
-    
-    // Render each line centered
-    let ctaY = footerY + 0.15;
-    for (const line of ctaLines) {
-      doc.text(line.trim(), pageWidth / 2, ctaY, { align: 'center' });
-      ctaY += 0.14;
-    }
-    
-    // Footer info below banner
-    const infoY = footerY + bannerHeight + 0.12;
-    doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(grayColor);
-    doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, infoY);
-    doc.text('toddssport.lovable.app', pageWidth - margin, infoY, { align: 'right' });
-  } else {
-    // No CTA - just footer info
-    doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(grayColor);
-    doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, footerY + 0.1);
-    doc.text('toddssport.lovable.app', pageWidth - margin, footerY + 0.1, { align: 'right' });
+    doc.setTextColor(mutedColor);
+    const ctaText = cleanText(data.notesCta);
+    doc.text(ctaText, pageWidth / 2, footerY + 0.05, { align: 'center' });
   }
+
+  // Contact info at bottom
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(mutedColor);
+  doc.text('www.toddssportinggoods.com', margin, footerY + 0.22);
+  doc.text('(507) 625-5643', pageWidth - margin, footerY + 0.22, { align: 'right' });
 
   // Return PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
