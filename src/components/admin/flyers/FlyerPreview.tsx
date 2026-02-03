@@ -15,17 +15,34 @@ interface Rep {
   phone: string | null;
 }
 
+interface ClientInfo {
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}
+
 interface FlyerPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   clientName: string;
+  clientInfo?: ClientInfo;
   notesCta: string;
   products: ProductForFlyer[];
   rep?: Rep;
 }
 
-export function FlyerPreview({ open, onOpenChange, clientName, notesCta, products, rep }: FlyerPreviewProps) {
+export function FlyerPreview({ open, onOpenChange, clientName, clientInfo, notesCta, products, rep }: FlyerPreviewProps) {
   const validProducts = products.filter(p => p.title.trim());
+  
+  // Format client address
+  const hasClientInfo = clientInfo && (clientInfo.contactName || clientInfo.email || clientInfo.phone || clientInfo.address);
+  const addressLine = clientInfo?.city && clientInfo?.state 
+    ? `${clientInfo.city}, ${clientInfo.state}${clientInfo.zip ? ` ${clientInfo.zip}` : ''}`
+    : clientInfo?.city || '';
   
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -52,10 +69,25 @@ export function FlyerPreview({ open, onOpenChange, clientName, notesCta, product
               alt="Todd's Logo" 
               className="h-10 object-contain"
             />
-            {clientName && (
+            {(clientName || hasClientInfo) && (
               <div className="text-right">
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Prepared for</p>
-                <p className="text-lg font-semibold text-gray-800">{clientName}</p>
+                {clientName && <p className="text-lg font-semibold text-gray-800">{clientName}</p>}
+                {clientInfo?.contactName && (
+                  <p className="text-sm text-gray-700">{clientInfo.contactName}</p>
+                )}
+                {clientInfo?.email && (
+                  <p className="text-xs text-gray-600">{clientInfo.email}</p>
+                )}
+                {clientInfo?.phone && (
+                  <p className="text-xs text-gray-600">{clientInfo.phone}</p>
+                )}
+                {clientInfo?.address && (
+                  <p className="text-xs text-gray-600">{clientInfo.address}</p>
+                )}
+                {addressLine && (
+                  <p className="text-xs text-gray-600">{addressLine}</p>
+                )}
               </div>
             )}
           </div>
