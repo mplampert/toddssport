@@ -6,11 +6,19 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ErrorDetails {
+  messageCode?: string | null;
+  message?: string | null;
+  requestErrors?: string[];
+  orderErrors?: { message?: string; field?: string }[];
+}
+
 interface OrderFailurePayload {
   orderId: string;
   po: string;
   customerEmail?: string;
   errorMessage: string;
+  errorDetails?: ErrorDetails;
   champroResponse?: unknown;
   stripeSessionId?: string;
 }
@@ -28,6 +36,47 @@ async function sendSlackNotification(payload: OrderFailurePayload): Promise<bool
   }
 
   try {
+    // Build detailed error section for Slack
+    const errorBlocks = [];
+    
+    // Main error message
+    errorBlocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `*Error:*\n\`\`\`${payload.errorMessage}\`\`\``,
+      },
+    });
+    
+    // Add detailed error info if available
+    if (payload.errorDetails) {
+      const details = payload.errorDetails;
+      let detailText = "";
+      
+      if (details.messageCode) {
+        detailText += `*MessageCode:* \`${details.messageCode}\`\n`;
+      }
+      if (details.message) {
+        detailText += `*Message:* ${details.message}\n`;
+      }
+      if (details.requestErrors && details.requestErrors.length > 0) {
+        detailText += `*Request Errors:*\n${details.requestErrors.map(e => `• ${e}`).join("\n")}\n`;
+      }
+      if (details.orderErrors && details.orderErrors.length > 0) {
+        detailText += `*Order Errors:*\n${details.orderErrors.map(e => `• ${e.message}${e.field ? ` (Field: ${e.field})` : ""}`).join("\n")}\n`;
+      }
+      
+      if (detailText) {
+        errorBlocks.push({
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: detailText,
+          },
+        });
+      }
+    }
+
     const message = {
       text: `🚨 *Champro Order Failed* 🚨`,
       blocks: [
@@ -53,13 +102,7 @@ async function sendSlackNotification(payload: OrderFailurePayload): Promise<bool
             { type: "mrkdwn", text: `*Stripe Session:*\n${payload.stripeSessionId || "N/A"}` },
           ],
         },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*Error:*\n\`\`\`${payload.errorMessage}\`\`\``,
-          },
-        },
+        ...errorBlocks,
         {
           type: "context",
           elements: [
@@ -108,10 +151,49 @@ async function sendEmailNotification(payload: OrderFailurePayload): Promise<bool
   try {
     const resend = new Resend(resendApiKey);
 
+    // Build detailed error section for email
+    let errorDetailsHtml = "";
+    if (payload.errorDetails) {
+      const details = payload.errorDetails;
+      errorDetailsHtml = `
+        <h2>Detailed Error Information</h2>
+        <table style="border-collapse: collapse; width: 100%;">
+          ${details.messageCode ? `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Message Code</strong></td>
+            <td style="border: 1px solid #ddd; padding: 8px;"><code>${details.messageCode}</code></td>
+          </tr>` : ""}
+          ${details.message ? `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Message</strong></td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${details.message}</td>
+          </tr>` : ""}
+          ${details.requestErrors && details.requestErrors.length > 0 ? `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Request Errors</strong></td>
+            <td style="border: 1px solid #ddd; padding: 8px;">
+              <ul style="margin: 0; padding-left: 20px;">
+                ${details.requestErrors.map(e => `<li>${e}</li>`).join("")}
+              </ul>
+            </td>
+          </tr>` : ""}
+          ${details.orderErrors && details.orderErrors.length > 0 ? `
+          <tr>
+            <td style="border: 1px solid #ddd; padding: 8px;"><strong>Order Errors</strong></td>
+            <td style="border: 1px solid #ddd; padding: 8px;">
+              <ul style="margin: 0; padding-left: 20px;">
+                ${details.orderErrors.map(e => `<li>${e.message}${e.field ? ` <em>(Field: ${e.field})</em>` : ""}</li>`).join("")}
+              </ul>
+            </td>
+          </tr>` : ""}
+        </table>
+      `;
+    }
+
     const emailResponse = await resend.emails.send({
       from: "Todd's Sport <alerts@toddssport.com>",
       to: alertEmail.split(",").map((e: string) => e.trim()),
-      subject: `🚨 Champro Order Failed - PO: ${payload.po}`,
+      subject: `🚨 Champro Order Failed - PO: ${payload.po}${payload.errorDetails?.messageCode ? ` [${payload.errorDetails.messageCode}]` : ""}`,
       html: `
         <h1 style="color: #dc2626;">Champro Order Failed</h1>
         <p>A Stripe payment was successful but the Champro order submission failed. Manual intervention is required.</p>
@@ -136,12 +218,14 @@ async function sendEmailNotification(payload: OrderFailurePayload): Promise<bool
           </tr>
         </table>
         
-        <h2>Error Details</h2>
-        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto;">${payload.errorMessage}</pre>
+        <h2>Error Summary</h2>
+        <pre style="background: #fef2f2; padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid #fecaca;">${payload.errorMessage}</pre>
+        
+        ${errorDetailsHtml}
         
         ${payload.champroResponse ? `
-        <h2>Champro API Response</h2>
-        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto;">${JSON.stringify(payload.champroResponse, null, 2)}</pre>
+        <h2>Full Champro API Response</h2>
+        <pre style="background: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; font-size: 12px;">${JSON.stringify(payload.champroResponse, null, 2)}</pre>
         ` : ""}
         
         <hr style="margin: 24px 0;">

@@ -113,6 +113,12 @@ async function notifyOrderFailure(
     po: string;
     customerEmail?: string;
     errorMessage: string;
+    errorDetails?: {
+      messageCode?: string | null;
+      message?: string | null;
+      requestErrors?: string[];
+      orderErrors?: { message?: string; field?: string }[];
+    };
     champroResponse?: unknown;
     stripeSessionId?: string;
   }
@@ -369,11 +375,38 @@ Deno.serve(async (req: Request) => {
 
               logStep("Order submitted to Champro successfully", { champroOrderNumber });
             } else {
-              // Champro API call failed - update status and notify
-              const errorMessage = champroData.RequestErrors?.[0]?.Response ||
-                                   champroData.Orders?.[0]?.OrderErrors?.[0]?.Response ||
+              // Champro API call failed - extract detailed error info
+              // Champro error structure: RequestErrors[], Orders[].OrderErrors[], Message, MessageCode
+              const requestErrors = champroData.RequestErrors || [];
+              const orderErrors = champroData.Orders?.[0]?.OrderErrors || [];
+              const messageCode = champroData.MessageCode || champroData.Orders?.[0]?.MessageCode || null;
+              const message = champroData.Message || champroData.Orders?.[0]?.Message || null;
+              
+              // Build comprehensive error message
+              const errorDetails = {
+                messageCode,
+                message,
+                requestErrors: requestErrors.map((e: { Response?: string; Message?: string }) => e.Response || e.Message),
+                orderErrors: orderErrors.map((e: { Response?: string; Message?: string; Field?: string }) => ({
+                  message: e.Response || e.Message,
+                  field: e.Field,
+                })),
+              };
+              
+              const errorMessage = requestErrors?.[0]?.Response ||
+                                   orderErrors?.[0]?.Response ||
+                                   message ||
                                    champroData.error ||
                                    "Unknown Champro API error";
+
+              // Log detailed error info
+              logStep("Champro PlaceOrder failed - DETAILED", {
+                messageCode,
+                message,
+                requestErrors,
+                orderErrors,
+                fullResponse: champroData,
+              });
 
               await supabase
                 .from("champro_orders")
@@ -384,14 +417,13 @@ Deno.serve(async (req: Request) => {
                 })
                 .eq("id", orderId);
 
-              logStep("Champro PlaceOrder failed", { errorMessage, champroData });
-
-              // Send notification
+              // Send notification with full error details
               await notifyOrderFailure(supabaseUrl, supabaseServiceKey, {
                 orderId,
                 po,
                 customerEmail: session.customer_email || undefined,
                 errorMessage,
+                errorDetails, // Include structured error details
                 champroResponse: champroData,
                 stripeSessionId: session.id,
               });
