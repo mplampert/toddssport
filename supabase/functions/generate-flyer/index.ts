@@ -22,15 +22,32 @@ interface FlyerData {
   notesCta?: string;
 }
 
+// Helper to convert Uint8Array to base64 without stack overflow
+function uint8ArrayToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000; // Process in 32KB chunks to avoid call stack limits
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode.apply(null, Array.from(chunk));
+  }
+  return btoa(binary);
+}
+
 // Helper to fetch image and convert to base64 data URL
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
     const response = await fetch(url);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.log('Image fetch failed:', response.status, url);
+      return null;
+    }
     
     const contentType = response.headers.get('content-type') || 'image/png';
     const buffer = await response.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+    const bytes = new Uint8Array(buffer);
+    
+    // Use chunked conversion to avoid stack overflow
+    const base64 = uint8ArrayToBase64(bytes);
     return `data:${contentType};base64,${base64}`;
   } catch (error) {
     console.error('Error fetching image:', error);
