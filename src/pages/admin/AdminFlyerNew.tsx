@@ -9,9 +9,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye, Save } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye, Save, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FlyerPreview } from "@/components/admin/flyers/FlyerPreview";
+import { FlyerEmailTemplate } from "@/components/admin/flyers/FlyerEmailTemplate";
 
 interface ProductForFlyer {
   imageUrl: string;
@@ -45,6 +46,8 @@ export default function AdminFlyerNew() {
   const [isLoading, setIsLoading] = useState(isEditMode);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showEmailTemplate, setShowEmailTemplate] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
   const [flyerName, setFlyerName] = useState("");
@@ -107,6 +110,7 @@ export default function AdminFlyerNew() {
         setFlyerName(data.product_name || '');
         setClientName(data.client_name || '');
         setNotesCta(data.notes_cta || '');
+        setPdfUrl(data.pdf_url || null);
         // Type assertion needed since types.ts doesn't have new columns yet
         const flyerData = data as typeof data & { 
           rep_id?: string;
@@ -707,6 +711,16 @@ export default function AdminFlyerNew() {
               <Button 
                 type="button" 
                 variant="outline"
+                onClick={() => setShowEmailTemplate(true)}
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Copy Email
+              </Button>
+            )}
+            {isEditMode && (
+              <Button 
+                type="button" 
+                variant="outline"
                 onClick={handleSave}
                 disabled={isSaving || uploadingIndex !== null}
               >
@@ -756,6 +770,24 @@ export default function AdminFlyerNew() {
           notesCta={notesCta}
           products={products}
           rep={selectedRep}
+        />
+        
+        <FlyerEmailTemplate
+          open={showEmailTemplate}
+          onOpenChange={setShowEmailTemplate}
+          clientName={clientName}
+          clientInfo={{
+            contactName: clientContactName,
+            email: clientEmail,
+            phone: clientPhone,
+            address: clientAddress,
+            city: clientCity,
+            state: clientState,
+            zip: clientZip,
+          }}
+          products={products}
+          rep={selectedRep}
+          pdfUrl={pdfUrl || undefined}
         />
       </div>
     </AdminLayout>
