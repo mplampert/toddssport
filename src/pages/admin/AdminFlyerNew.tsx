@@ -8,40 +8,56 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router-dom";
+
+interface ProductForFlyer {
+  imageUrl: string;
+  title: string;
+  description: string;
+  priceLine: string;
+}
+
+const emptyProduct: ProductForFlyer = {
+  imageUrl: "",
+  title: "",
+  description: "",
+  priceLine: "",
+};
 
 export default function AdminFlyerNew() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
+  const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
   
-  const [formData, setFormData] = useState({
-    clientName: "",
-    productName: "",
-    subtitle: "",
-    bulletPoint1: "",
-    bulletPoint2: "",
-    bulletPoint3: "",
-    bulletPoint4: "",
-    bulletPoint5: "",
-    priceLine: "",
-    fundraisingLine: "",
-    imageUrl: "",
-    notesCta: "",
-  });
+  const [flyerName, setFlyerName] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [notesCta, setNotesCta] = useState("");
+  const [products, setProducts] = useState<ProductForFlyer[]>([{ ...emptyProduct }]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+  const handleProductChange = (index: number, field: keyof ProductForFlyer, value: string) => {
+    setProducts(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const addProduct = () => {
+    if (products.length < 6) {
+      setProducts(prev => [...prev, { ...emptyProduct }]);
+    }
+  };
 
+  const removeProduct = (index: number) => {
+    if (products.length > 1) {
+      setProducts(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleImageUpload = async (index: number, file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
       toast({
@@ -62,7 +78,7 @@ export default function AdminFlyerNew() {
       return;
     }
 
-    setIsUploading(true);
+    setUploadingIndex(index);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -75,11 +91,9 @@ export default function AdminFlyerNew() {
         return;
       }
 
-      // Generate unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
 
-      // Upload to Supabase storage
       const { error: uploadError } = await supabase.storage
         .from('flyer-images')
         .upload(fileName, file, {
@@ -87,16 +101,13 @@ export default function AdminFlyerNew() {
           upsert: false,
         });
 
-      if (uploadError) {
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from('flyer-images')
         .getPublicUrl(fileName);
 
-      setFormData(prev => ({ ...prev, imageUrl: urlData.publicUrl }));
+      handleProductChange(index, 'imageUrl', urlData.publicUrl);
 
       toast({
         title: "Image uploaded",
@@ -106,29 +117,33 @@ export default function AdminFlyerNew() {
       console.error('Error uploading image:', error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload image. Please try again.",
+        description: error.message || "Failed to upload image.",
         variant: "destructive",
       });
     } finally {
-      setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setUploadingIndex(null);
     }
   };
 
-  const handleRemoveImage = () => {
-    setFormData(prev => ({ ...prev, imageUrl: "" }));
+  const handleFileInputChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleImageUpload(index, file);
+    }
+    // Reset input
+    if (fileInputRefs.current[index]) {
+      fileInputRefs.current[index]!.value = '';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.productName.trim()) {
+    const validProducts = products.filter(p => p.title.trim());
+    if (validProducts.length === 0) {
       toast({
-        title: "Product name required",
-        description: "Please enter a product name for the flyer.",
+        title: "At least one product required",
+        description: "Please add at least one product with a title.",
         variant: "destructive",
       });
       return;
@@ -137,14 +152,6 @@ export default function AdminFlyerNew() {
     setIsGenerating(true);
 
     try {
-      const bulletPoints = [
-        formData.bulletPoint1,
-        formData.bulletPoint2,
-        formData.bulletPoint3,
-        formData.bulletPoint4,
-        formData.bulletPoint5,
-      ].filter(bp => bp.trim());
-
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -158,14 +165,10 @@ export default function AdminFlyerNew() {
 
       const response = await supabase.functions.invoke('generate-flyer', {
         body: {
-          clientName: formData.clientName || undefined,
-          productName: formData.productName,
-          subtitle: formData.subtitle || undefined,
-          bulletPoints: bulletPoints.length > 0 ? bulletPoints : undefined,
-          priceLine: formData.priceLine || undefined,
-          fundraisingLine: formData.fundraisingLine || undefined,
-          imageUrl: formData.imageUrl || undefined,
-          notesCta: formData.notesCta || undefined,
+          flyerName: flyerName || `Flyer - ${validProducts.length} products`,
+          clientName: clientName || undefined,
+          products: validProducts,
+          notesCta: notesCta || undefined,
         },
       });
 
@@ -203,206 +206,198 @@ export default function AdminFlyerNew() {
           <div>
             <h1 className="text-3xl font-bold text-foreground">Create Sales Flyer</h1>
             <p className="text-muted-foreground mt-1">
-              Enter product details to generate a PDF flyer
+              Add up to 6 products to generate a multi-product flyer
             </p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Product Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Product Information</CardTitle>
-                <CardDescription>Basic details about the product</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="clientName">Client / Team Name</Label>
-                  <Input
-                    id="clientName"
-                    name="clientName"
-                    placeholder="e.g., Lincoln High School Baseball"
-                    value={formData.clientName}
-                    onChange={handleChange}
-                  />
-                </div>
+          {/* Flyer Info */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Flyer Details</CardTitle>
+              <CardDescription>General information for this flyer</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="flyerName">Flyer Name</Label>
+                <Input
+                  id="flyerName"
+                  placeholder="e.g., Spring 2024 Baseball Collection"
+                  value={flyerName}
+                  onChange={(e) => setFlyerName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clientName">Client / Team Name</Label>
+                <Input
+                  id="clientName"
+                  placeholder="e.g., Lincoln High School"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="notesCta">Footer CTA / Notes</Label>
+                <Textarea
+                  id="notesCta"
+                  placeholder="e.g., Contact your Todd's rep today! Orders by March 15th ship in 2 weeks."
+                  value={notesCta}
+                  onChange={(e) => setNotesCta(e.target.value)}
+                  rows={2}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-                <div className="space-y-2">
-                  <Label htmlFor="productName">Product Name *</Label>
-                  <Input
-                    id="productName"
-                    name="productName"
-                    placeholder="e.g., Custom Baseball Jersey"
-                    value={formData.productName}
-                    onChange={handleChange}
-                    required
-                  />
-                </div>
+          {/* Products */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-semibold">Products ({products.length}/6)</h2>
+                <p className="text-sm text-muted-foreground">Add 2, 4, or 6 products for best layout</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addProduct}
+                disabled={products.length >= 6}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="subtitle">Subtitle</Label>
-                  <Input
-                    id="subtitle"
-                    name="subtitle"
-                    placeholder="e.g., Fully sublimated, moisture-wicking fabric"
-                    value={formData.subtitle}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                {/* Product Image Upload */}
-                <div className="space-y-2">
-                  <Label>Product Image</Label>
-                  <div className="flex items-start gap-4">
-                    {formData.imageUrl ? (
-                      <div className="relative">
-                        <img 
-                          src={formData.imageUrl} 
-                          alt="Product preview" 
-                          className="w-24 h-24 object-cover rounded-md border"
-                        />
+            <div className="grid gap-4 md:grid-cols-2">
+              {products.map((product, index) => (
+                <Card key={index} className="relative">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">Product {index + 1}</CardTitle>
+                      {products.length > 1 && (
                         <Button
                           type="button"
-                          variant="destructive"
+                          variant="ghost"
                           size="icon"
-                          className="absolute -top-2 -right-2 h-6 w-6"
-                          onClick={handleRemoveImage}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removeProduct(index)}
                         >
-                          <X className="h-3 w-3" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="w-24 h-24 rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center bg-muted/50">
-                        <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-2">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                        className="hidden"
-                        id="productImage"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={isUploading}
-                      >
-                        {isUploading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Uploading...
-                          </>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {/* Image Upload */}
+                    <div className="space-y-2">
+                      <Label>Product Image</Label>
+                      <div className="flex items-start gap-3">
+                        {product.imageUrl ? (
+                          <div className="relative shrink-0">
+                            <img 
+                              src={product.imageUrl} 
+                              alt="Product preview" 
+                              className="w-16 h-16 object-cover rounded-md border"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="absolute -top-1 -right-1 h-5 w-5"
+                              onClick={() => handleProductChange(index, 'imageUrl', '')}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
                         ) : (
-                          <>
-                            <Upload className="mr-2 h-4 w-4" />
-                            Upload Image
-                          </>
+                          <div className="w-16 h-16 shrink-0 rounded-md border border-dashed border-muted-foreground/50 flex items-center justify-center bg-muted/50">
+                            <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+                          </div>
                         )}
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Or paste a URL below
-                      </p>
+                        <div className="flex-1 space-y-2">
+                          <input
+                            ref={el => fileInputRefs.current[index] = el}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleFileInputChange(index, e)}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRefs.current[index]?.click()}
+                            disabled={uploadingIndex === index}
+                            className="w-full"
+                          >
+                            {uploadingIndex === index ? (
+                              <>
+                                <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                                Uploading...
+                              </>
+                            ) : (
+                              <>
+                                <Upload className="mr-2 h-3 w-3" />
+                                Upload
+                              </>
+                            )}
+                          </Button>
+                          <Input
+                            type="url"
+                            placeholder="Or paste image URL"
+                            value={product.imageUrl}
+                            onChange={(e) => handleProductChange(index, 'imageUrl', e.target.value)}
+                            className="text-xs h-8"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Title */}
+                    <div className="space-y-1">
+                      <Label htmlFor={`title-${index}`}>Title *</Label>
                       <Input
-                        id="imageUrl"
-                        name="imageUrl"
-                        type="url"
-                        placeholder="https://example.com/product-image.jpg"
-                        value={formData.imageUrl}
-                        onChange={handleChange}
+                        id={`title-${index}`}
+                        placeholder="e.g., Custom Baseball Jersey"
+                        value={product.title}
+                        onChange={(e) => handleProductChange(index, 'title', e.target.value)}
+                      />
+                    </div>
+
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <Label htmlFor={`description-${index}`}>Description</Label>
+                      <Textarea
+                        id={`description-${index}`}
+                        placeholder="e.g., Full sublimation, moisture-wicking fabric"
+                        value={product.description}
+                        onChange={(e) => handleProductChange(index, 'description', e.target.value)}
+                        rows={2}
                         className="text-sm"
                       />
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Bullet Points */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Key Benefits</CardTitle>
-                <CardDescription>Up to 5 bullet points highlighting features</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {[1, 2, 3, 4, 5].map((num) => (
-                  <div key={num} className="space-y-1">
-                    <Label htmlFor={`bulletPoint${num}`}>Bullet Point {num}</Label>
-                    <Input
-                      id={`bulletPoint${num}`}
-                      name={`bulletPoint${num}`}
-                      placeholder={`e.g., ${num === 1 ? 'Free design assistance' : num === 2 ? 'No minimum order' : 'Feature ' + num}`}
-                      value={formData[`bulletPoint${num}` as keyof typeof formData]}
-                      onChange={handleChange}
-                    />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            {/* Pricing & CTA */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Pricing & Offers</CardTitle>
-                <CardDescription>Price details and special offers</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="priceLine">Price Line</Label>
-                  <Input
-                    id="priceLine"
-                    name="priceLine"
-                    placeholder="e.g., Starting at $24.99 per jersey"
-                    value={formData.priceLine}
-                    onChange={handleChange}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="fundraisingLine">Fundraising Highlight</Label>
-                  <Input
-                    id="fundraisingLine"
-                    name="fundraisingLine"
-                    placeholder="e.g., Earn up to 15% back for your team!"
-                    value={formData.fundraisingLine}
-                    onChange={handleChange}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Notes/CTA */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Call to Action</CardTitle>
-                <CardDescription>Bottom CTA or additional notes</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="notesCta">CTA / Notes</Label>
-                  <Textarea
-                    id="notesCta"
-                    name="notesCta"
-                    placeholder="e.g., Contact your Todd's rep today to get started! Orders placed by March 15th ship in 2 weeks."
-                    value={formData.notesCta}
-                    onChange={handleChange}
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+                    {/* Price Line */}
+                    <div className="space-y-1">
+                      <Label htmlFor={`price-${index}`}>Price Line</Label>
+                      <Input
+                        id={`price-${index}`}
+                        placeholder="e.g., Starting at $24.99"
+                        value={product.priceLine}
+                        onChange={(e) => handleProductChange(index, 'priceLine', e.target.value)}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end gap-4">
             <Button type="button" variant="outline" asChild>
               <Link to="/admin/flyers">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={isGenerating || isUploading}>
+            <Button type="submit" disabled={isGenerating || uploadingIndex !== null}>
               {isGenerating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
