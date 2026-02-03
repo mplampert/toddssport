@@ -17,6 +17,7 @@ export default function AdminFlyerNew() {
   const [isGenerating, setIsGenerating] = useState(false);
   
   const [formData, setFormData] = useState({
+    clientName: "",
     productName: "",
     subtitle: "",
     bulletPoint1: "",
@@ -71,6 +72,7 @@ export default function AdminFlyerNew() {
 
       const response = await supabase.functions.invoke('generate-flyer', {
         body: {
+          clientName: formData.clientName || undefined,
           productName: formData.productName,
           subtitle: formData.subtitle || undefined,
           bulletPoints: bulletPoints.length > 0 ? bulletPoints : undefined,
@@ -129,6 +131,17 @@ export default function AdminFlyerNew() {
                 <CardDescription>Basic details about the product</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="clientName">Client / Team Name</Label>
+                  <Input
+                    id="clientName"
+                    name="clientName"
+                    placeholder="e.g., Lincoln High School Baseball"
+                    value={formData.clientName}
+                    onChange={handleChange}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="productName">Product Name *</Label>
                   <Input

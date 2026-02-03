@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 interface FlyerData {
+  clientName?: string;
   productName: string;
   subtitle?: string;
   bulletPoints?: string[];
@@ -160,6 +161,7 @@ function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
     <div class="header">
       <img src="${logoUrl}" alt="Todd's Logo" class="logo" />
       <div class="header-text">
+        ${data.clientName ? `<div style="font-size: 18px; color: #111827; margin-bottom: 4px;">${data.clientName}</div>` : ''}
         CUSTOM TEAM APPAREL<br/>
         & PROMOTIONAL PRODUCTS
       </div>
@@ -298,6 +300,7 @@ serve(async (req) => {
     const { data: flyer, error: insertError } = await supabaseClient
       .from('flyers')
       .insert({
+        client_name: body.clientName || null,
         product_name: body.productName,
         subtitle: body.subtitle || null,
         bullet_points: body.bulletPoints || [],
@@ -305,7 +308,7 @@ serve(async (req) => {
         fundraising_line: body.fundraisingLine || null,
         image_url: body.imageUrl || null,
         notes_cta: body.notesCta || null,
-        pdf_url: htmlUrl, // We store HTML URL, client converts to PDF
+        pdf_url: htmlUrl,
       })
       .select()
       .single();
