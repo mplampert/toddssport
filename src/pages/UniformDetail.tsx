@@ -4,16 +4,7 @@ import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { useUniformCardBySlug, fetchAllUniformCards, UniformCard } from "@/hooks/useUniformCards";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, ShoppingCart } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ChamproBuilderEmbed, hasChamproBuilder } from "@/components/uniforms/ChamproBuilderEmbed";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -22,10 +13,8 @@ import {
   type GlobalPricing,
   type ChamproCategory,
   calculatePerUnit,
-  formatPrice,
 } from "@/lib/champroPricing";
 import { getCartSessionId } from "@/lib/cartSession";
-import { Skeleton } from "@/components/ui/skeleton";
 import { UniformDetailHero } from "@/components/uniforms/UniformDetailHero";
 import { UniformBenefits } from "@/components/uniforms/UniformBenefits";
 import { UniformHowItWorks } from "@/components/uniforms/UniformHowItWorks";
@@ -48,17 +37,14 @@ export default function UniformDetail() {
   const [loadingKey, setLoadingKey] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  // Checkout form state
-  const [champroSessionId, setChamproSessionId] = useState<string | null>(null);
+  // Order defaults
   const [quantity, setQuantity] = useState<number>(12);
   const [leadTime, setLeadTime] = useState<LeadTimeType>("standard");
   const [category, setCategory] = useState<ChamproCategory>("JERSEYS");
-  const [teamName, setTeamName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
+  const [teamName] = useState("");
 
   // Pricing state
   const [productPricing, setProductPricing] = useState<ProductPricing | null>(null);
-  const [loadingPricing, setLoadingPricing] = useState(true);
 
   // Fetch all cards for "other sports" section
   useEffect(() => {
@@ -84,13 +70,12 @@ export default function UniformDetail() {
     fetchEmbedKey();
   }, []);
 
-  // Fetch product pricing for this sport
+  // Fetch product pricing for this sport (to get MOQ and unit price for cart)
   useEffect(() => {
     async function fetchPricing() {
       if (!sportSlug) return;
 
       try {
-        // Get product for this sport
         const { data: products, error: productError } = await supabase
           .from("champro_products")
           .select("*")
@@ -99,20 +84,17 @@ export default function UniformDetail() {
 
         if (productError || !products || products.length === 0) {
           console.log("No pricing configured for sport:", sportSlug);
-          setLoadingPricing(false);
           return;
         }
 
         const product = products[0];
 
-        // Get wholesale pricing
         const { data: wholesale } = await supabase
           .from("champro_wholesale")
           .select("*")
           .eq("champro_product_id", product.id)
           .single();
 
-        // Get global pricing settings
         const { data: globalSettings } = await supabase
           .from("champro_pricing_settings")
           .select("*")
@@ -136,8 +118,6 @@ export default function UniformDetail() {
         }
       } catch (err) {
         console.error("Failed to fetch pricing:", err);
-      } finally {
-        setLoadingPricing(false);
       }
     }
     fetchPricing();
@@ -153,7 +133,6 @@ export default function UniformDetail() {
       sportSlug: string;
     }) => {
       console.log("Champro design saved:", sessionId);
-      setChamproSessionId(sessionId);
 
       // Calculate current price for cart
       const currentPerUnitPrice = productPricing
@@ -194,7 +173,6 @@ export default function UniformDetail() {
           toast.success("Design added to cart!", {
             duration: 3000,
           });
-          // Redirect to cart
           navigate("/cart");
         } else {
           toast.error(data?.error || "Failed to add to cart.");
@@ -208,76 +186,6 @@ export default function UniformDetail() {
     },
     [sport?.title, quantity, leadTime, teamName, category, productPricing, navigate]
   );
-
-  // Called when user clicks checkout button
-  const handleCheckout = useCallback(async () => {
-    if (!champroSessionId) {
-      toast.error("Please save your design first using the builder above.");
-      return;
-    }
-
-    if (!quantity || quantity < (productPricing?.moq || 1)) {
-      toast.error(`Minimum order quantity is ${productPricing?.moq || 12} units.`);
-      return;
-    }
-
-    setIsCheckingOut(true);
-
-    try {
-      const { data, error } = await supabase.functions.invoke("champro-checkout", {
-        body: {
-          champroSessionId,
-          sportSlug,
-          category,
-          productMaster: productPricing?.productMaster,
-          quantity,
-          leadTime,
-          teamName,
-          customerEmail,
-        },
-      });
-
-      if (error) {
-        console.error("Checkout error:", error);
-        const errorData = error.message ? JSON.parse(error.message) : {};
-        toast.error(errorData.error || "Unable to start checkout. Please try again.");
-        return;
-      }
-
-      if (data?.url) {
-        // Redirect to Stripe Checkout
-        window.location.href = data.url;
-      } else {
-        // Fallback: show success message with session ID for manual processing
-        toast.success(`Your ${sport?.title || sportSlug} uniform design has been saved!`, {
-          description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
-          duration: 10000,
-        });
-      }
-    } catch (err) {
-      console.error("Checkout failed:", err);
-      toast.error("Unable to start checkout. Please try again.");
-    } finally {
-      setIsCheckingOut(false);
-    }
-  }, [
-    champroSessionId,
-    sportSlug,
-    category,
-    productPricing,
-    quantity,
-    leadTime,
-    teamName,
-    customerEmail,
-    sport?.title,
-  ]);
-
-  // Calculate current price
-  const perUnitPrice = productPricing
-    ? calculatePerUnit({ baseCost: productPricing.baseCost }, productPricing.globalPricing, leadTime)
-    : 0;
-
-  const totalPrice = perUnitPrice * quantity;
 
   const scrollToQuote = () => {
     window.location.href = "/#quote-form";
@@ -358,140 +266,14 @@ export default function UniformDetail() {
                     onCheckout={handleDesignSaved}
                   />
 
-                  {/* Checkout Form */}
+                  {/* Info message about the flow */}
                   <div className="mt-8 max-w-2xl mx-auto">
-                    <div className="bg-card border border-border rounded-xl p-6 shadow-lg">
-                      <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-                        <ShoppingCart className="w-5 h-5 text-accent" />
-                        Complete Your Order
-                      </h3>
-
-                      {champroSessionId ? (
-                        <div className="mb-4 p-3 bg-accent/10 border border-accent/20 rounded-lg">
-                          <p className="text-sm text-accent font-medium">
-                            ✓ Design saved! Complete the form below to checkout.
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="mb-4 p-3 bg-muted border border-border rounded-lg">
-                          <p className="text-sm text-muted-foreground">
-                            Complete your design in the builder above, then click "Process Design" to
-                            save it.
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {/* Quantity */}
-                        <div className="space-y-2">
-                          <Label htmlFor="quantity">
-                            Quantity{" "}
-                            <span className="text-muted-foreground text-xs">
-                              (min {productPricing?.moq || 12})
-                            </span>
-                          </Label>
-                          <Input
-                            id="quantity"
-                            type="number"
-                            min={productPricing?.moq || 12}
-                            value={quantity}
-                            onChange={(e) =>
-                              setQuantity(
-                                Math.max(productPricing?.moq || 1, parseInt(e.target.value) || 1)
-                              )
-                            }
-                          />
-                        </div>
-
-                        {/* Lead Time */}
-                        <div className="space-y-2">
-                          <Label htmlFor="leadTime">Production Time</Label>
-                          <Select
-                            value={leadTime}
-                            onValueChange={(v) => setLeadTime(v as LeadTimeType)}
-                          >
-                            <SelectTrigger id="leadTime">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="standard">Standard (3-4 weeks)</SelectItem>
-                              <SelectItem value="express">10-Day Rush (+$)</SelectItem>
-                              <SelectItem value="express_plus">5-Day Rush (+$$)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* Team Name */}
-                        <div className="space-y-2">
-                          <Label htmlFor="teamName">Team Name (optional)</Label>
-                          <Input
-                            id="teamName"
-                            type="text"
-                            placeholder="e.g., Wildcats"
-                            value={teamName}
-                            onChange={(e) => setTeamName(e.target.value)}
-                          />
-                        </div>
-
-                        {/* Email */}
-                        <div className="space-y-2">
-                          <Label htmlFor="email">Email (for order updates)</Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            placeholder="coach@example.com"
-                            value={customerEmail}
-                            onChange={(e) => setCustomerEmail(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pricing Summary */}
-                      {productPricing && !loadingPricing && (
-                        <div className="mt-6 p-4 bg-secondary/50 rounded-lg">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-muted-foreground">Price per unit:</span>
-                            <span className="font-medium text-foreground">
-                              {formatPrice(perUnitPrice)}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="text-muted-foreground">Quantity:</span>
-                            <span className="font-medium text-foreground">{quantity}</span>
-                          </div>
-                          <div className="border-t border-border pt-2 mt-2">
-                            <div className="flex justify-between items-center">
-                              <span className="font-semibold text-foreground">Subtotal:</span>
-                              <span className="text-xl font-bold text-accent">
-                                {formatPrice(totalPrice)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              + shipping calculated at checkout
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Checkout Button */}
-                      <Button
-                        onClick={handleCheckout}
-                        disabled={!champroSessionId || isCheckingOut}
-                        className="w-full mt-6 btn-cta"
-                        size="lg"
-                      >
-                        {isCheckingOut ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingCart className="w-4 h-4 mr-2" />
-                            Proceed to Checkout
-                          </>
-                        )}
-                      </Button>
+                    <div className="bg-card border border-border rounded-xl p-6 shadow-lg text-center">
+                      <p className="text-muted-foreground">
+                        Complete your design in the builder above, then click{" "}
+                        <span className="font-semibold text-foreground">"Process Design"</span> to save
+                        it and add to your cart.
+                      </p>
                     </div>
                   </div>
                 </>
