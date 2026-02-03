@@ -238,19 +238,35 @@ export default function AdminFlyers() {
                             </Link>
                           </Button>
                           {flyer.pdf_url ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              asChild
-                            >
-                              <a 
-                                href={flyer.pdf_url} 
-                                download={`todds-flyer-${flyer.id}.pdf`}
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
                               >
-                                <Download className="mr-1 h-3 w-3" />
-                                Download PDF
-                              </a>
-                            </Button>
+                                <a 
+                                  href={flyer.pdf_url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                >
+                                  <ExternalLink className="mr-1 h-3 w-3" />
+                                  View
+                                </a>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                              >
+                                <a 
+                                  href={flyer.pdf_url} 
+                                  download={`todds-flyer-${flyer.id}.pdf`}
+                                >
+                                  <Download className="mr-1 h-3 w-3" />
+                                  Download
+                                </a>
+                              </Button>
+                            </>
                           ) : (
                             <span className="text-sm text-muted-foreground italic">
                               No file
