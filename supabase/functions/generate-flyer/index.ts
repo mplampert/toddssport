@@ -370,15 +370,16 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         doc.text('No Image', cellX + cellWidth / 2, imageY + imageSize / 2, { align: 'center' });
       }
 
-      // ===== TEXT CONTENT - Below image =====
+      // ===== TEXT CONTENT - Below image, STRICTLY within cell =====
       const textStartY = imageY + imageSize + 0.1;
       let textY = textStartY;
       const textMaxWidth = cellWidth - (cellPadding * 2);
       const textX = cellX + cellPadding;
       
-      // Calculate where price will be (bottom of cell)
-      const priceY = cellY + cellHeight - cellPadding - 0.08;
-      const maxTextEndY = priceY - 0.12; // Leave space before price
+      // Calculate where price will be (bottom of cell) - STRICTLY enforced
+      const priceY = cellY + cellHeight - cellPadding - 0.1;
+      // Description must end well before price
+      const maxTextEndY = priceY - 0.15;
 
       // Product title - bold, max 2 lines (like line-clamp-2)
       doc.setFontSize(9);
@@ -388,30 +389,35 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
       
       for (const line of titleLines) {
+        if (textY >= maxTextEndY) break; // Stop if we'd overflow
         doc.text(line, textX, textY);
         textY += 0.12;
       }
       textY += 0.02;
 
-      // Product description - line-clamp based on product count (matching preview)
+      // Product description - STRICT boundary enforcement
       if (product.description && textY < maxTextEndY) {
         doc.setFontSize(7);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(mutedColor);
         
         const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-        // Match preview: 1 product = 10 lines, 2 products = 5 lines, else 2 lines
-        const maxDescLines = productCount === 1 ? 10 : productCount === 2 ? 5 : 2;
         const descLineHeight = 0.1;
         
-        // But also cap based on available space
-        const availableLines = Math.floor((maxTextEndY - textY) / descLineHeight);
-        const actualMaxLines = Math.min(maxDescLines, Math.max(1, availableLines));
+        // Calculate exactly how many lines fit in remaining space
+        const remainingSpace = maxTextEndY - textY;
+        const maxFittingLines = Math.floor(remainingSpace / descLineHeight);
         
-        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, actualMaxLines);
+        // Cap at reasonable max but never exceed what physically fits
+        const maxDescLines = Math.min(
+          productCount === 1 ? 10 : productCount === 2 ? 5 : 2,
+          Math.max(1, maxFittingLines)
+        );
+        
+        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
         
         for (const line of descLines) {
-          if (textY >= maxTextEndY) break;
+          if (textY + descLineHeight > maxTextEndY) break; // STRICT: stop before overflow
           doc.text(line, textX, textY);
           textY += descLineHeight;
         }
