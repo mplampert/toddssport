@@ -75,6 +75,49 @@ function cleanText(text: string): string {
     .replace(/\u00A0/g, ' ');         // Non-breaking space
 }
 
+// Helper to wrap text to max lines with ellipsis truncation
+function wrapTextWithEllipsis(doc: jsPDF, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = text.split(/\s+/);
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    if (doc.getTextWidth(testLine) <= maxWidth) {
+      currentLine = testLine;
+    } else {
+      if (currentLine) {
+        lines.push(currentLine);
+        if (lines.length >= maxLines) break;
+      }
+      currentLine = word;
+      // If single word is too long, truncate it
+      while (doc.getTextWidth(currentLine) > maxWidth && currentLine.length > 3) {
+        currentLine = currentLine.slice(0, -1);
+      }
+    }
+  }
+  
+  if (currentLine && lines.length < maxLines) {
+    lines.push(currentLine);
+  }
+
+  // Add ellipsis to last line if we truncated
+  if (lines.length === maxLines && words.length > 0) {
+    const allText = words.join(' ');
+    const shownText = lines.join(' ');
+    if (allText.length > shownText.length) {
+      let lastLine = lines[maxLines - 1];
+      while (doc.getTextWidth(lastLine + '...') > maxWidth && lastLine.length > 3) {
+        lastLine = lastLine.slice(0, -1).trim();
+      }
+      lines[maxLines - 1] = lastLine + '...';
+    }
+  }
+
+  return lines;
+}
+
 // Generate PDF using jsPDF
 async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Promise<Uint8Array> {
   // Create PDF - Letter size (8.5 x 11 inches)
@@ -86,7 +129,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
 
   const pageWidth = 8.5;
   const pageHeight = 11;
-  const margin = 0.6;
+  const margin = 0.5;
   const contentWidth = pageWidth - (margin * 2);
 
   // Colors
@@ -94,72 +137,76 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   const darkColor = '#1f2937';
   const grayColor = '#6b7280';
   const lightGrayColor = '#e5e7eb';
+  const mutedGray = '#9ca3af';
 
   // ===== WHITE BACKGROUND =====
   doc.setFillColor('#ffffff');
   doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  // ===== RED BORDER (with padding so content doesn't touch) =====
-  const borderPadding = 0.15;
+  // ===== RED BORDER =====
+  const borderPadding = 0.12;
   doc.setDrawColor(redColor);
-  doc.setLineWidth(0.04);
+  doc.setLineWidth(0.035);
   doc.roundedRect(
     margin - borderPadding, 
     margin - borderPadding, 
     contentWidth + (borderPadding * 2), 
     pageHeight - (margin * 2) + (borderPadding * 2), 
-    0.1, 0.1, 'S'
+    0.08, 0.08, 'S'
   );
 
-  let y = margin + 0.1;
+  let y = margin + 0.15;
 
   // ===== HEADER =====
   // Logo on left
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', margin, y, 1.4, 0.55);
+      doc.addImage(logoBase64, 'PNG', margin + 0.05, y, 1.3, 0.5);
     } catch (e) {
       console.log('Could not add logo:', e);
     }
   }
 
-  // Client name on right (large and prominent)
+  // Client name on right - LARGE and prominent
   if (data.clientName) {
-    doc.setFontSize(18);
+    doc.setFontSize(22);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
-    doc.text(cleanText(data.clientName), pageWidth - margin, y + 0.25, { align: 'right' });
+    const clientName = cleanText(data.clientName);
+    doc.text(clientName, pageWidth - margin - 0.05, y + 0.28, { align: 'right' });
   }
 
   // Tagline
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(redColor);
-  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin, y + 0.5, { align: 'right' });
+  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin - 0.05, y + 0.48, { align: 'right' });
 
-  y += 0.75;
+  y += 0.7;
 
   // Header divider
   doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.015);
+  doc.setLineWidth(0.01);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 0.25;
+  y += 0.2;
 
   // ===== PRODUCTS GRID =====
   const products = data.products.slice(0, 6); // Max 6 products
   const productCount = products.length;
+  
+  // Always use 2 columns
   const cols = 2;
   const rows = Math.ceil(productCount / cols);
   
-  // Calculate cell dimensions
-  const footerHeight = 0.85;
-  const availableHeight = pageHeight - y - margin - footerHeight - 0.1;
-  const gapX = 0.2;
-  const gapY = 0.15;
+  // Calculate cell dimensions - ensure equal heights
+  const footerHeight = 0.7;
+  const availableHeight = pageHeight - y - margin - footerHeight - 0.15;
+  const gapX = 0.15;
+  const gapY = 0.12;
   
   const cellWidth = (contentWidth - gapX) / cols;
-  const cellHeight = Math.min((availableHeight - (gapY * (rows - 1))) / rows, 3.2);
-  const cellPadding = 0.15;
+  const cellHeight = (availableHeight - (gapY * (rows - 1))) / rows;
+  const cellPadding = 0.12;
 
   // Pre-fetch all product images
   const productImages: (string | null)[] = [];
@@ -172,6 +219,10 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     }
   }
 
+  // Fixed layout proportions for consistent tiles
+  const imageHeightRatio = 0.48; // Image takes ~48% of cell height
+  const priceAreaHeight = 0.35; // Reserve space for price at bottom
+
   for (let i = 0; i < products.length; i++) {
     const product = products[i];
     const col = i % cols;
@@ -183,77 +234,77 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     // Cell background - clean white with subtle border
     doc.setFillColor('#ffffff');
     doc.setDrawColor(lightGrayColor);
-    doc.setLineWidth(0.01);
-    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
+    doc.setLineWidth(0.008);
+    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
 
-    // Calculate content areas
+    // ===== IMAGE AREA (top portion) =====
     const imgData = productImages[i];
-    const hasImage = imgData !== null;
-    const imageAreaHeight = hasImage ? cellHeight * 0.48 : 0;
-    const textAreaTop = cellY + (hasImage ? imageAreaHeight + cellPadding : cellPadding);
-    
-    // Product image (only if exists)
-    if (hasImage) {
+    const imageAreaHeight = cellHeight * imageHeightRatio;
+    const imageY = cellY + cellPadding;
+    const imageWidth = cellWidth - (cellPadding * 2);
+    const imageHeight = imageAreaHeight - cellPadding;
+
+    if (imgData) {
       try {
-        const imgX = cellX + cellPadding;
-        const imgWidth = cellWidth - (cellPadding * 2);
-        const imgHeight = imageAreaHeight - cellPadding;
-        
-        // Center image in area while maintaining aspect ratio
         const format = getImageFormat(product.imageUrl || '');
-        
-        // Draw image centered
+        // Center image in the image area
         doc.addImage(
           imgData, 
           format, 
-          imgX + 0.1, 
-          cellY + cellPadding, 
-          imgWidth - 0.2, 
-          imgHeight - 0.1
+          cellX + cellPadding, 
+          imageY, 
+          imageWidth, 
+          imageHeight
         );
       } catch (e) {
         console.log('Could not add product image:', e);
       }
+    } else {
+      // Subtle "No Image" text instead of a box
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.setTextColor(mutedGray);
+      doc.text('No image provided', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
     }
 
-    let textY = textAreaTop;
+    // ===== TEXT AREA (middle portion) =====
+    let textY = cellY + imageAreaHeight + 0.08;
+    const textMaxWidth = cellWidth - (cellPadding * 2);
 
-    // Product title - bold, one line, truncated
-    doc.setFontSize(12);
+    // Product title - BOLD, wrap to 2 lines max with ellipsis
+    doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
     const title = cleanText(product.title || 'Product');
-    const maxTitleWidth = cellWidth - (cellPadding * 2);
+    const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
     
-    // Truncate title if too long
-    let displayTitle = title;
-    while (doc.getTextWidth(displayTitle) > maxTitleWidth && displayTitle.length > 3) {
-      displayTitle = displayTitle.slice(0, -4) + '...';
+    const lineHeight = 0.16;
+    for (const line of titleLines) {
+      doc.text(line, cellX + cellPadding, textY);
+      textY += lineHeight;
     }
-    doc.text(displayTitle, cellX + cellPadding, textY);
-    textY += 0.2;
+    textY += 0.04; // Small gap after title
 
-    // Product description - smaller text, up to 3 lines
+    // Product description - max 3 lines with ellipsis
     if (product.description) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(grayColor);
       
-      const desc = cleanText(product.description);
-      const descLines = doc.splitTextToSize(desc, cellWidth - (cellPadding * 2));
-      const maxLines = hasImage ? 2 : 4;
-      const linesToShow = descLines.slice(0, maxLines);
+      const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
+      const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, 3);
       
-      for (let j = 0; j < linesToShow.length; j++) {
-        doc.text(linesToShow[j], cellX + cellPadding, textY);
-        textY += 0.14;
+      const descLineHeight = 0.13;
+      for (const line of descLines) {
+        doc.text(line, cellX + cellPadding, textY);
+        textY += descLineHeight;
       }
     }
 
-    // Price line - bold red, bottom of cell
+    // ===== PRICE (bottom of cell) =====
     if (product.priceLine) {
-      const priceY = cellY + cellHeight - cellPadding - 0.08;
-      doc.setFontSize(13);
+      const priceY = cellY + cellHeight - cellPadding - 0.05;
+      doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(redColor);
       
@@ -272,30 +323,33 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   }
 
   // ===== FOOTER =====
-  const footerY = pageHeight - margin - footerHeight + 0.1;
+  const footerY = pageHeight - margin - footerHeight + 0.08;
 
   // Footer divider
   doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.015);
-  doc.line(margin, footerY - 0.05, pageWidth - margin, footerY - 0.05);
+  doc.setLineWidth(0.01);
+  doc.line(margin, footerY - 0.08, pageWidth - margin, footerY - 0.08);
 
-  // CTA box (red banner)
+  // CTA box (red banner) - more compact
   if (data.notesCta) {
     doc.setFillColor(redColor);
-    doc.roundedRect(margin, footerY, contentWidth, 0.38, 0.06, 0.06, 'F');
+    doc.roundedRect(margin, footerY - 0.02, contentWidth, 0.32, 0.05, 0.05, 'F');
     
-    doc.setFontSize(11);
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#ffffff');
-    doc.text(cleanText(data.notesCta), pageWidth / 2, footerY + 0.25, { align: 'center' });
+    doc.text(cleanText(data.notesCta), pageWidth / 2, footerY + 0.18, { align: 'center' });
   }
 
-  // Footer info
-  const infoY = data.notesCta ? footerY + 0.55 : footerY + 0.15;
+  // Footer info - single clean line
+  const infoY = data.notesCta ? footerY + 0.45 : footerY + 0.1;
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(grayColor);
+  
+  // Left side: company info
   doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, infoY);
+  // Right side: website
   doc.text('toddssport.lovable.app', pageWidth - margin, infoY, { align: 'right' });
 
   // Return PDF as Uint8Array
