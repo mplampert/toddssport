@@ -37,39 +37,61 @@ function splitName(fullName: string): { firstName: string; lastName: string } {
   return { firstName, lastName };
 }
 
-// Call Champro API through the Fixie proxy for static IP
+// Call Champro API through the Fixie/QuotaGuard proxy for static IP
 async function callChamproViaProxy(
   endpoint: string,
   method: string,
   body?: unknown
 ): Promise<Response> {
-  const fixieProxyUrl = Deno.env.get("FIXIE_PROXY_URL");
+  const proxyUrl = Deno.env.get("FIXIE_PROXY_URL");
   const targetUrl = `${CHAMPRO_BASE_URL}${endpoint}`;
 
-  logStep("Calling Champro API", { endpoint, method, hasProxy: !!fixieProxyUrl });
+  logStep("Calling Champro API", { endpoint, method, hasProxy: !!proxyUrl });
 
-  if (fixieProxyUrl) {
-    // Parse proxy URL to get auth credentials
-    // Format: http://user:pass@host:port
-    const proxyUrlObj = new URL(fixieProxyUrl);
-    const proxyAuth = `${proxyUrlObj.username}:${proxyUrlObj.password}`;
-    const proxyHost = proxyUrlObj.hostname;
-    const proxyPort = proxyUrlObj.port || "80";
-
-    // Use Deno's native proxy support via CONNECT
-    // For HTTPS targets through HTTP proxy, we use the Proxy-Authorization header
-    const proxyAuthHeader = btoa(proxyAuth);
-
-    const response = await fetch(targetUrl, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "Proxy-Authorization": `Basic ${proxyAuthHeader}`,
-      },
-      body: body ? JSON.stringify(body) : undefined,
+  if (proxyUrl) {
+    // Parse proxy URL to extract credentials
+    // Format: http://username:password@host:port
+    const url = new URL(proxyUrl);
+    
+    logStep("Using static IP proxy", { 
+      proxyHost: url.hostname,
+      proxyPort: url.port,
+      targetUrl 
     });
 
-    return response;
+    let client: Deno.HttpClient | null = null;
+    
+    try {
+      // Create HTTP client with proxy configuration
+      // This routes the request through the static IP proxy
+      client = Deno.createHttpClient({
+        proxy: {
+          url: `${url.protocol}//${url.host}`,
+          basicAuth: {
+            username: decodeURIComponent(url.username),
+            password: decodeURIComponent(url.password),
+          },
+        },
+      });
+
+      // Make the proxied request
+      const response = await fetch(targetUrl, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        // @ts-ignore - Deno client option for proxy
+        client,
+      });
+
+      return response;
+    } finally {
+      // Always close the client when done
+      if (client) {
+        client.close();
+      }
+    }
   } else {
     // Direct call (for testing or if proxy not configured)
     logStep("WARNING: No proxy configured, making direct API call");
