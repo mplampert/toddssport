@@ -130,8 +130,8 @@ serve(async (req) => {
       );
     }
 
-    // Look up product by SKU, productMaster, or sport+category
-    let productQuery = supabase.from("champro_products").select("*");
+    // Look up sellable products only (type="product", not categories)
+    let productQuery = supabase.from("champro_products").select("*").eq("type", "product");
 
     if (skuCode) {
       // Exact SKU lookup
@@ -140,10 +140,10 @@ serve(async (req) => {
       // ProductMaster lookup
       productQuery = productQuery.eq("product_master", productMaster);
     } else if (category) {
-      // Sport + category lookup - get first product
+      // Sport + category lookup - get first sellable product
       productQuery = productQuery.eq("sport", sportSlug).eq("category", category).limit(1);
     } else {
-      // Fallback: get first product for this sport
+      // Fallback: get first sellable product for this sport
       productQuery = productQuery.eq("sport", sportSlug).limit(1);
     }
 

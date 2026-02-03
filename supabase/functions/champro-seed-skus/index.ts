@@ -146,7 +146,7 @@ serve(async (req) => {
 
         // Parse ProductSKUs array from the response
         if (!productInfo.ProductSKUs || productInfo.ProductSKUs.length === 0) {
-          // If no SKUs returned, insert just the base product master
+          // If no SKUs returned, insert just the base product master as a category placeholder
           const { error: upsertError } = await supabaseClient
             .from("champro_products")
             .upsert({
@@ -156,6 +156,8 @@ serve(async (req) => {
               sport: config.sport,
               category: config.category,
               moq_custom: moqCustom,
+              type: "category", // No real SKUs = category placeholder
+              has_sizes: false,
             }, { onConflict: "sku" });
 
           if (!upsertError) skusInserted++;
@@ -173,6 +175,9 @@ serve(async (req) => {
               sport: config.sport,
               category: config.category,
               moq_custom: moqCustom,
+              type: "product", // Real SKU = sellable product
+              has_sizes: true,
+              parent_category: productMaster,
             };
 
             const { error: upsertError } = await supabaseClient
