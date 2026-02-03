@@ -417,35 +417,42 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const textStartY = cellY + cellPadding + imageAreaHeight + 0.15;
         let textY = textStartY;
         const textMaxWidth = cellWidth - (cellPadding * 2);
+        
+        // Calculate available space for text (between image and price)
+        const priceHeight = 0.25; // Space reserved for price line
+        const maxTextEndY = cellY + cellHeight - cellPadding - priceHeight;
 
         // Product title - bold, max 2 lines
-        const titleFontSize = productCount <= 2 ? 10 : productCount <= 4 ? 9 : 8;
+        const titleFontSize = productCount === 1 ? 14 : productCount === 2 ? 11 : productCount <= 4 ? 9 : 8;
         doc.setFontSize(titleFontSize);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(primaryColor);
         const title = cleanText(product.title || 'Product');
         const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
         
-        const lineHeight = productCount <= 2 ? 0.15 : 0.13;
+        const titleLineHeight = productCount === 1 ? 0.2 : productCount === 2 ? 0.16 : 0.13;
         for (const line of titleLines) {
           doc.text(line, cellX + cellPadding, textY);
-          textY += lineHeight;
+          textY += titleLineHeight;
         }
-        textY += 0.03;
+        textY += 0.05;
 
-        // Product description - allow more lines for fewer products
+        // Product description - dynamically calculate how many lines fit
         if (product.description) {
-          const descFontSize = productCount === 1 ? 9 : productCount === 2 ? 8 : 6;
+          const descFontSize = productCount === 1 ? 10 : productCount === 2 ? 8 : 6;
           doc.setFontSize(descFontSize);
           doc.setFont('helvetica', 'normal');
           doc.setTextColor(mutedColor);
           
           const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-          // For 1 product, allow up to 10 lines; for 2 products, 5 lines
-          const maxDescLines = productCount === 1 ? 10 : productCount === 2 ? 5 : 2;
+          const descLineHeight = productCount === 1 ? 0.16 : productCount === 2 ? 0.12 : 0.09;
+          
+          // Calculate max lines that will fit in available space
+          const availableDescSpace = maxTextEndY - textY - 0.1; // Leave some buffer
+          const maxDescLines = Math.max(2, Math.floor(availableDescSpace / descLineHeight));
+          
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
           
-          const descLineHeight = productCount === 1 ? 0.14 : productCount === 2 ? 0.12 : 0.09;
           for (const line of descLines) {
             doc.text(line, cellX + cellPadding, textY);
             textY += descLineHeight;
