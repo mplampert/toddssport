@@ -288,7 +288,8 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   doc.line(margin, y, pageWidth - margin, y);
   y += 0.25;
 
-  // ===== PRODUCTS GRID - Matching preview =====
+  // ===== PRODUCTS GRID - Matching preview exactly =====
+  // Preview uses 2-column grid always, aspect-square images, line-clamp text
   const products = data.products.filter(p => p.title?.trim()).slice(0, 6);
   const productCount = products.length;
   
@@ -299,17 +300,19 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     doc.setTextColor(mutedColor);
     doc.text('Add products to generate flyer', pageWidth / 2, y + 1, { align: 'center' });
   } else {
-    const gridLayout = getGridLayout(productCount);
+    // Always use 2-column grid like the preview
+    const cols = 2;
+    const rows = Math.ceil(productCount / 2);
     
-    // Calculate grid dimensions with proper spacing
-    const footerHeight = 0.55;
+    // Calculate grid dimensions
+    const footerHeight = 0.6;
     const availableHeight = pageHeight - y - margin - footerHeight;
-    const gapX = 0.2;  // Gap between columns
-    const gapY = 0.2;  // Gap between rows
+    const gapX = 0.15;
+    const gapY = 0.15;
     
-    const cellWidth = (contentWidth - (gapX * (gridLayout.cols - 1))) / gridLayout.cols;
-    const cellHeight = (availableHeight - (gapY * (gridLayout.rows - 1))) / gridLayout.rows;
-    const cellPadding = 0.15;
+    const cellWidth = (contentWidth - gapX) / cols;
+    const cellHeight = (availableHeight - (gapY * (rows - 1))) / rows;
+    const cellPadding = 0.12;
 
     // Pre-fetch all product images
     const productImages: (string | null)[] = [];
@@ -322,158 +325,110 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       }
     }
 
-    // Fixed layout: Image takes square area at top, text below
-    // Reserve fixed space for text block at bottom
-    // For 1 product, we have lots of space so allow much more text
-    const textBlockHeight = productCount === 1 ? 2.0 : productCount === 2 ? 1.2 : productCount <= 4 ? 0.9 : 0.8;
+    // Render products in 2-column grid
+    for (let i = 0; i < productCount; i++) {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      const product = products[i];
+      
+      const cellX = margin + (col * (cellWidth + gapX));
+      const cellY = y + (row * (cellHeight + gapY));
 
-    // Render products in grid
-    for (let row = 0; row < gridLayout.rows; row++) {
-      for (let col = 0; col < gridLayout.cols; col++) {
-        const productIndex = gridLayout.layout[row][col];
-        if (productIndex === -1 || productIndex >= products.length) {
-          continue;
-        }
+      // Cell background with subtle border
+      doc.setFillColor(bgColor);
+      doc.setDrawColor(borderColor);
+      doc.setLineWidth(0.01);
+      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
 
-        const product = products[productIndex];
-        
-        // Calculate cell position
-        let cellX = margin + (col * (cellWidth + gapX));
-        const cellY = y + (row * (cellHeight + gapY));
-        
-        // For 5 products, center the bottom 2
-        if (productCount === 5 && row === 1) {
-          const bottomCellCount = 2;
-          const totalBottomWidth = (bottomCellCount * cellWidth) + ((bottomCellCount - 1) * gapX);
-          const bottomStartX = margin + (contentWidth - totalBottomWidth) / 2;
-          const adjustedCol = col - 1;
-          if (adjustedCol >= 0) {
-            cellX = bottomStartX + (adjustedCol * (cellWidth + gapX));
-          }
-        }
+      // ===== IMAGE AREA - Aspect square like preview =====
+      const imageSize = Math.min(cellWidth - (cellPadding * 2), (cellHeight * 0.55));
+      const imageX = cellX + (cellWidth - imageSize) / 2; // Center horizontally
+      const imageY = cellY + cellPadding;
 
-        // Cell background with subtle border
-        doc.setFillColor(bgColor);
-        doc.setDrawColor(borderColor);
-        doc.setLineWidth(0.01);
-        doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
+      // Light gray background for image area
+      doc.setFillColor('#f3f4f6');
+      doc.roundedRect(imageX, imageY, imageSize, imageSize, 0.04, 0.04, 'F');
 
-        // ===== IMAGE AREA - Maintain aspect ratio, don't squish =====
-        // Image gets all space except what's needed for text block at bottom
-        const imageAreaHeight = cellHeight - textBlockHeight - (cellPadding * 2);
-        const imageY = cellY + cellPadding;
-        const availableImageWidth = cellWidth - (cellPadding * 2);
-        const imageX = cellX + cellPadding;
-
-        // Light gray background for image area
-        doc.setFillColor('#f9fafb');
-        doc.roundedRect(imageX, imageY, availableImageWidth, imageAreaHeight, 0.04, 0.04, 'F');
-
-        const imgData = productImages[productIndex];
-        if (imgData) {
-          try {
-            const format = getImageFormat(product.imageUrl || '');
-            
-            // Calculate proper dimensions to maintain aspect ratio (contain-style fit)
-            // Assume square images as default, but fit within available space
-            const containerRatio = availableImageWidth / imageAreaHeight;
-            let imgWidth = availableImageWidth;
-            let imgHeight = imageAreaHeight;
-            
-            // For most product images, they're roughly square or portrait
-            // Use contain-style fitting: fit entirely within container
-            if (containerRatio > 1) {
-              // Container is wider than tall - constrain by height
-              imgHeight = imageAreaHeight * 0.9; // 90% to add some padding
-              imgWidth = imgHeight; // Assume square, will be centered
-            } else {
-              // Container is taller than wide - constrain by width
-              imgWidth = availableImageWidth * 0.9;
-              imgHeight = imgWidth;
-            }
-            
-            // Center the image within the container
-            const imgX = imageX + (availableImageWidth - imgWidth) / 2;
-            const imgY = imageY + (imageAreaHeight - imgHeight) / 2;
-            
-            doc.addImage(imgData, format, imgX, imgY, imgWidth, imgHeight);
-          } catch (e) {
-            console.log('Could not add product image:', e);
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'italic');
-            doc.setTextColor('#9ca3af');
-            doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
-          }
-        } else {
-          // "No Image" placeholder text
+      const imgData = productImages[i];
+      if (imgData) {
+        try {
+          const format = getImageFormat(product.imageUrl || '');
+          // object-contain style - fit within square
+          const imgPadding = imageSize * 0.05;
+          doc.addImage(imgData, format, imageX + imgPadding, imageY + imgPadding, imageSize - (imgPadding * 2), imageSize - (imgPadding * 2));
+        } catch (e) {
+          console.log('Could not add product image:', e);
           doc.setFontSize(9);
           doc.setFont('helvetica', 'italic');
           doc.setTextColor('#9ca3af');
-          doc.text('No Image', cellX + cellWidth / 2, imageY + imageAreaHeight / 2, { align: 'center' });
+          doc.text('No Image', cellX + cellWidth / 2, imageY + imageSize / 2, { align: 'center' });
         }
+      } else {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.setTextColor('#9ca3af');
+        doc.text('No Image', cellX + cellWidth / 2, imageY + imageSize / 2, { align: 'center' });
+      }
 
-        // ===== TEXT CONTENT - Below image area =====
-        // Text starts after image area with clear separation
-        const textStartY = cellY + cellPadding + imageAreaHeight + 0.15;
-        let textY = textStartY;
-        const textMaxWidth = cellWidth - (cellPadding * 2);
+      // ===== TEXT CONTENT - Below image =====
+      const textStartY = imageY + imageSize + 0.1;
+      let textY = textStartY;
+      const textMaxWidth = cellWidth - (cellPadding * 2);
+      const textX = cellX + cellPadding;
+      
+      // Calculate where price will be (bottom of cell)
+      const priceY = cellY + cellHeight - cellPadding - 0.08;
+      const maxTextEndY = priceY - 0.12; // Leave space before price
+
+      // Product title - bold, max 2 lines (like line-clamp-2)
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor);
+      const title = cleanText(product.title || 'Product');
+      const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
+      
+      for (const line of titleLines) {
+        doc.text(line, textX, textY);
+        textY += 0.12;
+      }
+      textY += 0.02;
+
+      // Product description - line-clamp based on product count (matching preview)
+      if (product.description && textY < maxTextEndY) {
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(mutedColor);
         
-        // Calculate available space for text (between image and price)
-        const priceHeight = 0.25; // Space reserved for price line
-        const maxTextEndY = cellY + cellHeight - cellPadding - priceHeight;
+        const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
+        // Match preview: 1 product = 10 lines, 2 products = 5 lines, else 2 lines
+        const maxDescLines = productCount === 1 ? 10 : productCount === 2 ? 5 : 2;
+        const descLineHeight = 0.1;
+        
+        // But also cap based on available space
+        const availableLines = Math.floor((maxTextEndY - textY) / descLineHeight);
+        const actualMaxLines = Math.min(maxDescLines, Math.max(1, availableLines));
+        
+        const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, actualMaxLines);
+        
+        for (const line of descLines) {
+          if (textY >= maxTextEndY) break;
+          doc.text(line, textX, textY);
+          textY += descLineHeight;
+        }
+      }
 
-        // Product title - bold, max 2 lines
-        const titleFontSize = productCount === 1 ? 14 : productCount === 2 ? 11 : productCount <= 4 ? 9 : 8;
-        doc.setFontSize(titleFontSize);
+      // ===== PRICE at bottom (mt-auto in preview) =====
+      if (product.priceLine) {
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.setTextColor(primaryColor);
-        const title = cleanText(product.title || 'Product');
-        const titleLines = wrapTextWithEllipsis(doc, title, textMaxWidth, 2);
+        doc.setTextColor(accentColor);
         
-        const titleLineHeight = productCount === 1 ? 0.2 : productCount === 2 ? 0.16 : 0.13;
-        for (const line of titleLines) {
-          doc.text(line, cellX + cellPadding, textY);
-          textY += titleLineHeight;
+        let price = cleanText(product.priceLine);
+        if (/^\d/.test(price) && !price.startsWith('$')) {
+          price = '$' + price;
         }
-        textY += 0.05;
-
-        // Product description - dynamically calculate how many lines fit
-        if (product.description) {
-          const descFontSize = productCount === 1 ? 10 : productCount === 2 ? 8 : 6;
-          doc.setFontSize(descFontSize);
-          doc.setFont('helvetica', 'normal');
-          doc.setTextColor(mutedColor);
-          
-          const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
-          const descLineHeight = productCount === 1 ? 0.16 : productCount === 2 ? 0.12 : 0.09;
-          
-          // Calculate max lines that will fit in available space
-          const availableDescSpace = maxTextEndY - textY - 0.1; // Leave some buffer
-          const maxDescLines = Math.max(2, Math.floor(availableDescSpace / descLineHeight));
-          
-          const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxDescLines);
-          
-          for (const line of descLines) {
-            doc.text(line, cellX + cellPadding, textY);
-            textY += descLineHeight;
-          }
-        }
-
-        // ===== PRICE at bottom =====
-        if (product.priceLine) {
-          const priceFontSize = productCount <= 2 ? 12 : productCount <= 4 ? 11 : 10;
-          const priceY = cellY + cellHeight - cellPadding - 0.05;
-          doc.setFontSize(priceFontSize);
-          doc.setFont('helvetica', 'bold');
-          doc.setTextColor(accentColor);
-          
-          let price = cleanText(product.priceLine);
-          if (/^\d/.test(price) && !price.startsWith('$')) {
-            price = '$' + price;
-          }
-          
-          doc.text(price, cellX + cellPadding, priceY);
-        }
+        
+        doc.text(price, textX, priceY);
       }
     }
   }
