@@ -8,9 +8,6 @@ const defaultBrands: Brand[] = [
   { id: "1", name: "Nike", logo_url: null },
   { id: "2", name: "Under Armour", logo_url: null },
   { id: "3", name: "Adidas", logo_url: null },
-  { id: "4", name: "Russell Athletic", logo_url: null },
-  { id: "5", name: "Augusta Sportswear", logo_url: null },
-  { id: "6", name: "Badger Sport", logo_url: null },
 ];
 
 interface BrandsBarProps {
