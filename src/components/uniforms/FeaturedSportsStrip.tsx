@@ -1,11 +1,12 @@
 import { Link } from "react-router-dom";
-import { getFeaturedSports } from "@/data/sportsUniforms";
+import { useUniformCards } from "@/hooks/useUniformCards";
 import { Star } from "lucide-react";
 
 export function FeaturedSportsStrip() {
-  const featuredSports = getFeaturedSports();
+  const { getFeaturedCards, loading } = useUniformCards();
+  const featuredCards = getFeaturedCards();
 
-  if (featuredSports.length === 0) return null;
+  if (loading || featuredCards.length === 0) return null;
 
   return (
     <section className="bg-accent/10 border-y border-accent/20 py-6">
@@ -17,15 +18,15 @@ export function FeaturedSportsStrip() {
           </div>
           
           <div className="flex flex-wrap justify-center gap-3 md:gap-6">
-            {featuredSports.map((sport) => (
+            {featuredCards.map((card) => (
               <Link
-                key={sport.id}
-                to={`/uniforms/${sport.slug}`}
+                key={card.id}
+                to={`/uniforms/${card.slug}`}
                 className="group flex items-center gap-2 px-4 py-2 bg-background rounded-full border border-border hover:border-accent hover:shadow-md transition-all duration-200"
               >
-                <span className="text-xl">{sport.icon}</span>
+                {card.icon && <span className="text-xl">{card.icon}</span>}
                 <span className="font-medium text-foreground group-hover:text-accent transition-colors">
-                  {sport.featuredLabel || sport.name}
+                  {card.featured_label || card.title}
                 </span>
               </Link>
             ))}

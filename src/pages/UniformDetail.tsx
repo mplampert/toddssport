@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { getSportBySlug, getAllSports } from "@/data/sportsUniforms";
+import { useUniformCardBySlug, fetchAllUniformCards, UniformCard } from "@/hooks/useUniformCards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +23,8 @@ import {
   type ChamproCategory,
   calculatePerUnit,
   formatPrice,
-  getCategoryDisplayName,
 } from "@/lib/champroPricing";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductPricing {
   moq: number;
@@ -36,8 +36,8 @@ interface ProductPricing {
 
 export default function UniformDetail() {
   const { sport: sportSlug } = useParams<{ sport: string }>();
-  const sport = sportSlug ? getSportBySlug(sportSlug) : null;
-  const allSports = getAllSports();
+  const { card: sport, loading: loadingSport, error: sportError } = useUniformCardBySlug(sportSlug);
+  const [allCards, setAllCards] = useState<UniformCard[]>([]);
   const [embedKey, setEmbedKey] = useState<string | null>(null);
   const [loadingKey, setLoadingKey] = useState(true);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -53,6 +53,11 @@ export default function UniformDetail() {
   // Pricing state
   const [productPricing, setProductPricing] = useState<ProductPricing | null>(null);
   const [loadingPricing, setLoadingPricing] = useState(true);
+
+  // Fetch all cards for "other sports" section
+  useEffect(() => {
+    fetchAllUniformCards().then(setAllCards);
+  }, []);
 
   // Fetch the Champro embed key from edge function
   useEffect(() => {
@@ -143,7 +148,20 @@ export default function UniformDetail() {
 
   const totalPrice = perUnitPrice * quantity;
 
-  if (!sport) {
+  // Show loading state
+  if (loadingSport) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!sport || sportError) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -237,7 +255,7 @@ export default function UniformDetail() {
       } else {
         // Fallback: show success message with session ID for manual processing
         toast.success(
-          `Your ${sport?.name || sportSlug} uniform design has been saved!`,
+          `Your ${sport?.title || sportSlug} uniform design has been saved!`,
           {
             description: `Session ID: ${champroSessionId}. Contact us with this ID to get pricing and complete your order.`,
             duration: 10000,
@@ -250,7 +268,7 @@ export default function UniformDetail() {
     } finally {
       setIsCheckingOut(false);
     }
-  }, [champroSessionId, sportSlug, category, productPricing, quantity, leadTime, teamName, customerEmail, sport?.name]);
+  }, [champroSessionId, sportSlug, category, productPricing, quantity, leadTime, teamName, customerEmail, sport?.title]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -260,7 +278,7 @@ export default function UniformDetail() {
         <section className="relative min-h-[50vh] md:min-h-[60vh] flex items-center">
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${sport.image})` }}
+            style={{ backgroundImage: `url(${sport.image_url || '/placeholder.svg'})` }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-charcoal-dark/95 via-charcoal/85 to-charcoal/60" />
           
@@ -274,9 +292,9 @@ export default function UniformDetail() {
             </Link>
             
             <div className="flex items-center gap-4 mb-4">
-              <span className="text-5xl md:text-6xl">{sport.icon}</span>
+              {sport.icon && <span className="text-5xl md:text-6xl">{sport.icon}</span>}
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-primary-foreground">
-                {sport.name} Uniforms
+                {sport.title} Uniforms
               </h1>
             </div>
             <p className="text-lg md:text-xl text-primary-foreground/90 max-w-2xl">
@@ -291,7 +309,7 @@ export default function UniformDetail() {
             <div className="container mx-auto px-4">
               <div className="text-center mb-10">
                 <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
-                  Design Your {sport.name} Uniforms
+                  Design Your {sport.title} Uniforms
                 </h2>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                   Use our interactive uniform builder to customize colors, add your team name, 
@@ -455,10 +473,10 @@ export default function UniformDetail() {
               {/* Uniform Types */}
               <div>
                 <h2 className="text-2xl font-bold text-foreground mb-6">
-                  {sport.name} Uniform Options
+                  {sport.title} Uniform Options
                 </h2>
                 <p className="text-muted-foreground mb-6">
-                  We offer a complete range of {sport.name.toLowerCase()} apparel and accessories 
+                  We offer a complete range of {sport.title.toLowerCase()} apparel and accessories 
                   for youth, high school, club, and adult programs.
                 </p>
                 <ul className="space-y-3">
@@ -498,11 +516,11 @@ export default function UniformDetail() {
                   Request a Custom Quote
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Contact us for a personalized {sport.name.toLowerCase()} uniform consultation 
+                  Contact us for a personalized {sport.title.toLowerCase()} uniform consultation 
                   and quote.
                 </p>
                 <Button onClick={scrollToQuote} className="btn-cta">
-                  Request a {sport.name} Uniform Quote
+                  Request a {sport.title} Uniform Quote
                 </Button>
               </div>
             )}
@@ -516,7 +534,7 @@ export default function UniformDetail() {
               Explore Other Sports
             </h2>
             <div className="flex flex-wrap justify-center gap-3">
-              {allSports
+              {allCards
                 .filter((s) => s.id !== sport.id)
                 .slice(0, 6)
                 .map((s) => (
@@ -525,9 +543,9 @@ export default function UniformDetail() {
                     to={`/uniforms/${s.slug}`}
                     className="flex items-center gap-2 px-4 py-2 bg-secondary rounded-full border border-border hover:border-accent hover:shadow-md transition-all"
                   >
-                    <span className="text-lg">{s.icon}</span>
+                    {s.icon && <span className="text-lg">{s.icon}</span>}
                     <span className="font-medium text-foreground hover:text-accent">
-                      {s.name}
+                      {s.title}
                     </span>
                   </Link>
                 ))}
