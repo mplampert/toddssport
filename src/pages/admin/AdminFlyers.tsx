@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Download, FileText, Loader2, Trash2, ExternalLink, Pencil } from "lucide-react";
+import { Plus, Download, FileText, Loader2, Trash2, ExternalLink, Pencil, Copy } from "lucide-react";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -48,6 +48,7 @@ export default function AdminFlyers() {
   const [flyers, setFlyers] = useState<Flyer[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const fetchFlyers = async () => {
     try {
@@ -99,6 +100,39 @@ export default function AdminFlyers() {
       });
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleDuplicate = async (flyer: Flyer) => {
+    setDuplicatingId(flyer.id);
+    try {
+      const { data, error } = await supabase
+        .from('flyers')
+        .insert({
+          product_name: `${flyer.product_name} (Copy)`,
+          client_name: flyer.client_name,
+          products: flyer.products as unknown as null,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Flyer duplicated",
+        description: "A copy has been created. You can now edit it.",
+      });
+
+      fetchFlyers();
+    } catch (error: any) {
+      console.error('Error duplicating flyer:', error);
+      toast({
+        title: "Duplicate failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDuplicatingId(null);
     }
   };
 
@@ -181,6 +215,19 @@ export default function AdminFlyers() {
                         </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDuplicate(flyer)}
+                            disabled={duplicatingId === flyer.id}
+                            title="Duplicate flyer"
+                          >
+                            {duplicatingId === flyer.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
