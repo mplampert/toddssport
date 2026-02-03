@@ -29,6 +29,7 @@ import {
 
 interface Flyer {
   id: string;
+  client_name: string | null;
   product_name: string;
   subtitle: string | null;
   pdf_url: string | null;
@@ -45,7 +46,7 @@ export default function AdminFlyers() {
     try {
       const { data, error } = await supabase
         .from('flyers')
-        .select('id, product_name, subtitle, pdf_url, created_at')
+        .select('id, client_name, product_name, subtitle, pdf_url, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -151,8 +152,8 @@ export default function AdminFlyers() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Client</TableHead>
                     <TableHead>Product Name</TableHead>
-                    <TableHead>Subtitle</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -160,10 +161,10 @@ export default function AdminFlyers() {
                 <TableBody>
                   {flyers.map((flyer) => (
                     <TableRow key={flyer.id}>
-                      <TableCell className="font-medium">{flyer.product_name}</TableCell>
                       <TableCell className="text-muted-foreground">
-                        {flyer.subtitle || "—"}
+                        {flyer.client_name || "—"}
                       </TableCell>
+                      <TableCell className="font-medium">{flyer.product_name}</TableCell>
                       <TableCell>
                         {format(new Date(flyer.created_at), 'MMM d, yyyy')}
                       </TableCell>

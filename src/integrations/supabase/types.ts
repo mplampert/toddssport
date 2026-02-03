@@ -394,6 +394,7 @@ export type Database = {
       flyers: {
         Row: {
           bullet_points: string[] | null
+          client_name: string | null
           created_at: string
           fundraising_line: string | null
           id: string
@@ -407,6 +408,7 @@ export type Database = {
         }
         Insert: {
           bullet_points?: string[] | null
+          client_name?: string | null
           created_at?: string
           fundraising_line?: string | null
           id?: string
@@ -420,6 +422,7 @@ export type Database = {
         }
         Update: {
           bullet_points?: string[] | null
+          client_name?: string | null
           created_at?: string
           fundraising_line?: string | null
           id?: string
