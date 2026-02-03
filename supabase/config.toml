@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.download-flyer]
 verify_jwt = false
+
+[functions.champro-catalog-sync]
+verify_jwt = false
+
+[functions.champro-order]
+verify_jwt = false
+
+[functions.debug-ip]
+verify_jwt = false
