@@ -300,7 +300,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         doc.setLineWidth(0.01);
         doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
 
-        // ===== IMAGE AREA - Fixed height, not squished =====
+        // ===== IMAGE AREA - Maintain aspect ratio, don't squish =====
         // Image gets all space except what's needed for text block at bottom
         const imageAreaHeight = cellHeight - textBlockHeight - (cellPadding * 2);
         const imageY = cellY + cellPadding;
@@ -315,8 +315,30 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         if (imgData) {
           try {
             const format = getImageFormat(product.imageUrl || '');
-            // Fit image within container maintaining aspect ratio (contain-style)
-            doc.addImage(imgData, format, imageX, imageY, availableImageWidth, imageAreaHeight);
+            
+            // Calculate proper dimensions to maintain aspect ratio (contain-style fit)
+            // Assume square images as default, but fit within available space
+            const containerRatio = availableImageWidth / imageAreaHeight;
+            let imgWidth = availableImageWidth;
+            let imgHeight = imageAreaHeight;
+            
+            // For most product images, they're roughly square or portrait
+            // Use contain-style fitting: fit entirely within container
+            if (containerRatio > 1) {
+              // Container is wider than tall - constrain by height
+              imgHeight = imageAreaHeight * 0.9; // 90% to add some padding
+              imgWidth = imgHeight; // Assume square, will be centered
+            } else {
+              // Container is taller than wide - constrain by width
+              imgWidth = availableImageWidth * 0.9;
+              imgHeight = imgWidth;
+            }
+            
+            // Center the image within the container
+            const imgX = imageX + (availableImageWidth - imgWidth) / 2;
+            const imgY = imageY + (imageAreaHeight - imgHeight) / 2;
+            
+            doc.addImage(imgData, format, imgX, imgY, imgWidth, imgHeight);
           } catch (e) {
             console.log('Could not add product image:', e);
             doc.setFontSize(9);
