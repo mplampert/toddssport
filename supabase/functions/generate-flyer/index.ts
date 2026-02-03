@@ -6,22 +6,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface FlyerData {
-  clientName?: string;
-  productName: string;
-  subtitle?: string;
-  bulletPoints?: string[];
-  priceLine?: string;
-  fundraisingLine?: string;
+interface ProductForFlyer {
   imageUrl?: string;
+  title: string;
+  description?: string;
+  priceLine?: string;
+}
+
+interface FlyerData {
+  flyerName?: string;
+  clientName?: string;
+  products: ProductForFlyer[];
   notesCta?: string;
 }
 
+function generateProductCell(product: ProductForFlyer): string {
+  return `
+    <div class="product-cell">
+      ${product.imageUrl ? `
+        <div class="product-image-container">
+          <img src="${product.imageUrl}" alt="${product.title}" class="product-image" />
+        </div>
+      ` : `
+        <div class="product-image-container product-image-placeholder">
+          <span>No Image</span>
+        </div>
+      `}
+      <h3 class="product-title">${product.title}</h3>
+      ${product.description ? `<p class="product-description">${product.description}</p>` : ''}
+      ${product.priceLine ? `<p class="product-price">${product.priceLine}</p>` : ''}
+    </div>
+  `;
+}
+
 function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
-  const bulletPointsHtml = data.bulletPoints
-    ?.filter(bp => bp.trim())
-    .map(bp => `<li style="margin-bottom: 8px; font-size: 14px; color: #374151;">${bp}</li>`)
-    .join('') || '';
+  const productCount = data.products.length;
+  const gridClass = productCount <= 2 ? 'grid-2' : productCount <= 4 ? 'grid-4' : 'grid-6';
+  
+  const productsHtml = data.products.map(p => generateProductCell(p)).join('');
 
   return `
 <!DOCTYPE html>
@@ -35,7 +57,7 @@ function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       width: 8.5in;
       height: 11in;
-      padding: 0.5in;
+      padding: 0.4in;
       background: white;
     }
     .flyer {
@@ -43,7 +65,7 @@ function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
       height: 100%;
       border: 3px solid #dc2626;
       border-radius: 12px;
-      padding: 24px;
+      padding: 20px;
       display: flex;
       flex-direction: column;
     }
@@ -51,108 +73,110 @@ function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 16px;
+      padding-bottom: 12px;
       border-bottom: 2px solid #e5e7eb;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
     .logo {
-      height: 50px;
+      height: 40px;
     }
     .header-text {
       text-align: right;
-      color: #dc2626;
+    }
+    .client-name {
+      font-size: 16px;
       font-weight: 700;
-      font-size: 14px;
+      color: #111827;
+      margin-bottom: 2px;
     }
-    .content {
+    .tagline {
+      color: #dc2626;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .products-grid {
       flex: 1;
+      display: grid;
+      gap: 16px;
+      align-content: start;
+    }
+    .grid-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .grid-4 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .grid-6 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .product-cell {
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
       display: flex;
-      gap: 24px;
+      flex-direction: column;
+      background: #fafafa;
     }
-    .image-section {
-      flex: 1;
+    .product-image-container {
+      width: 100%;
+      height: ${productCount <= 2 ? '180px' : productCount <= 4 ? '120px' : '90px'};
       display: flex;
       align-items: center;
       justify-content: center;
+      margin-bottom: 10px;
+      background: white;
+      border-radius: 6px;
+      overflow: hidden;
     }
     .product-image {
       max-width: 100%;
-      max-height: 350px;
+      max-height: 100%;
       object-fit: contain;
-      border-radius: 8px;
     }
-    .details-section {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
+    .product-image-placeholder {
+      border: 1px dashed #d1d5db;
+      color: #9ca3af;
+      font-size: 12px;
     }
-    .product-name {
-      font-size: 28px;
+    .product-title {
+      font-size: ${productCount <= 2 ? '16px' : '14px'};
       font-weight: 700;
       color: #111827;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
-    .subtitle {
-      font-size: 16px;
+    .product-description {
+      font-size: ${productCount <= 2 ? '12px' : '11px'};
       color: #6b7280;
-      margin-bottom: 20px;
+      margin-bottom: 8px;
+      line-height: 1.4;
     }
-    .bullets {
-      list-style: none;
-      padding: 0;
-      margin-bottom: 24px;
-    }
-    .bullets li::before {
-      content: "✓ ";
-      color: #16a34a;
-      font-weight: 700;
-    }
-    .pricing-section {
-      background: #fef2f2;
-      border: 2px solid #dc2626;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .price-line {
-      font-size: 24px;
+    .product-price {
+      font-size: ${productCount <= 2 ? '14px' : '12px'};
       font-weight: 700;
       color: #dc2626;
+      margin-top: auto;
     }
-    .fundraising {
-      background: #f0fdf4;
-      border: 2px solid #16a34a;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-    }
-    .fundraising-text {
-      font-size: 14px;
-      font-weight: 600;
-      color: #16a34a;
+    .footer {
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 2px solid #e5e7eb;
     }
     .cta {
-      margin-top: auto;
       background: #dc2626;
       color: white;
-      padding: 16px;
+      padding: 12px;
       border-radius: 8px;
       text-align: center;
       font-weight: 700;
-      font-size: 16px;
+      font-size: 14px;
+      margin-bottom: 10px;
     }
-    .footer {
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 2px solid #e5e7eb;
+    .footer-info {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 12px;
+      font-size: 11px;
       color: #6b7280;
-    }
-    .contact {
-      text-align: right;
     }
   </style>
 </head>
@@ -161,51 +185,20 @@ function generateFlyerHTML(data: FlyerData, logoUrl: string): string {
     <div class="header">
       <img src="${logoUrl}" alt="Todd's Logo" class="logo" />
       <div class="header-text">
-        ${data.clientName ? `<div style="font-size: 18px; color: #111827; margin-bottom: 4px;">${data.clientName}</div>` : ''}
-        CUSTOM TEAM APPAREL<br/>
-        & PROMOTIONAL PRODUCTS
+        ${data.clientName ? `<div class="client-name">${data.clientName}</div>` : ''}
+        <div class="tagline">CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS</div>
       </div>
     </div>
     
-    <div class="content">
-      ${data.imageUrl ? `
-      <div class="image-section">
-        <img src="${data.imageUrl}" alt="${data.productName}" class="product-image" />
-      </div>
-      ` : ''}
-      
-      <div class="details-section" style="${data.imageUrl ? '' : 'flex: 1;'}">
-        <h1 class="product-name">${data.productName}</h1>
-        ${data.subtitle ? `<p class="subtitle">${data.subtitle}</p>` : ''}
-        
-        ${bulletPointsHtml ? `<ul class="bullets">${bulletPointsHtml}</ul>` : ''}
-        
-        ${data.priceLine ? `
-        <div class="pricing-section">
-          <p class="price-line">${data.priceLine}</p>
-        </div>
-        ` : ''}
-        
-        ${data.fundraisingLine ? `
-        <div class="fundraising">
-          <p class="fundraising-text">🎉 ${data.fundraisingLine}</p>
-        </div>
-        ` : ''}
-        
-        ${data.notesCta ? `
-        <div class="cta">
-          ${data.notesCta}
-        </div>
-        ` : ''}
-      </div>
+    <div class="products-grid ${gridClass}">
+      ${productsHtml}
     </div>
     
     <div class="footer">
-      <div>
-        <strong>Todd's</strong> — Your Partner in Team & Promotional Apparel
-      </div>
-      <div class="contact">
-        toddssport.lovable.app | Contact Your Rep Today
+      ${data.notesCta ? `<div class="cta">${data.notesCta}</div>` : ''}
+      <div class="footer-info">
+        <div><strong>Todd's</strong> — Your Partner in Team & Promotional Apparel</div>
+        <div>toddssport.lovable.app | Contact Your Rep Today</div>
       </div>
     </div>
   </div>
@@ -259,16 +252,19 @@ serve(async (req) => {
     }
 
     const body: FlyerData = await req.json();
-    console.log('Generating flyer for:', body.productName);
+    console.log('Generating flyer with', body.products?.length || 0, 'products');
+
+    if (!body.products || body.products.length === 0) {
+      return new Response(JSON.stringify({ error: 'At least one product is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Generate HTML
     const logoUrl = 'https://ookvohtvmjcgrfahigyr.supabase.co/storage/v1/object/public/brand-logos/todds-logo.png';
     const html = generateFlyerHTML(body, logoUrl);
 
-    // Use an HTML to PDF API service
-    // For now, we'll store the HTML and use client-side PDF generation
-    // This approach works without external API keys
-    
     const flyerId = crypto.randomUUID();
     const htmlFileName = `${flyerId}.html`;
     
@@ -300,13 +296,9 @@ serve(async (req) => {
     const { data: flyer, error: insertError } = await supabaseClient
       .from('flyers')
       .insert({
+        product_name: body.flyerName || `Flyer - ${body.products.length} products`,
         client_name: body.clientName || null,
-        product_name: body.productName,
-        subtitle: body.subtitle || null,
-        bullet_points: body.bulletPoints || [],
-        price_line: body.priceLine || null,
-        fundraising_line: body.fundraisingLine || null,
-        image_url: body.imageUrl || null,
+        products: body.products,
         notes_cta: body.notesCta || null,
         pdf_url: htmlUrl,
       })

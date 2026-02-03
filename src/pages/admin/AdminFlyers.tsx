@@ -27,11 +27,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+interface ProductForFlyer {
+  imageUrl?: string;
+  title: string;
+  description?: string;
+  priceLine?: string;
+}
+
 interface Flyer {
   id: string;
   client_name: string | null;
   product_name: string;
-  subtitle: string | null;
+  products: ProductForFlyer[] | null;
   pdf_url: string | null;
   created_at: string;
 }
@@ -46,11 +53,12 @@ export default function AdminFlyers() {
     try {
       const { data, error } = await supabase
         .from('flyers')
-        .select('id, client_name, product_name, subtitle, pdf_url, created_at')
+        .select('id, client_name, product_name, products, pdf_url, created_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setFlyers(data || []);
+      // Type assertion since Supabase doesn't know about the JSONB structure
+      setFlyers((data as unknown as Flyer[]) || []);
     } catch (error: any) {
       console.error('Error fetching flyers:', error);
       toast({
@@ -153,21 +161,29 @@ export default function AdminFlyers() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Client</TableHead>
-                    <TableHead>Product Name</TableHead>
+                    <TableHead>Flyer Name</TableHead>
+                    <TableHead>Products</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {flyers.map((flyer) => (
-                    <TableRow key={flyer.id}>
-                      <TableCell className="text-muted-foreground">
-                        {flyer.client_name || "—"}
-                      </TableCell>
-                      <TableCell className="font-medium">{flyer.product_name}</TableCell>
-                      <TableCell>
-                        {format(new Date(flyer.created_at), 'MMM d, yyyy')}
-                      </TableCell>
+                  {flyers.map((flyer) => {
+                    const productCount = flyer.products?.length || 0;
+                    return (
+                      <TableRow key={flyer.id}>
+                        <TableCell className="text-muted-foreground">
+                          {flyer.client_name || "—"}
+                        </TableCell>
+                        <TableCell className="font-medium">{flyer.product_name}</TableCell>
+                        <TableCell>
+                          <span className="inline-flex items-center rounded-full bg-muted px-2 py-1 text-xs font-medium">
+                            {productCount} {productCount === 1 ? 'product' : 'products'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(flyer.created_at), 'MMM d, yyyy')}
+                        </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
                           {flyer.pdf_url && (
@@ -226,7 +242,8 @@ export default function AdminFlyers() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             )}

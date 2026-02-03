@@ -403,6 +403,7 @@ export type Database = {
           pdf_url: string | null
           price_line: string | null
           product_name: string
+          products: Json | null
           subtitle: string | null
           updated_at: string
         }
@@ -417,6 +418,7 @@ export type Database = {
           pdf_url?: string | null
           price_line?: string | null
           product_name: string
+          products?: Json | null
           subtitle?: string | null
           updated_at?: string
         }
@@ -431,6 +433,7 @@ export type Database = {
           pdf_url?: string | null
           price_line?: string | null
           product_name?: string
+          products?: Json | null
           subtitle?: string | null
           updated_at?: string
         }
