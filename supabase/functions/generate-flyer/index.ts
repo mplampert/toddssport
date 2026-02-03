@@ -47,6 +47,17 @@ function getImageFormat(url: string): 'PNG' | 'JPEG' {
   return 'PNG';
 }
 
+// Helper to fix smart quotes and special characters
+function cleanText(text: string): string {
+  return text
+    .replace(/[\u2018\u2019]/g, "'")  // Smart single quotes
+    .replace(/[\u201C\u201D]/g, '"')  // Smart double quotes
+    .replace(/\u2013/g, '-')          // En dash
+    .replace(/\u2014/g, '--')         // Em dash
+    .replace(/\u2026/g, '...')        // Ellipsis
+    .replace(/\u00A0/g, ' ');         // Non-breaking space
+}
+
 // Generate PDF using jsPDF
 async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Promise<Uint8Array> {
   // Create PDF - Letter size (8.5 x 11 inches)
@@ -58,74 +69,85 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
 
   const pageWidth = 8.5;
   const pageHeight = 11;
-  const margin = 0.5;
+  const margin = 0.6;
   const contentWidth = pageWidth - (margin * 2);
 
   // Colors
   const redColor = '#dc2626';
-  const darkColor = '#111827';
+  const darkColor = '#1f2937';
   const grayColor = '#6b7280';
   const lightGrayColor = '#e5e7eb';
 
-  // ===== HEADER =====
-  let y = margin;
+  // ===== WHITE BACKGROUND =====
+  doc.setFillColor('#ffffff');
+  doc.rect(0, 0, pageWidth, pageHeight, 'F');
 
-  // Draw border around page
+  // ===== RED BORDER (with padding so content doesn't touch) =====
+  const borderPadding = 0.15;
   doc.setDrawColor(redColor);
-  doc.setLineWidth(0.03);
-  doc.roundedRect(margin - 0.1, margin - 0.1, contentWidth + 0.2, pageHeight - margin * 2 + 0.2, 0.1, 0.1, 'S');
+  doc.setLineWidth(0.04);
+  doc.roundedRect(
+    margin - borderPadding, 
+    margin - borderPadding, 
+    contentWidth + (borderPadding * 2), 
+    pageHeight - (margin * 2) + (borderPadding * 2), 
+    0.1, 0.1, 'S'
+  );
 
+  let y = margin + 0.1;
+
+  // ===== HEADER =====
   // Logo on left
   if (logoBase64) {
     try {
-      doc.addImage(logoBase64, 'PNG', margin + 0.1, y, 1.2, 0.5);
+      doc.addImage(logoBase64, 'PNG', margin, y, 1.4, 0.55);
     } catch (e) {
       console.log('Could not add logo:', e);
     }
   }
 
-  // Header text on right
-  const headerX = pageWidth - margin - 0.1;
-  
+  // Client name on right (large and prominent)
   if (data.clientName) {
-    doc.setFontSize(14);
+    doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
-    doc.text(data.clientName, headerX, y + 0.2, { align: 'right' });
-    y += 0.25;
+    doc.text(cleanText(data.clientName), pageWidth - margin, y + 0.25, { align: 'right' });
   }
 
+  // Tagline
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(redColor);
-  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', headerX, y + 0.25, { align: 'right' });
+  doc.text('CUSTOM TEAM APPAREL & PROMOTIONAL PRODUCTS', pageWidth - margin, y + 0.5, { align: 'right' });
 
-  y += 0.6;
+  y += 0.75;
 
   // Header divider
   doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.02);
+  doc.setLineWidth(0.015);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 0.2;
+  y += 0.25;
 
   // ===== PRODUCTS GRID =====
-  const productCount = data.products.length;
+  const products = data.products.slice(0, 6); // Max 6 products
+  const productCount = products.length;
   const cols = 2;
   const rows = Math.ceil(productCount / cols);
   
-  // Calculate available height for products
-  const footerHeight = 0.9;
-  const availableHeight = pageHeight - y - margin - footerHeight;
+  // Calculate cell dimensions
+  const footerHeight = 0.85;
+  const availableHeight = pageHeight - y - margin - footerHeight - 0.1;
+  const gapX = 0.2;
+  const gapY = 0.15;
   
-  const cellWidth = (contentWidth - 0.2) / cols;
-  const cellHeight = Math.min(availableHeight / rows, 2.8);
-  const cellPadding = 0.1;
-  const imageHeight = cellHeight * 0.45;
+  const cellWidth = (contentWidth - gapX) / cols;
+  const cellHeight = Math.min((availableHeight - (gapY * (rows - 1))) / rows, 3.2);
+  const cellPadding = 0.15;
 
   // Pre-fetch all product images
   const productImages: (string | null)[] = [];
-  for (const product of data.products) {
-    if (product.imageUrl) {
+  for (const product of products) {
+    if (product.imageUrl && product.imageUrl.trim()) {
       const imgData = await fetchImageAsBase64(product.imageUrl);
       productImages.push(imgData);
     } else {
@@ -133,108 +155,131 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
     }
   }
 
-  for (let i = 0; i < data.products.length; i++) {
-    const product = data.products[i];
+  for (let i = 0; i < products.length; i++) {
+    const product = products[i];
     const col = i % cols;
     const row = Math.floor(i / cols);
     
-    const cellX = margin + (col * (cellWidth + 0.1));
-    const cellY = y + (row * (cellHeight + 0.1));
+    const cellX = margin + (col * (cellWidth + gapX));
+    const cellY = y + (row * (cellHeight + gapY));
 
-    // Cell background
-    doc.setFillColor('#fafafa');
+    // Cell background - clean white with subtle border
+    doc.setFillColor('#ffffff');
     doc.setDrawColor(lightGrayColor);
     doc.setLineWidth(0.01);
-    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.08, 0.08, 'FD');
+    doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.06, 0.06, 'FD');
 
-    let textY = cellY + cellPadding;
-
-    // Product image
+    // Calculate content areas
     const imgData = productImages[i];
-    if (imgData) {
+    const hasImage = imgData !== null;
+    const imageAreaHeight = hasImage ? cellHeight * 0.48 : 0;
+    const textAreaTop = cellY + (hasImage ? imageAreaHeight + cellPadding : cellPadding);
+    
+    // Product image (only if exists)
+    if (hasImage) {
       try {
         const imgX = cellX + cellPadding;
         const imgWidth = cellWidth - (cellPadding * 2);
+        const imgHeight = imageAreaHeight - cellPadding;
         
-        // White background for image area
-        doc.setFillColor('#ffffff');
-        doc.roundedRect(imgX, textY, imgWidth, imageHeight, 0.05, 0.05, 'F');
-        
-        // Add image centered in container
+        // Center image in area while maintaining aspect ratio
         const format = getImageFormat(product.imageUrl || '');
-        doc.addImage(imgData, format, imgX + 0.1, textY + 0.05, imgWidth - 0.2, imageHeight - 0.1);
+        
+        // Draw image centered
+        doc.addImage(
+          imgData, 
+          format, 
+          imgX + 0.1, 
+          cellY + cellPadding, 
+          imgWidth - 0.2, 
+          imgHeight - 0.1
+        );
       } catch (e) {
         console.log('Could not add product image:', e);
       }
-    } else {
-      // Placeholder
-      doc.setFillColor('#ffffff');
-      doc.setDrawColor('#d1d5db');
-      doc.setLineWidth(0.01);
-      doc.setLineDashPattern([0.05, 0.05], 0);
-      doc.roundedRect(cellX + cellPadding, textY, cellWidth - (cellPadding * 2), imageHeight, 0.05, 0.05, 'FD');
-      doc.setLineDashPattern([], 0);
-      
-      doc.setFontSize(8);
-      doc.setTextColor('#9ca3af');
-      doc.text('No Image', cellX + cellWidth / 2, textY + imageHeight / 2 + 0.05, { align: 'center' });
     }
 
-    textY += imageHeight + 0.15;
+    let textY = textAreaTop;
 
-    // Product title
-    doc.setFontSize(11);
+    // Product title - bold, one line, truncated
+    doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(darkColor);
-    const titleLines = doc.splitTextToSize(product.title, cellWidth - (cellPadding * 2));
-    doc.text(titleLines.slice(0, 2), cellX + cellPadding, textY);
-    textY += titleLines.slice(0, 2).length * 0.16;
+    const title = cleanText(product.title || 'Product');
+    const maxTitleWidth = cellWidth - (cellPadding * 2);
+    
+    // Truncate title if too long
+    let displayTitle = title;
+    while (doc.getTextWidth(displayTitle) > maxTitleWidth && displayTitle.length > 3) {
+      displayTitle = displayTitle.slice(0, -4) + '...';
+    }
+    doc.text(displayTitle, cellX + cellPadding, textY);
+    textY += 0.2;
 
-    // Product description
+    // Product description - smaller text, up to 3 lines
     if (product.description) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(grayColor);
-      const descLines = doc.splitTextToSize(product.description, cellWidth - (cellPadding * 2));
-      doc.text(descLines.slice(0, 2), cellX + cellPadding, textY + 0.08);
-      textY += descLines.slice(0, 2).length * 0.14;
+      
+      const desc = cleanText(product.description);
+      const descLines = doc.splitTextToSize(desc, cellWidth - (cellPadding * 2));
+      const maxLines = hasImage ? 2 : 4;
+      const linesToShow = descLines.slice(0, maxLines);
+      
+      for (let j = 0; j < linesToShow.length; j++) {
+        doc.text(linesToShow[j], cellX + cellPadding, textY);
+        textY += 0.14;
+      }
     }
 
-    // Price line
+    // Price line - bold red, bottom of cell
     if (product.priceLine) {
-      doc.setFontSize(10);
+      const priceY = cellY + cellHeight - cellPadding - 0.08;
+      doc.setFontSize(13);
       doc.setFont('helvetica', 'bold');
       doc.setTextColor(redColor);
-      doc.text(product.priceLine, cellX + cellPadding, cellY + cellHeight - cellPadding - 0.05);
+      
+      let price = cleanText(product.priceLine);
+      // Add $ if not present and looks like a number
+      if (/^\d/.test(price) && !price.startsWith('$')) {
+        price = '$' + price;
+      }
+      // Add "each" if just a price
+      if (/^\$[\d.]+$/.test(price)) {
+        price = price + ' each';
+      }
+      
+      doc.text(price, cellX + cellPadding, priceY);
     }
   }
 
   // ===== FOOTER =====
-  const footerY = pageHeight - margin - footerHeight;
+  const footerY = pageHeight - margin - footerHeight + 0.1;
 
   // Footer divider
   doc.setDrawColor(lightGrayColor);
-  doc.setLineWidth(0.02);
-  doc.line(margin, footerY, pageWidth - margin, footerY);
+  doc.setLineWidth(0.015);
+  doc.line(margin, footerY - 0.05, pageWidth - margin, footerY - 0.05);
 
-  // CTA box
+  // CTA box (red banner)
   if (data.notesCta) {
     doc.setFillColor(redColor);
-    doc.roundedRect(margin, footerY + 0.1, contentWidth, 0.4, 0.08, 0.08, 'F');
+    doc.roundedRect(margin, footerY, contentWidth, 0.38, 0.06, 0.06, 'F');
     
     doc.setFontSize(11);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor('#ffffff');
-    doc.text(data.notesCta, pageWidth / 2, footerY + 0.35, { align: 'center' });
+    doc.text(cleanText(data.notesCta), pageWidth / 2, footerY + 0.25, { align: 'center' });
   }
 
   // Footer info
-  const infoY = data.notesCta ? footerY + 0.65 : footerY + 0.25;
-  doc.setFontSize(9);
+  const infoY = data.notesCta ? footerY + 0.55 : footerY + 0.15;
+  doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(grayColor);
-  doc.text("Todd's — Your Partner in Team & Promotional Apparel", margin, infoY);
-  doc.text('toddssport.lovable.app | Contact Your Rep Today', pageWidth - margin, infoY, { align: 'right' });
+  doc.text("Todd's Sporting Goods — Your Partner in Team & Promotional Apparel", margin, infoY);
+  doc.text('toddssport.lovable.app', pageWidth - margin, infoY, { align: 'right' });
 
   // Return PDF as Uint8Array
   const pdfOutput = doc.output('arraybuffer');
