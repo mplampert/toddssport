@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Download, FileText, Loader2, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Download, FileText, Loader2, Trash2, ExternalLink, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import {
   AlertDialog,
@@ -188,6 +188,15 @@ export default function AdminFlyers() {
                         </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                          >
+                            <Link to={`/admin/flyers/${flyer.id}/edit`}>
+                              <Pencil className="h-4 w-4" />
+                            </Link>
+                          </Button>
                           {flyer.pdf_url ? (
                             <>
                               <Button
