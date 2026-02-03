@@ -15,6 +15,7 @@ interface ProductForFlyer {
 }
 
 interface FlyerData {
+  flyerId?: string;  // If provided, update existing flyer
   flyerName?: string;
   clientName?: string;
   products: ProductForFlyer[];
@@ -303,15 +304,15 @@ serve(async (req) => {
     const pdfBytes = await generateFlyerPDF(body, logoBase64);
     console.log('PDF generated, size:', pdfBytes.length, 'bytes');
 
-    // Upload PDF to storage
-    const flyerId = crypto.randomUUID();
+    // Use existing ID or generate new one
+    const flyerId = body.flyerId || crypto.randomUUID();
     const pdfFileName = `${flyerId}.pdf`;
     
     const { error: uploadError } = await supabaseClient.storage
       .from('flyers')
       .upload(pdfFileName, pdfBytes, {
         contentType: 'application/pdf',
-        upsert: true,
+        upsert: true,  // Overwrite if exists
       });
 
     if (uploadError) {
@@ -319,33 +320,61 @@ serve(async (req) => {
       throw new Error(`Failed to upload PDF: ${uploadError.message}`);
     }
 
-    // Get public URL
+    // Get public URL with cache-busting timestamp
     const { data: urlData } = supabaseClient.storage
       .from('flyers')
       .getPublicUrl(pdfFileName);
 
-    const pdfUrl = urlData.publicUrl;
+    const pdfUrl = `${urlData.publicUrl}?t=${Date.now()}`;
     console.log('PDF uploaded to:', pdfUrl);
 
-    // Insert flyer record
-    const { data: flyer, error: insertError } = await supabaseClient
-      .from('flyers')
-      .insert({
-        product_name: body.flyerName || `Flyer - ${body.products.length} products`,
-        client_name: body.clientName || null,
-        products: body.products,
-        notes_cta: body.notesCta || null,
-        pdf_url: pdfUrl,
-      })
-      .select()
-      .single();
+    let flyer;
+    
+    if (body.flyerId) {
+      // Update existing flyer
+      const { data: updatedFlyer, error: updateError } = await supabaseClient
+        .from('flyers')
+        .update({
+          product_name: body.flyerName || `Flyer - ${body.products.length} products`,
+          client_name: body.clientName || null,
+          products: body.products,
+          notes_cta: body.notesCta || null,
+          pdf_url: pdfUrl,
+        })
+        .eq('id', body.flyerId)
+        .select()
+        .single();
 
-    if (insertError) {
-      console.error('Insert error:', insertError);
-      throw new Error(`Failed to save flyer: ${insertError.message}`);
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw new Error(`Failed to update flyer: ${updateError.message}`);
+      }
+      
+      flyer = updatedFlyer;
+      console.log('Flyer updated:', flyer.id);
+    } else {
+      // Insert new flyer record
+      const { data: newFlyer, error: insertError } = await supabaseClient
+        .from('flyers')
+        .insert({
+          id: flyerId,
+          product_name: body.flyerName || `Flyer - ${body.products.length} products`,
+          client_name: body.clientName || null,
+          products: body.products,
+          notes_cta: body.notesCta || null,
+          pdf_url: pdfUrl,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw new Error(`Failed to save flyer: ${insertError.message}`);
+      }
+      
+      flyer = newFlyer;
+      console.log('Flyer created:', flyer.id);
     }
-
-    console.log('Flyer created:', flyer.id);
 
     return new Response(
       JSON.stringify({

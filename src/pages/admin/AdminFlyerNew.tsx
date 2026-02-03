@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye } from "lucide-react";
+import { Loader2, FileText, ArrowLeft, Upload, X, ImageIcon, Plus, Trash2, Eye, Save } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FlyerPreview } from "@/components/admin/flyers/FlyerPreview";
 
@@ -27,9 +27,14 @@ const emptyProduct: ProductForFlyer = {
 };
 
 export default function AdminFlyerNew() {
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
+  
   const navigate = useNavigate();
   const { toast } = useToast();
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(isEditMode);
   const [uploadingIndex, setUploadingIndex] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const fileInputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -38,6 +43,52 @@ export default function AdminFlyerNew() {
   const [clientName, setClientName] = useState("");
   const [notesCta, setNotesCta] = useState("");
   const [products, setProducts] = useState<ProductForFlyer[]>([{ ...emptyProduct }]);
+
+  // Load flyer data when editing
+  useEffect(() => {
+    if (isEditMode && id) {
+      loadFlyer(id);
+    }
+  }, [id, isEditMode]);
+
+  const loadFlyer = async (flyerId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('flyers')
+        .select('*')
+        .eq('id', flyerId)
+        .single();
+
+      if (error) throw error;
+
+      if (data) {
+        setFlyerName(data.product_name || '');
+        setClientName(data.client_name || '');
+        setNotesCta(data.notes_cta || '');
+        
+        // Parse products from JSONB
+        const loadedProducts = data.products as unknown as ProductForFlyer[] | null;
+        if (loadedProducts && Array.isArray(loadedProducts) && loadedProducts.length > 0) {
+          setProducts(loadedProducts.map(p => ({
+            imageUrl: p.imageUrl || '',
+            title: p.title || '',
+            description: p.description || '',
+            priceLine: p.priceLine || '',
+          })));
+        }
+      }
+    } catch (error: any) {
+      console.error('Error loading flyer:', error);
+      toast({
+        title: "Error loading flyer",
+        description: error.message,
+        variant: "destructive",
+      });
+      navigate('/admin/flyers');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleProductChange = (index: number, field: keyof ProductForFlyer, value: string) => {
     setProducts(prev => {
@@ -138,7 +189,85 @@ export default function AdminFlyerNew() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSave = async () => {
+    const validProducts = products.filter(p => p.title.trim());
+    if (validProducts.length === 0) {
+      toast({
+        title: "At least one product required",
+        description: "Please add at least one product with a title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast({
+          title: "Not authenticated",
+          description: "Please log in to save flyers.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const flyerData = {
+        product_name: flyerName || `Flyer - ${validProducts.length} products`,
+        client_name: clientName || null,
+        products: validProducts as unknown as null,  // Cast for Supabase JSONB
+        notes_cta: notesCta || null,
+      };
+
+      if (isEditMode && id) {
+        const { error } = await supabase
+          .from('flyers')
+          .update({
+            ...flyerData,
+            products: validProducts as unknown as null,
+          })
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Flyer saved!",
+          description: "Your changes have been saved.",
+        });
+      } else {
+        const { error } = await supabase
+          .from('flyers')
+          .insert({
+            product_name: flyerData.product_name,
+            client_name: flyerData.client_name,
+            notes_cta: flyerData.notes_cta,
+            products: validProducts as unknown as null,
+          });
+
+        if (error) throw error;
+
+        toast({
+          title: "Flyer saved!",
+          description: "Your flyer has been saved as a draft.",
+        });
+        
+        navigate('/admin/flyers');
+      }
+    } catch (error: any) {
+      console.error('Error saving flyer:', error);
+      toast({
+        title: "Save failed",
+        description: error.message || "Failed to save flyer. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleGeneratePdf = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const validProducts = products.filter(p => p.title.trim());
@@ -167,6 +296,7 @@ export default function AdminFlyerNew() {
 
       const response = await supabase.functions.invoke('generate-flyer', {
         body: {
+          flyerId: isEditMode ? id : undefined,
           flyerName: flyerName || `Flyer - ${validProducts.length} products`,
           clientName: clientName || undefined,
           products: validProducts,
@@ -180,7 +310,7 @@ export default function AdminFlyerNew() {
 
       toast({
         title: "Flyer generated!",
-        description: "Your sales flyer has been created successfully.",
+        description: "Your sales flyer PDF has been created successfully.",
       });
 
       navigate('/admin/flyers');
@@ -206,14 +336,23 @@ export default function AdminFlyerNew() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Create Sales Flyer</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              {isEditMode ? 'Edit Sales Flyer' : 'Create Sales Flyer'}
+            </h1>
             <p className="text-muted-foreground mt-1">
-              Add up to 6 products to generate a multi-product flyer
+              {isEditMode 
+                ? 'Update your flyer and regenerate the PDF'
+                : 'Add up to 6 products to generate a multi-product flyer'}
             </p>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : (
+        <form onSubmit={handleGeneratePdf}>
           {/* Flyer Info */}
           <Card className="mb-6">
             <CardHeader>
@@ -407,6 +546,26 @@ export default function AdminFlyerNew() {
               <Eye className="mr-2 h-4 w-4" />
               Preview
             </Button>
+            {isEditMode && (
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={handleSave}
+                disabled={isSaving || uploadingIndex !== null}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            )}
             <Button type="submit" disabled={isGenerating || uploadingIndex !== null}>
               {isGenerating ? (
                 <>
@@ -416,12 +575,13 @@ export default function AdminFlyerNew() {
               ) : (
                 <>
                   <FileText className="mr-2 h-4 w-4" />
-                  Generate Flyer
+                  {isEditMode ? 'Regenerate PDF' : 'Generate Flyer'}
                 </>
               )}
             </Button>
           </div>
         </form>
+        )}
         
         <FlyerPreview
           open={showPreview}
