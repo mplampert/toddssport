@@ -343,15 +343,6 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       doc.setLineWidth(0.01);
       doc.roundedRect(cellX, cellY, cellWidth, actualCellHeight, 0.05, 0.05, 'FD');
 
-      // HARD CLIP: absolutely prevent any content from rendering outside the card.
-      // (This guarantees no long description/title can spill outside the rounded border.)
-      doc.saveGraphicsState();
-      doc.roundedRect(cellX, cellY, cellWidth, actualCellHeight, 0.05, 0.05, undefined as any);
-      // @ts-ignore - jsPDF clip/discardPath exist at runtime
-      doc.clip();
-      // @ts-ignore
-      doc.discardPath();
-
       // ===== IMAGE AREA - Constrained to fit within card =====
       // Image should take up about 50-55% of cell, leaving room for text
       const maxImageHeight = actualCellHeight * 0.5;
@@ -428,15 +419,17 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         const desc = cleanText(product.description.replace(/\n/g, ' ').replace(/\s+/g, ' '));
         const descLineHeight = 0.1;
         
-        // Calculate EXACT number of lines that can fit
+        // Calculate EXACT number of lines that can fit - with a hard cap of 8 lines max
         const remainingSpace = absoluteMaxY - textY;
-        const maxFittingLines = Math.floor(remainingSpace / descLineHeight);
+        const maxFittingLines = Math.min(8, Math.floor(remainingSpace / descLineHeight));
         
         if (maxFittingLines > 0) {
           const descLines = wrapTextWithEllipsis(doc, desc, textMaxWidth, maxFittingLines);
           
-          for (let j = 0; j < descLines.length; j++) {
-            // Double-check we won't overflow
+          // Only render the lines we calculated, no more
+          const linesToRender = Math.min(descLines.length, maxFittingLines);
+          for (let j = 0; j < linesToRender; j++) {
+            // Final safety check
             if (textY + descLineHeight > absoluteMaxY) break;
             doc.text(descLines[j], textX, textY);
             textY += descLineHeight;
@@ -457,9 +450,6 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         
         doc.text(price, textX, priceY);
       }
-
-      // End clip region for this card
-      doc.restoreGraphicsState();
     }
   }
 
