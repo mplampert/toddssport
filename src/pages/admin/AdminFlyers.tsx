@@ -190,7 +190,7 @@ export default function AdminFlyers() {
                               <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>
-                          {flyer.pdf_url && isPdfUrl(flyer.pdf_url) ? (
+                          {flyer.pdf_url ? (
                             <>
                               <Button
                                 variant="outline"
@@ -199,7 +199,7 @@ export default function AdminFlyers() {
                               >
                                 <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
                                   <Download className="mr-1 h-3 w-3" />
-                                  View PDF
+                                  {isPdfUrl(flyer.pdf_url) ? 'View PDF' : 'View Flyer'}
                                 </a>
                               </Button>
                               <Button
@@ -207,14 +207,14 @@ export default function AdminFlyers() {
                                 size="icon"
                                 asChild
                               >
-                                <a href={flyer.pdf_url} download target="_blank" rel="noopener noreferrer">
+                                <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="h-4 w-4" />
                                 </a>
                               </Button>
                             </>
                           ) : (
                             <span className="text-sm text-muted-foreground italic">
-                              Needs regeneration
+                              No file
                             </span>
                           )}
                           <AlertDialog>
