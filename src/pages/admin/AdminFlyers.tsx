@@ -238,27 +238,19 @@ export default function AdminFlyers() {
                             </Link>
                           </Button>
                           {flyer.pdf_url ? (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                asChild
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              asChild
+                            >
+                              <a 
+                                href={flyer.pdf_url} 
+                                download={`todds-flyer-${flyer.id}.pdf`}
                               >
-                                <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
-                                  <Download className="mr-1 h-3 w-3" />
-                                  {isPdfUrl(flyer.pdf_url) ? 'View PDF' : 'View Flyer'}
-                                </a>
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                asChild
-                              >
-                                <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
-                                  <ExternalLink className="h-4 w-4" />
-                                </a>
-                              </Button>
-                            </>
+                                <Download className="mr-1 h-3 w-3" />
+                                Download PDF
+                              </a>
+                            </Button>
                           ) : (
                             <span className="text-sm text-muted-foreground italic">
                               No file
