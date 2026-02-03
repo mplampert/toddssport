@@ -41,10 +41,11 @@ export default function AdminChamproPricing() {
   async function fetchAllData() {
     setLoading(true);
     try {
-      // Fetch products
+      // Fetch only sellable products (not categories)
       const { data: productsData, error: productsError } = await supabase
         .from("champro_products")
         .select("*")
+        .eq("type", "product")
         .order("sport")
         .order("category")
         .order("name");
