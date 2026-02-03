@@ -102,16 +102,9 @@ export default function AdminFlyers() {
     }
   };
 
-  const handleViewPdf = (url: string | null) => {
-    if (!url) {
-      toast({
-        title: "PDF not available",
-        description: "This flyer doesn't have a PDF file. Please regenerate it.",
-        variant: "destructive",
-      });
-      return;
-    }
-    window.open(url, '_blank');
+  const isPdfUrl = (url: string | null): boolean => {
+    if (!url) return false;
+    return url.toLowerCase().includes('.pdf');
   };
 
   return (
@@ -197,28 +190,32 @@ export default function AdminFlyers() {
                               <Pencil className="h-4 w-4" />
                             </Link>
                           </Button>
-                          {flyer.pdf_url ? (
+                          {flyer.pdf_url && isPdfUrl(flyer.pdf_url) ? (
                             <>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => handleViewPdf(flyer.pdf_url)}
+                                asChild
                               >
-                                <Download className="mr-1 h-3 w-3" />
-                                View PDF
+                                <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
+                                  <Download className="mr-1 h-3 w-3" />
+                                  View PDF
+                                </a>
                               </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
                                 asChild
                               >
-                                <a href={flyer.pdf_url} target="_blank" rel="noopener noreferrer">
+                                <a href={flyer.pdf_url} download target="_blank" rel="noopener noreferrer">
                                   <ExternalLink className="h-4 w-4" />
                                 </a>
                               </Button>
                             </>
                           ) : (
-                            <span className="text-sm text-muted-foreground">No PDF</span>
+                            <span className="text-sm text-muted-foreground italic">
+                              Needs regeneration
+                            </span>
                           )}
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
