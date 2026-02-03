@@ -155,13 +155,6 @@ export default function AdminFlyers() {
         return;
       }
 
-      const response = await supabase.functions.invoke('download-flyer', {
-        body: null,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
       // Use fetch directly to get the binary response with proper headers
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const fetchResponse = await fetch(`${supabaseUrl}/functions/v1/download-flyer?id=${flyer.id}`, {
