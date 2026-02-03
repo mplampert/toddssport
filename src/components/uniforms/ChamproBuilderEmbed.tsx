@@ -2,18 +2,41 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Champro Custom Builder category mappings
+// Champro Custom Builder category mappings - all 26 categories
 const CHAMPRO_CATEGORIES: Record<string, { id: number; name: string }> = {
+  // Core Sports
   baseball: { id: 1154, name: "BASEBALL" },
   softball: { id: 1155, name: "FASTPITCH" },
-  basketball: { id: 1159, name: "MEN'S BASKETBALL" },
   football: { id: 1158, name: "FOOTBALL" },
-  hockey: { id: 1168, name: "HOCKEY" },
+  basketball: { id: 1159, name: "MEN'S BASKETBALL" },
+  "womens-basketball": { id: 1160, name: "WOMEN'S BASKETBALL" },
   volleyball: { id: 1161, name: "MEN'S VOLLEYBALL" },
+  "womens-volleyball": { id: 1162, name: "WOMEN'S VOLLEYBALL" },
   soccer: { id: 1164, name: "MEN'S SOCCER" },
-  "track-field": { id: 1248, name: "MEN'S TRACK" },
-  lacrosse: { id: 1251, name: "MEN'S LACROSSE" },
+  "womens-soccer": { id: 1165, name: "WOMEN'S SOCCER" },
+  hockey: { id: 1168, name: "HOCKEY" },
   wrestling: { id: 1172, name: "WRESTLING" },
+  "track-field": { id: 1248, name: "MEN'S TRACK" },
+  "womens-track": { id: 1249, name: "WOMEN'S TRACK" },
+  lacrosse: { id: 1251, name: "MEN'S LACROSSE" },
+  "womens-lacrosse": { id: 1252, name: "WOMEN'S LACROSSE" },
+  slowpitch: { id: 1209, name: "SLOWPITCH" },
+  "7v7": { id: 1171, name: "7V7" },
+  
+  // Accessories & Apparel
+  caps: { id: 1156, name: "CAPS" },
+  "splash-shirts": { id: 1157, name: "SPLASH SHIRTS" },
+  "mens-sportswear": { id: 1217, name: "MEN'S SPORTSWEAR" },
+  "womens-sportswear": { id: 1219, name: "WOMEN'S SPORTSWEAR" },
+  
+  // Special Programs & Collections
+  realtree: { id: 1542, name: "REALTREE®" },
+  "juice-5-day": { id: 1566, name: "JUICE 5-DAY PROGRAM" },
+  "legacy-collection": { id: 1567, name: "LEGACY COLLECTION" },
+  "slam-dunk-5-day": { id: 1590, name: "SLAM DUNK 5-DAY PROGRAM" },
+  
+  // Blankets - placeholder until category ID is confirmed
+  // blankets: { id: TBD, name: "BLANKETS" },
 };
 
 interface ChamproBuilderEmbedProps {
