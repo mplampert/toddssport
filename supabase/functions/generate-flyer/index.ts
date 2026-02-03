@@ -75,44 +75,53 @@ function cleanText(text: string): string {
     .replace(/\u00A0/g, ' ');         // Non-breaking space
 }
 
-// Helper to wrap text to max lines with ellipsis truncation
+// Helper to wrap text to max lines with ellipsis truncation (only at end of last line)
 function wrapTextWithEllipsis(doc: jsPDF, text: string, maxWidth: number, maxLines: number): string[] {
-  const words = text.split(/\s+/);
+  const words = text.split(/\s+/).filter(w => w.length > 0);
   const lines: string[] = [];
   let currentLine = '';
 
-  for (const word of words) {
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i];
     const testLine = currentLine ? `${currentLine} ${word}` : word;
+    
     if (doc.getTextWidth(testLine) <= maxWidth) {
       currentLine = testLine;
     } else {
+      // Current line is full, push it
       if (currentLine) {
         lines.push(currentLine);
-        if (lines.length >= maxLines) break;
+        if (lines.length >= maxLines) {
+          // We've hit max lines but there's more content - add ellipsis to last line
+          let lastLine = lines[lines.length - 1];
+          while (doc.getTextWidth(lastLine + '...') > maxWidth && lastLine.length > 3) {
+            // Remove last word or characters to make room for ellipsis
+            const lastSpaceIdx = lastLine.lastIndexOf(' ');
+            if (lastSpaceIdx > 0) {
+              lastLine = lastLine.substring(0, lastSpaceIdx);
+            } else {
+              lastLine = lastLine.slice(0, -1);
+            }
+          }
+          lines[lines.length - 1] = lastLine + '...';
+          return lines;
+        }
       }
       currentLine = word;
-      // If single word is too long, truncate it
-      while (doc.getTextWidth(currentLine) > maxWidth && currentLine.length > 3) {
-        currentLine = currentLine.slice(0, -1);
+      
+      // If single word is too long for the line, truncate it with ellipsis
+      if (doc.getTextWidth(currentLine) > maxWidth) {
+        while (doc.getTextWidth(currentLine + '...') > maxWidth && currentLine.length > 3) {
+          currentLine = currentLine.slice(0, -1);
+        }
+        currentLine = currentLine + '...';
       }
     }
   }
   
+  // Add the last line if we have room
   if (currentLine && lines.length < maxLines) {
     lines.push(currentLine);
-  }
-
-  // Add ellipsis to last line if we truncated
-  if (lines.length === maxLines && words.length > 0) {
-    const allText = words.join(' ');
-    const shownText = lines.join(' ');
-    if (allText.length > shownText.length) {
-      let lastLine = lines[maxLines - 1];
-      while (doc.getTextWidth(lastLine + '...') > maxWidth && lastLine.length > 3) {
-        lastLine = lastLine.slice(0, -1).trim();
-      }
-      lines[maxLines - 1] = lastLine + '...';
-    }
   }
 
   return lines;
@@ -211,22 +220,23 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
   doc.setDrawColor(lightGrayColor);
   doc.setLineWidth(0.01);
   doc.line(margin, y, pageWidth - margin, y);
-  y += 0.15;
+  y += 0.2; // More space after header
 
   // ===== PRODUCTS GRID =====
   const products = data.products.slice(0, 6); // Max 6 products
   const productCount = products.length;
   const gridLayout = getGridLayout(productCount);
   
-  // Calculate cell dimensions
-  const footerHeight = 0.65;
-  const availableHeight = pageHeight - y - margin - footerHeight - 0.1;
-  const gapX = 0.12;
-  const gapY = 0.1;
+  // Calculate cell dimensions with better spacing
+  const footerHeight = 0.7;
+  const gridTopMargin = 0.08; // Space between header divider and grid
+  const availableHeight = pageHeight - y - margin - footerHeight - gridTopMargin;
+  const gapX = 0.15; // ~11pt gap between columns
+  const gapY = 0.15; // ~11pt gap between rows
   
   const cellWidth = (contentWidth - (gapX * (gridLayout.cols - 1))) / gridLayout.cols;
   const cellHeight = (availableHeight - (gapY * (gridLayout.rows - 1))) / gridLayout.rows;
-  const cellPadding = 0.1;
+  const cellPadding = 0.12; // ~9pt padding inside each tile
 
   // Pre-fetch all product images
   const productImages: (string | null)[] = [];
@@ -276,8 +286,8 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       // Cell background - clean white with subtle border
       doc.setFillColor('#ffffff');
       doc.setDrawColor(lightGrayColor);
-      doc.setLineWidth(0.008);
-      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.04, 0.04, 'FD');
+      doc.setLineWidth(0.01);
+      doc.roundedRect(cellX, cellY, cellWidth, cellHeight, 0.05, 0.05, 'FD');
 
       // ===== IMAGE AREA (top portion) =====
       const imgData = productImages[productIndex];
@@ -289,6 +299,7 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
       if (imgData) {
         try {
           const format = getImageFormat(product.imageUrl || '');
+          console.log(`Adding image for product ${productIndex}: ${product.title}, format: ${format}`);
           doc.addImage(
             imgData, 
             format, 
@@ -299,13 +310,22 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
           );
         } catch (e) {
           console.log('Could not add product image:', e);
+          // Show placeholder on error
+          doc.setFillColor('#f3f4f6');
+          doc.roundedRect(cellX + cellPadding, imageY, imageWidth, imageHeight, 0.03, 0.03, 'F');
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'italic');
+          doc.setTextColor(mutedGray);
+          doc.text('Image unavailable', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
         }
       } else {
-        // Subtle "No Image" text
+        // Light gray placeholder box with "No Image" text
+        doc.setFillColor('#f3f4f6');
+        doc.roundedRect(cellX + cellPadding, imageY, imageWidth, imageHeight, 0.03, 0.03, 'F');
         doc.setFontSize(8);
         doc.setFont('helvetica', 'italic');
         doc.setTextColor(mutedGray);
-        doc.text('No image provided', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
+        doc.text('No Image', cellX + (cellWidth / 2), imageY + (imageHeight / 2), { align: 'center' });
       }
 
       // ===== TEXT AREA =====
@@ -345,10 +365,11 @@ async function generateFlyerPDF(data: FlyerData, logoBase64: string | null): Pro
         }
       }
 
-      // ===== PRICE (bottom of cell) =====
+      // ===== PRICE (bottom of cell with proper padding) =====
       if (product.priceLine) {
-        const priceY = cellY + cellHeight - cellPadding - 0.03;
         const priceFontSize = productCount <= 2 ? 13 : productCount <= 4 ? 12 : 11;
+        // Position price with enough bottom padding (cellPadding + extra space for text height)
+        const priceY = cellY + cellHeight - cellPadding - 0.08;
         doc.setFontSize(priceFontSize);
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(redColor);
