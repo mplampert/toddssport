@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useEffect, useState, useCallback } from "react";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -24,6 +24,7 @@ import {
   calculatePerUnit,
   formatPrice,
 } from "@/lib/champroPricing";
+import { getCartSessionId } from "@/lib/cartSession";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductPricing {
@@ -35,6 +36,7 @@ interface ProductPricing {
 }
 
 export default function UniformDetail() {
+  const navigate = useNavigate();
   const { sport: sportSlug } = useParams<{ sport: string }>();
   const { card: sport, loading: loadingSport, error: sportError } = useUniformCardBySlug(sportSlug);
   const [allCards, setAllCards] = useState<UniformCard[]>([]);
@@ -137,19 +139,68 @@ export default function UniformDetail() {
     fetchPricing();
   }, [sportSlug]);
 
-  // Called when design is saved in the Champro builder
-  const handleDesignSaved = useCallback(({
+  // Called when design is saved in the Champro builder - add to cart and redirect
+  const handleDesignSaved = useCallback(async ({
     champroSessionId: sessionId,
+    sportSlug: savedSportSlug,
   }: {
     champroSessionId: string;
     sportSlug: string;
   }) => {
     console.log("Champro design saved:", sessionId);
     setChamproSessionId(sessionId);
-    toast.success("Design saved! Complete the form below to checkout.", {
-      duration: 5000,
-    });
-  }, []);
+    
+    // Calculate current price for cart
+    const currentPerUnitPrice = productPricing
+      ? calculatePerUnit(
+          { baseCost: productPricing.baseCost },
+          productPricing.globalPricing,
+          leadTime
+        )
+      : null;
+    
+    // Add to cart via edge function
+    setIsCheckingOut(true);
+    try {
+      const cartSessionId = getCartSessionId();
+      
+      const { data, error } = await supabase.functions.invoke("champro-cart-item", {
+        body: {
+          champroSessionId: sessionId,
+          sportSlug: savedSportSlug,
+          sportTitle: sport?.title,
+          quantity,
+          leadTime,
+          teamName,
+          category,
+          productMaster: productPricing?.productMaster,
+          unitPrice: currentPerUnitPrice,
+          cartSessionId,
+        },
+      });
+
+      if (error) {
+        console.error("Cart error:", error);
+        toast.error("Failed to add to cart. Please try again.");
+        return;
+      }
+
+      if (data?.success) {
+        toast.success("Design added to cart!", {
+          duration: 3000,
+        });
+        // Redirect to cart
+        navigate("/cart");
+      } else {
+        toast.error(data?.error || "Failed to add to cart.");
+      }
+    } catch (err) {
+      console.error("Cart add failed:", err);
+      toast.error("Unable to add to cart. Please try again.");
+    } finally {
+      setIsCheckingOut(false);
+    }
+  }, [sport?.title, quantity, leadTime, teamName, category, productPricing, navigate]);
 
   // Called when user clicks checkout button
   const handleCheckout = useCallback(async () => {

@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.champro-seed-skus]
 verify_jwt = false
+
+[functions.champro-cart-item]
+verify_jwt = false

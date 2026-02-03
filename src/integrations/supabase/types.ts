@@ -41,6 +41,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cart_items: {
+        Row: {
+          category: string | null
+          champro_session_id: string
+          created_at: string
+          id: string
+          lead_time: string
+          product_master: string | null
+          quantity: number
+          session_id: string
+          sport_slug: string
+          sport_title: string | null
+          team_name: string | null
+          unit_price: number | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          champro_session_id: string
+          created_at?: string
+          id?: string
+          lead_time?: string
+          product_master?: string | null
+          quantity?: number
+          session_id: string
+          sport_slug: string
+          sport_title?: string | null
+          team_name?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          champro_session_id?: string
+          created_at?: string
+          id?: string
+          lead_time?: string
+          product_master?: string | null
+          quantity?: number
+          session_id?: string
+          sport_slug?: string
+          sport_title?: string | null
+          team_name?: string | null
+          unit_price?: number | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       catalogs: {
         Row: {
           catalog_url: string
