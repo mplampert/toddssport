@@ -1,4 +1,4 @@
-import { Resend } from "https://esm.sh/resend@2.0.0";
+// Email disabled - using Slack only
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -1,5 +1,5 @@
-import Stripe from "https://esm.sh/stripe@17.7.0?target=deno";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -184,7 +184,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const stripe = new Stripe(stripeSecretKey, {
-      apiVersion: "2024-06-20",
+      apiVersion: "2025-02-24.acacia",
     });
 
     const signature = req.headers.get("stripe-signature");
