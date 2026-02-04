@@ -147,13 +147,14 @@ const SUPPLIER_CONFIGS: Record<string, SupplierConfig> = {
   imprintid: {
     code: 'imprintid',
     name: 'ImprintID',
+    // Direct ImprintID endpoints (dc-onesource requires separate registration)
     productDataUrl: 'https://productdata.imprintid.com/ProductDataT.svc',
     mediaContentUrl: 'https://mediacontent.imprintid.com/MediaContents.svc',
     pricingConfigUrl: 'https://productprice.imprintid.com/ProductPricingConfig.svc',
     usernameEnvKey: 'PROMOSTANDARDS_USERNAME',
     passwordEnvKey: 'PROMOSTANDARDS_PASSWORD',
     wsVersionProductData: '2.0.0',
-    wsVersionMedia: '1.0.0',  // ImprintID uses 1.0.0
+    wsVersionMedia: '1.0.0',
     wsVersionPricing: '1.0.0',
   },
   hit: {
@@ -233,6 +234,10 @@ async function fetchProductFromAPI(productId: string, config: SupplierConfig): P
   const username = Deno.env.get(config.usernameEnvKey);
   const password = Deno.env.get(config.passwordEnvKey);
 
+  console.log(`[promo-api] Fetching product ${productId} from ${config.name}`);
+  console.log(`[promo-api] Endpoint: ${config.productDataUrl}`);
+  console.log(`[promo-api] Username configured: ${!!username}, Password configured: ${!!password}`);
+
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
                xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/"
@@ -249,12 +254,16 @@ async function fetchProductFromAPI(productId: string, config: SupplierConfig): P
   </soap:Body>
 </soap:Envelope>`;
 
+  console.log(`[promo-api] SOAP Request body (partial): ${soapBody.substring(0, 500)}...`);
+
   const response = await soapRequest(
     config.productDataUrl,
     'getProduct',
     soapBody,
     config
   );
+
+  console.log(`[promo-api] SOAP Response (partial): ${response.substring(0, 1000)}...`);
 
   return parseProductResponse(response);
 }
