@@ -762,6 +762,213 @@ export type Database = {
         }
         Relationships: []
       }
+      promo_media: {
+        Row: {
+          color: string | null
+          created_at: string
+          decoration_method: string | null
+          height: number | null
+          id: string
+          is_primary: boolean
+          location: string | null
+          media_type: string
+          promo_product_id: string
+          url: string
+          width: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          decoration_method?: string | null
+          height?: number | null
+          id?: string
+          is_primary?: boolean
+          location?: string | null
+          media_type?: string
+          promo_product_id: string
+          url: string
+          width?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          decoration_method?: string | null
+          height?: number | null
+          id?: string
+          is_primary?: boolean
+          location?: string | null
+          media_type?: string
+          promo_product_id?: string
+          url?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_media_promo_product_id_fkey"
+            columns: ["promo_product_id"]
+            isOneToOne: false
+            referencedRelation: "promo_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_pricing: {
+        Row: {
+          created_at: string
+          currency: string
+          discount_code: string | null
+          fob_id: string | null
+          fob_postal_code: string | null
+          id: string
+          last_synced_at: string | null
+          price: number | null
+          price_effective_date: string | null
+          price_expiry_date: string | null
+          price_type: string | null
+          promo_product_id: string
+          quantity_max: number | null
+          quantity_min: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          discount_code?: string | null
+          fob_id?: string | null
+          fob_postal_code?: string | null
+          id?: string
+          last_synced_at?: string | null
+          price?: number | null
+          price_effective_date?: string | null
+          price_expiry_date?: string | null
+          price_type?: string | null
+          promo_product_id: string
+          quantity_max?: number | null
+          quantity_min?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          discount_code?: string | null
+          fob_id?: string | null
+          fob_postal_code?: string | null
+          id?: string
+          last_synced_at?: string | null
+          price?: number | null
+          price_effective_date?: string | null
+          price_expiry_date?: string | null
+          price_type?: string | null
+          promo_product_id?: string
+          quantity_max?: number | null
+          quantity_min?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_pricing_promo_product_id_fkey"
+            columns: ["promo_product_id"]
+            isOneToOne: false
+            referencedRelation: "promo_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_products: {
+        Row: {
+          created_at: string
+          description: string | null
+          export_date: string | null
+          id: string
+          is_active: boolean
+          is_featured: boolean
+          last_synced_at: string | null
+          price_type: string | null
+          product_brand: string | null
+          product_category: string | null
+          product_id: string
+          product_keywords: string[] | null
+          product_name: string
+          product_sub_category: string | null
+          supplier_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          export_date?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          last_synced_at?: string | null
+          price_type?: string | null
+          product_brand?: string | null
+          product_category?: string | null
+          product_id: string
+          product_keywords?: string[] | null
+          product_name: string
+          product_sub_category?: string | null
+          supplier_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          export_date?: string | null
+          id?: string
+          is_active?: boolean
+          is_featured?: boolean
+          last_synced_at?: string | null
+          price_type?: string | null
+          product_brand?: string | null
+          product_category?: string | null
+          product_id?: string
+          product_keywords?: string[] | null
+          product_name?: string
+          product_sub_category?: string | null
+          supplier_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_products_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "promo_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_suppliers: {
+        Row: {
+          api_base_url: string | null
+          code: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          api_base_url?: string | null
+          code: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          api_base_url?: string | null
+          code?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       quotes: {
         Row: {
           created_at: string | null

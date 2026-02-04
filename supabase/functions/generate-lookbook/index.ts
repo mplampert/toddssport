@@ -6,6 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+interface PromoProductInput {
+  id: string;
+  productId: string;
+  name: string;
+  description: string | null;
+  brand: string | null;
+  category: string | null;
+  imageUrl: string | null;
+  lowestPrice: number | null;
+}
+
 interface LookbookInput {
   sport: string;
   level: string;
@@ -13,6 +24,7 @@ interface LookbookInput {
   budget: string;
   teamName: string;
   includeProducts: boolean;
+  promoProducts?: PromoProductInput[];
 }
 
 interface CatalogStyle {
@@ -59,7 +71,7 @@ serve(async (req) => {
 
   try {
     const input: LookbookInput = await req.json();
-    const { sport, level, colors, budget, teamName, includeProducts } = input;
+    const { sport, level, colors, budget, teamName, includeProducts, promoProducts } = input;
 
     if (!sport || !teamName) {
       return new Response(
@@ -101,6 +113,13 @@ serve(async (req) => {
       }
     }
 
+    // Build promo products context
+    const promoContext = promoProducts && promoProducts.length > 0
+      ? `\n\nSelected promo products (PRIORITIZE THESE - the customer specifically chose them):\n${promoProducts.map(p => 
+          `- ${p.brand || 'Brand'} ${p.name} (ID: ${p.productId}): ${p.category || 'Item'}${p.lowestPrice ? ` - Starting at $${p.lowestPrice.toFixed(2)}` : ''} ${p.description ? `- ${stripHtml(p.description).slice(0, 80)}...` : ''}`
+        ).join('\n')}`
+      : '';
+
     // Build the AI prompt with catalog context
     const productContext = catalogStyles.length > 0 
       ? `\n\nFeatured products from our catalog (use these when appropriate):\n${catalogStyles.map(s => 
@@ -112,6 +131,7 @@ serve(async (req) => {
 You create professional uniform and spiritswear package recommendations.
 
 Generate 3-5 package options based on the customer's requirements. Each package should be progressively more premium.
+${promoContext}
 ${productContext}
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
@@ -124,9 +144,10 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "items": [
         {
           "name": "Item name (use real product names from catalog when available)",
-          "type": "jersey|shorts|hoodie|tee|hat|bag|uniform-set|warmup|polo|jacket",
+          "type": "jersey|shorts|hoodie|tee|hat|bag|uniform-set|warmup|polo|jacket|promo",
           "priceRange": "$XX-$XX per piece",
-          "isFromCatalog": true or false
+          "isFromCatalog": true or false,
+          "imageUrl": "URL if from selected promo products"
         }
       ],
       "totalRange": "$XXX-$XXX per player",
@@ -142,6 +163,8 @@ Guidelines:
 - Price ranges should align with the budget tier specified
 - Include a mix of uniforms and spiritswear items
 - Reference team colors naturally in descriptions
+- PRIORITIZE selected promo products - include them in packages when relevant
+- If promo products have image URLs, include them in the items
 - If catalog products are available, reference them by brand and style name
 - Mark items as isFromCatalog: true when using real products from the list above
 - Make the copy energetic and professional`;
@@ -153,9 +176,10 @@ Level: ${level}
 Team Colors: ${colors}
 Budget Tier: ${budget}
 
+${promoProducts && promoProducts.length > 0 ? `IMPORTANT: The customer has specifically selected ${promoProducts.length} promo products. Include these in the packages where appropriate.` : ''}
 ${catalogStyles.length > 0 ? `We have ${catalogStyles.length} featured products in our catalog. Prioritize using these real products when they fit the sport and package tier. For items not in the catalog, generate appropriate suggestions with estimated prices.` : 'Generate all items with estimated price ranges since no featured catalog products are available.'}`;
 
-    console.log(`Generating lookbook for ${teamName} (${sport}) with ${catalogStyles.length} catalog styles`);
+    console.log(`Generating lookbook for ${teamName} (${sport}) with ${catalogStyles.length} catalog styles and ${promoProducts?.length || 0} promo products`);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -231,6 +255,7 @@ ${catalogStyles.length > 0 ? `We have ${catalogStyles.length} featured products 
         colors,
         budget,
         catalogProductsUsed: catalogStyles.length,
+        promoProductsUsed: promoProducts?.length || 0,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
