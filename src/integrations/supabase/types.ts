@@ -137,6 +137,7 @@ export type Database = {
           created_at: string
           customer_email: string | null
           id: string
+          needs_manual_champro: boolean
           order_type: Database["public"]["Enums"]["champro_order_type"]
           po: string
           request_payload: Json
@@ -153,6 +154,7 @@ export type Database = {
           created_at?: string
           customer_email?: string | null
           id?: string
+          needs_manual_champro?: boolean
           order_type: Database["public"]["Enums"]["champro_order_type"]
           po: string
           request_payload: Json
@@ -169,6 +171,7 @@ export type Database = {
           created_at?: string
           customer_email?: string | null
           id?: string
+          needs_manual_champro?: boolean
           order_type?: Database["public"]["Enums"]["champro_order_type"]
           po?: string
           request_payload?: Json
