@@ -6,20 +6,56 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// PromoStandards API endpoints for ImprintID
-// Note: These use WCF services with specific SOAPAction formats
-const PRODUCT_DATA_URL = 'https://productdata.imprintid.com/ProductDataT.svc';
-const MEDIA_CONTENT_URL = 'https://mediacontent.imprintid.com/MediaContents.svc';
-const PRICING_CONFIG_URL = 'https://productprice.imprintid.com/ProductPricingConfig.svc';
+// ========== Supplier Configuration ==========
+interface SupplierConfig {
+  code: string;
+  name: string;
+  productDataUrl: string;
+  mediaContentUrl: string;
+  pricingConfigUrl: string;
+  usernameEnvKey: string;
+  passwordEnvKey: string;
+  wsVersionProductData: string;
+  wsVersionMedia: string;
+  wsVersionPricing: string;
+}
+
+const SUPPLIER_CONFIGS: Record<string, SupplierConfig> = {
+  imprintid: {
+    code: 'imprintid',
+    name: 'ImprintID',
+    productDataUrl: 'https://productdata.imprintid.com/ProductDataT.svc',
+    mediaContentUrl: 'https://mediacontent.imprintid.com/MediaContents.svc',
+    pricingConfigUrl: 'https://productprice.imprintid.com/ProductPricingConfig.svc',
+    usernameEnvKey: 'PROMOSTANDARDS_USERNAME',
+    passwordEnvKey: 'PROMOSTANDARDS_PASSWORD',
+    wsVersionProductData: '2.0.0',
+    wsVersionMedia: '1.1.0',
+    wsVersionPricing: '1.0.0',
+  },
+  hit: {
+    code: 'hit',
+    name: 'HIT Promotional Products',
+    productDataUrl: 'https://ppds.hitpromo.net/productDataV2RC1?ws=1',
+    mediaContentUrl: 'https://ppds.hitpromo.net/productMedia?ws=1',
+    pricingConfigUrl: 'https://ppds.hitpromo.net/pricingAndConfiguration?ws=1',
+    usernameEnvKey: 'HIT_PS_USERNAME',
+    passwordEnvKey: 'HIT_PS_PASSWORD',
+    wsVersionProductData: '2.0.0',
+    wsVersionMedia: '1.1.0',
+    wsVersionPricing: '1.0.0',
+  },
+};
 
 interface SyncRequest {
   action: 'search' | 'sync_product' | 'sync_media' | 'get_pricing' | 'get_sellable';
+  supplier: 'imprintid' | 'hit';
   productId?: string;
   searchTerm?: string;
   partId?: string;
 }
 
-// ========== XML Parsing Helpers (defined early for use in API functions) ==========
+// ========== XML Parsing Helpers ==========
 
 function extractTagValue(xml: string, tagName: string): string | null {
   const patterns = [
@@ -60,7 +96,6 @@ function extractBlock(xml: string, tagName: string): string[] {
   return blocks;
 }
 
-// Parse service message errors from SOAP responses
 function parseServiceError(xml: string): { code: string; description: string } | null {
   const errorCode = extractTagValue(xml, 'code');
   const errorDesc = extractTagValue(xml, 'description');
@@ -71,16 +106,22 @@ function parseServiceError(xml: string): { code: string; description: string } |
   return null;
 }
 
-// ========== End XML Parsing Helpers ==========
+// ========== SOAP Request Helper ==========
 
-// Helper to make SOAP requests
-async function soapRequest(url: string, soapAction: string, body: string): Promise<string> {
-  const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
-  const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
+async function soapRequest(
+  url: string, 
+  soapAction: string, 
+  body: string,
+  config: SupplierConfig
+): Promise<string> {
+  const username = Deno.env.get(config.usernameEnvKey);
+  const password = Deno.env.get(config.passwordEnvKey);
 
   if (!username || !password) {
-    throw new Error('PromoStandards credentials not configured');
+    throw new Error(`${config.name} credentials not configured (${config.usernameEnvKey})`);
   }
+
+  console.log(`[${config.code}] SOAP request to ${url} with action: ${soapAction}`);
 
   const response = await fetch(url, {
     method: 'POST',
@@ -94,20 +135,20 @@ async function soapRequest(url: string, soapAction: string, body: string): Promi
   const text = await response.text();
   
   if (!response.ok) {
-    console.error('SOAP Error:', response.status, text);
+    console.error(`[${config.code}] SOAP Error:`, response.status, text.substring(0, 500));
     throw new Error(`SOAP request failed: ${response.status}`);
   }
 
-  // Log successful response for debugging (first 500 chars)
-  console.log(`SOAP Response (${soapAction}):`, text.substring(0, 500));
+  console.log(`[${config.code}] SOAP Response (${soapAction}):`, text.substring(0, 500));
   
   return text;
 }
 
-// Get sellable products list from Product Data API
-async function getSellableProducts(): Promise<{ products: any[]; error?: { code: string; description: string } }> {
-  const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
-  const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
+// ========== API Functions ==========
+
+async function getSellableProducts(config: SupplierConfig): Promise<{ products: any[]; error?: { code: string; description: string } }> {
+  const username = Deno.env.get(config.usernameEnvKey);
+  const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
@@ -115,7 +156,7 @@ async function getSellableProducts(): Promise<{ products: any[]; error?: { code:
                xmlns:shar="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/">
   <soap:Body>
     <ns:GetProductSellableRequest>
-      <shar:wsVersion>2.0.0</shar:wsVersion>
+      <shar:wsVersion>${config.wsVersionProductData}</shar:wsVersion>
       <shar:id>${username}</shar:id>
       <shar:password>${password}</shar:password>
       <shar:isSellable>true</shar:isSellable>
@@ -124,29 +165,26 @@ async function getSellableProducts(): Promise<{ products: any[]; error?: { code:
 </soap:Envelope>`;
 
   const response = await soapRequest(
-    PRODUCT_DATA_URL,
+    config.productDataUrl,
     'getProductSellable',
-    soapBody
+    soapBody,
+    config
   );
 
-  // Log full response for debugging
-  console.log('GetProductSellable full response:', response);
+  console.log(`[${config.code}] GetProductSellable full response length: ${response.length}`);
 
-  // Check for service errors first
   const error = parseServiceError(response);
   if (error) {
     return { products: [], error };
   }
 
-  // Parse the XML response
   const products = parseProductSellableResponse(response);
   return { products };
 }
 
-// Get product details from Product Data API
-async function getProductDetails(productId: string): Promise<any> {
-  const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
-  const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
+async function getProductDetails(productId: string, config: SupplierConfig): Promise<any> {
+  const username = Deno.env.get(config.usernameEnvKey);
+  const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
@@ -154,7 +192,7 @@ async function getProductDetails(productId: string): Promise<any> {
                xmlns:shar="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/">
   <soap:Body>
     <ns:GetProductRequest>
-      <shar:wsVersion>2.0.0</shar:wsVersion>
+      <shar:wsVersion>${config.wsVersionProductData}</shar:wsVersion>
       <shar:id>${username}</shar:id>
       <shar:password>${password}</shar:password>
       <shar:productId>${productId}</shar:productId>
@@ -163,24 +201,24 @@ async function getProductDetails(productId: string): Promise<any> {
 </soap:Envelope>`;
 
   const response = await soapRequest(
-    PRODUCT_DATA_URL,
+    config.productDataUrl,
     'getProduct',
-    soapBody
+    soapBody,
+    config
   );
 
   return parseProductResponse(response);
 }
 
-// Get media content for a product
-async function getMediaContent(productId: string): Promise<any[]> {
-  const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
-  const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
+async function getMediaContent(productId: string, config: SupplierConfig): Promise<any[]> {
+  const username = Deno.env.get(config.usernameEnvKey);
+  const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <GetMediaContentRequest xmlns="http://www.promostandards.org/WSDL/MediaService/1.1.0/">
-      <wsVersion>1.1.0</wsVersion>
+    <GetMediaContentRequest xmlns="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/">
+      <wsVersion>${config.wsVersionMedia}</wsVersion>
       <id>${username}</id>
       <password>${password}</password>
       <productId>${productId}</productId>
@@ -190,24 +228,24 @@ async function getMediaContent(productId: string): Promise<any[]> {
 </soap:Envelope>`;
 
   const response = await soapRequest(
-    MEDIA_CONTENT_URL,
+    config.mediaContentUrl,
     'getMediaContent',
-    soapBody
+    soapBody,
+    config
   );
 
   return parseMediaContentResponse(response);
 }
 
-// Get pricing for a product
-async function getProductPricing(productId: string, partId?: string): Promise<any[]> {
-  const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
-  const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
+async function getProductPricing(productId: string, config: SupplierConfig, partId?: string): Promise<any[]> {
+  const username = Deno.env.get(config.usernameEnvKey);
+  const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <GetConfigurationAndPricingRequest xmlns="http://www.promostandards.org/WSDL/PricingAndConfiguration/1.0.0/">
-      <wsVersion>1.0.0</wsVersion>
+    <GetConfigurationAndPricingRequest xmlns="http://www.promostandards.org/WSDL/PricingAndConfiguration/${config.wsVersionPricing}/">
+      <wsVersion>${config.wsVersionPricing}</wsVersion>
       <id>${username}</id>
       <password>${password}</password>
       <productId>${productId}</productId>
@@ -220,13 +258,16 @@ async function getProductPricing(productId: string, partId?: string): Promise<an
 </soap:Envelope>`;
 
   const response = await soapRequest(
-    PRICING_CONFIG_URL,
+    config.pricingConfigUrl,
     'getConfigurationAndPricing',
-    soapBody
+    soapBody,
+    config
   );
 
   return parsePricingResponse(response);
 }
+
+// ========== Response Parsers ==========
 
 function parseProductSellableResponse(xml: string): any[] {
   const products: any[] = [];
@@ -237,13 +278,13 @@ function parseProductSellableResponse(xml: string): any[] {
   for (const block of productBlocks) {
     const productId = extractTagValue(block, 'productId');
     const partId = extractTagValue(block, 'partId');
-    const productName = extractTagValue(block, 'productName'); // May not exist in sellable response
+    const productName = extractTagValue(block, 'productName');
     
     if (productId) {
       products.push({
         productId,
         partId,
-        productName: productName || productId, // Fallback to productId if name not provided
+        productName: productName || productId,
       });
     }
   }
@@ -252,7 +293,6 @@ function parseProductSellableResponse(xml: string): any[] {
 }
 
 function parseProductResponse(xml: string): any {
-  // First check for service errors
   const error = parseServiceError(xml);
   if (error) {
     return { error };
@@ -264,7 +304,6 @@ function parseProductResponse(xml: string): any {
   const priceType = extractTagValue(xml, 'priceType');
   const productBrand = extractTagValue(xml, 'productBrand');
   
-  // Extract categories
   const categoryBlocks = extractBlock(xml, 'ProductCategory');
   let productCategory = null;
   let productSubCategory = null;
@@ -274,7 +313,6 @@ function parseProductResponse(xml: string): any {
     productSubCategory = extractTagValue(categoryBlocks[0], 'subCategory');
   }
   
-  // Extract keywords
   const keywordBlocks = extractBlock(xml, 'ProductKeyword');
   const keywords: string[] = [];
   for (const block of keywordBlocks) {
@@ -344,6 +382,8 @@ function parsePricingResponse(xml: string): any[] {
   return pricing;
 }
 
+// ========== Main Handler ==========
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -354,44 +394,49 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, productId, searchTerm, partId } = await req.json() as SyncRequest;
+    const { action, supplier = 'imprintid', productId, searchTerm, partId } = await req.json() as SyncRequest;
 
-    // Get ImprintID supplier
-    const { data: supplier } = await supabase
+    // Get supplier config
+    const config = SUPPLIER_CONFIGS[supplier];
+    if (!config) {
+      throw new Error(`Unknown supplier: ${supplier}. Valid options: ${Object.keys(SUPPLIER_CONFIGS).join(', ')}`);
+    }
+
+    console.log(`[${supplier}] Processing action: ${action}`);
+
+    // Get supplier from database
+    const { data: supplierData } = await supabase
       .from('promo_suppliers')
       .select('id')
-      .eq('code', 'imprintid')
+      .eq('code', supplier)
       .single();
 
-    if (!supplier) {
-      throw new Error('ImprintID supplier not found');
+    if (!supplierData) {
+      throw new Error(`Supplier '${supplier}' not found in database`);
     }
 
     let result: any = null;
 
     switch (action) {
       case 'get_sellable': {
-        // Get list of sellable products
-        console.log('Fetching sellable products from PromoStandards...');
-        const sellableResult = await getSellableProducts();
+        console.log(`[${supplier}] Fetching sellable products...`);
+        const sellableResult = await getSellableProducts(config);
         
-        // Check for API errors
         if (sellableResult.error) {
           throw new Error(`PromoStandards API Error [${sellableResult.error.code}]: ${sellableResult.error.description}`);
         }
         
-        console.log(`Found ${sellableResult.products.length} sellable products`);
-        result = { products: sellableResult.products, count: sellableResult.products.length };
+        console.log(`[${supplier}] Found ${sellableResult.products.length} sellable products`);
+        result = { products: sellableResult.products, count: sellableResult.products.length, supplier };
         break;
       }
 
       case 'sync_product': {
         if (!productId) throw new Error('productId required');
         
-        console.log(`Syncing product ${productId}...`);
-        const productData = await getProductDetails(productId);
+        console.log(`[${supplier}] Syncing product ${productId}...`);
+        const productData = await getProductDetails(productId, config);
         
-        // Check for API errors
         if (productData.error) {
           throw new Error(`PromoStandards API Error [${productData.error.code}]: ${productData.error.description}`);
         }
@@ -400,11 +445,10 @@ serve(async (req) => {
           throw new Error(`Product ${productId} not found in API response`);
         }
 
-        // Upsert product
         const { data: upsertedProduct, error } = await supabase
           .from('promo_products')
           .upsert({
-            supplier_id: supplier.id,
+            supplier_id: supplierData.id,
             product_id: productData.productId,
             product_name: productData.productName,
             description: productData.description,
@@ -421,18 +465,17 @@ serve(async (req) => {
           .single();
 
         if (error) throw error;
-        result = { product: upsertedProduct };
+        result = { product: upsertedProduct, supplier };
         break;
       }
 
       case 'sync_media': {
         if (!productId) throw new Error('productId required');
         
-        // Find the product in our DB
         const { data: existingProduct } = await supabase
           .from('promo_products')
           .select('id')
-          .eq('supplier_id', supplier.id)
+          .eq('supplier_id', supplierData.id)
           .eq('product_id', productId)
           .single();
 
@@ -440,11 +483,10 @@ serve(async (req) => {
           throw new Error(`Product ${productId} not in database - sync it first`);
         }
 
-        console.log(`Fetching media for product ${productId}...`);
-        const mediaItems = await getMediaContent(productId);
-        console.log(`Found ${mediaItems.length} media items`);
+        console.log(`[${supplier}] Fetching media for product ${productId}...`);
+        const mediaItems = await getMediaContent(productId, config);
+        console.log(`[${supplier}] Found ${mediaItems.length} media items`);
 
-        // Delete existing media and insert new
         await supabase
           .from('promo_media')
           .delete()
@@ -470,18 +512,17 @@ serve(async (req) => {
           if (error) throw error;
         }
 
-        result = { mediaCount: mediaItems.length };
+        result = { mediaCount: mediaItems.length, supplier };
         break;
       }
 
       case 'get_pricing': {
         if (!productId) throw new Error('productId required');
         
-        // Find the product in our DB
         const { data: existingProduct } = await supabase
           .from('promo_products')
           .select('id')
-          .eq('supplier_id', supplier.id)
+          .eq('supplier_id', supplierData.id)
           .eq('product_id', productId)
           .single();
 
@@ -489,11 +530,10 @@ serve(async (req) => {
           throw new Error(`Product ${productId} not in database - sync it first`);
         }
 
-        console.log(`Fetching pricing for product ${productId}...`);
-        const pricingItems = await getProductPricing(productId, partId);
-        console.log(`Found ${pricingItems.length} price breaks`);
+        console.log(`[${supplier}] Fetching pricing for product ${productId}...`);
+        const pricingItems = await getProductPricing(productId, config, partId);
+        console.log(`[${supplier}] Found ${pricingItems.length} price breaks`);
 
-        // Update pricing cache
         await supabase
           .from('promo_pricing')
           .delete()
@@ -516,20 +556,25 @@ serve(async (req) => {
           if (error) throw error;
         }
 
-        result = { pricingCount: pricingItems.length, pricing: pricingItems };
+        result = { pricingCount: pricingItems.length, pricing: pricingItems, supplier };
         break;
       }
 
       case 'search': {
-        // Search local database
         let query = supabase
           .from('promo_products')
           .select(`
             *,
             promo_media (url, is_primary),
-            promo_pricing (quantity_min, price)
+            promo_pricing (quantity_min, price),
+            promo_suppliers!inner (code, name)
           `)
           .eq('is_active', true);
+
+        // Filter by supplier if not 'all'
+        if (supplier !== 'all' as any) {
+          query = query.eq('supplier_id', supplierData.id);
+        }
 
         if (searchTerm) {
           query = query.or(`product_name.ilike.%${searchTerm}%,product_id.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);

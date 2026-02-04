@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +25,10 @@ interface PromoProduct {
   description: string | null;
   product_brand: string | null;
   product_category: string | null;
+  supplier_id?: string;
   promo_media?: { url: string; is_primary: boolean }[];
   promo_pricing?: { quantity_min: number; price: number }[];
+  promo_suppliers?: { code: string; name: string };
 }
 
 interface PromoProductPickerProps {
@@ -33,26 +36,53 @@ interface PromoProductPickerProps {
   onSelectionChange: (products: PromoProduct[]) => void;
 }
 
+type SupplierFilter = 'all' | string;
+
 export function PromoProductPicker({ selectedProducts, onSelectionChange }: PromoProductPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState<SupplierFilter>("all");
   const [localSelection, setLocalSelection] = useState<Set<string>>(
     new Set(selectedProducts.map(p => p.id))
   );
 
+  // Fetch suppliers
+  const { data: suppliers } = useQuery({
+    queryKey: ['promo-suppliers-picker'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('promo_suppliers')
+        .select('id, code, name')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOpen,
+  });
+
   const { data: products, isLoading } = useQuery({
-    queryKey: ['promo-products-picker', searchTerm],
+    queryKey: ['promo-products-picker', searchTerm, supplierFilter],
     queryFn: async () => {
       let query = supabase
         .from('promo_products')
         .select(`
           *,
           promo_media (url, is_primary),
-          promo_pricing (quantity_min, price)
+          promo_pricing (quantity_min, price),
+          promo_suppliers!inner (code, name)
         `)
         .eq('is_active', true)
         .order('is_featured', { ascending: false })
         .order('product_name');
+
+      // Filter by supplier
+      if (supplierFilter !== 'all' && suppliers) {
+        const supplierData = suppliers.find(s => s.code === supplierFilter);
+        if (supplierData) {
+          query = query.eq('supplier_id', supplierData.id);
+        }
+      }
 
       if (searchTerm) {
         query = query.or(`product_name.ilike.%${searchTerm}%,product_id.ilike.%${searchTerm}%,product_category.ilike.%${searchTerm}%`);
@@ -62,7 +92,7 @@ export function PromoProductPicker({ selectedProducts, onSelectionChange }: Prom
       if (error) throw error;
       return data as PromoProduct[];
     },
-    enabled: isOpen,
+    enabled: isOpen && !!suppliers,
   });
 
   const getPrimaryImage = (product: PromoProduct) => {
@@ -73,6 +103,13 @@ export function PromoProductPicker({ selectedProducts, onSelectionChange }: Prom
   const getLowestPrice = (product: PromoProduct) => {
     if (!product.promo_pricing?.length) return null;
     return Math.min(...product.promo_pricing.map(p => p.price));
+  };
+
+  const getSupplierBadge = (product: PromoProduct) => {
+    const code = product.promo_suppliers?.code;
+    if (code === 'hit') return { label: 'HIT', variant: 'default' as const };
+    if (code === 'imprintid') return { label: 'ImprintID', variant: 'secondary' as const };
+    return { label: code || 'Unknown', variant: 'outline' as const };
   };
 
   const toggleProduct = (product: PromoProduct) => {
@@ -107,21 +144,25 @@ export function PromoProductPicker({ selectedProducts, onSelectionChange }: Prom
       {/* Selected Products Display */}
       {selectedProducts.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedProducts.map((product) => (
-            <Badge
-              key={product.id}
-              variant="secondary"
-              className="flex items-center gap-1 py-1 px-2"
-            >
-              <span className="text-xs truncate max-w-32">{product.product_name}</span>
-              <button
-                onClick={() => removeProduct(product.id)}
-                className="ml-1 hover:text-destructive"
+          {selectedProducts.map((product) => {
+            const supplierBadge = getSupplierBadge(product);
+            return (
+              <Badge
+                key={product.id}
+                variant="secondary"
+                className="flex items-center gap-1 py-1 px-2"
               >
-                <X className="w-3 h-3" />
-              </button>
-            </Badge>
-          ))}
+                <span className="text-[10px] opacity-60">{supplierBadge.label}</span>
+                <span className="text-xs truncate max-w-32">{product.product_name}</span>
+                <button
+                  onClick={() => removeProduct(product.id)}
+                  className="ml-1 hover:text-destructive"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </Badge>
+            );
+          })}
         </div>
       )}
 
@@ -143,20 +184,35 @@ export function PromoProductPicker({ selectedProducts, onSelectionChange }: Prom
               Select Promo Products
             </DialogTitle>
             <DialogDescription>
-              Choose products from your synced PromoStandards catalog to include in the lookbook.
+              Choose products from ImprintID or HIT to include in the lookbook.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, ID, or category..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            {/* Search and Filter */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, ID, or category..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Select value={supplierFilter} onValueChange={setSupplierFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="All Suppliers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers?.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* Product Grid */}
@@ -175,57 +231,63 @@ export function PromoProductPicker({ selectedProducts, onSelectionChange }: Prom
                 </div>
               ) : (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {products.map((product) => (
-                    <Card 
-                      key={product.id}
-                      className={`cursor-pointer transition-all ${
-                        localSelection.has(product.id) 
-                          ? 'ring-2 ring-accent bg-accent/10' 
-                          : 'hover:bg-muted/50'
-                      }`}
-                      onClick={() => toggleProduct(product)}
-                    >
-                      <CardContent className="p-3 flex gap-3">
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            checked={localSelection.has(product.id)}
-                            onCheckedChange={() => toggleProduct(product)}
-                          />
-                          {getPrimaryImage(product) ? (
-                            <img
-                              src={getPrimaryImage(product)}
-                              alt={product.product_name}
-                              className="w-16 h-16 object-contain bg-secondary rounded shrink-0"
+                  {products.map((product) => {
+                    const supplierBadge = getSupplierBadge(product);
+                    return (
+                      <Card 
+                        key={product.id}
+                        className={`cursor-pointer transition-all ${
+                          localSelection.has(product.id) 
+                            ? 'ring-2 ring-accent bg-accent/10' 
+                            : 'hover:bg-muted/50'
+                        }`}
+                        onClick={() => toggleProduct(product)}
+                      >
+                        <CardContent className="p-3 flex gap-3">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={localSelection.has(product.id)}
+                              onCheckedChange={() => toggleProduct(product)}
                             />
-                          ) : (
-                            <div className="w-16 h-16 bg-secondary rounded flex items-center justify-center shrink-0">
-                              <ImageIcon className="w-6 h-6 text-muted-foreground" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm line-clamp-2">
-                            {product.product_name}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {product.product_id}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {product.product_category && (
-                              <Badge variant="secondary" className="text-xs">
-                                {product.product_category}
-                              </Badge>
-                            )}
-                            {getLowestPrice(product) && (
-                              <span className="text-xs text-accent font-medium">
-                                ${getLowestPrice(product)?.toFixed(2)}+
-                              </span>
+                            {getPrimaryImage(product) ? (
+                              <img
+                                src={getPrimaryImage(product)}
+                                alt={product.product_name}
+                                className="w-16 h-16 object-contain bg-secondary rounded shrink-0"
+                              />
+                            ) : (
+                              <div className="w-16 h-16 bg-secondary rounded flex items-center justify-center shrink-0">
+                                <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                              </div>
                             )}
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm line-clamp-2">
+                              {product.product_name}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              {product.product_id}
+                              <Badge variant={supplierBadge.variant} className="text-[10px] px-1 py-0 ml-1">
+                                {supplierBadge.label}
+                              </Badge>
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {product.product_category && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {product.product_category}
+                                </Badge>
+                              )}
+                              {getLowestPrice(product) && (
+                                <span className="text-xs text-accent font-medium">
+                                  ${getLowestPrice(product)?.toFixed(2)}+
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </ScrollArea>
