@@ -30,6 +30,7 @@ import AdminReps from "./pages/admin/AdminReps";
 import AdminUniforms from "./pages/admin/AdminUniforms";
 import AdminFlyers from "./pages/admin/AdminFlyers";
 import AdminFlyerNew from "./pages/admin/AdminFlyerNew";
+import AdminMessageGenerator from "./pages/admin/AdminMessageGenerator";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +70,7 @@ const App = () => (
           <Route path="/admin/flyers" element={<AdminFlyers />} />
           <Route path="/admin/flyers/new" element={<AdminFlyerNew />} />
           <Route path="/admin/flyers/:id/edit" element={<AdminFlyerNew />} />
+          <Route path="/admin/message-generator" element={<AdminMessageGenerator />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
