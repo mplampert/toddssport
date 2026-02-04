@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AlertTriangle, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Champro Custom Builder category mappings - all 26 categories
 const CHAMPRO_CATEGORIES: Record<string, { id: number; name: string }> = {
@@ -34,25 +36,32 @@ const CHAMPRO_CATEGORIES: Record<string, { id: number; name: string }> = {
   "juice-5-day": { id: 1566, name: "JUICE 5-DAY PROGRAM" },
   "legacy-collection": { id: 1567, name: "LEGACY COLLECTION" },
   "slam-dunk-5-day": { id: 1590, name: "SLAM DUNK 5-DAY PROGRAM" },
-  
-  // Blankets - placeholder until category ID is confirmed
-  // blankets: { id: TBD, name: "BLANKETS" },
 };
+
+// Known Champro builder error messages
+const CHAMPRO_ERROR_PATTERNS = [
+  "Product has not been added to cart",
+  "Try to do this some later",
+  "contact with our Support Team",
+  "session expired",
+  "network error",
+];
 
 interface ChamproBuilderEmbedProps {
   sportSlug: string;
+  sportTitle?: string;
   embedKey: string;
   height?: string;
   onCheckout?: (payload: {
     champroSessionId: string;
     sportSlug: string;
   }) => void;
-  /** If true, automatically POST to /api/champro/order when design is saved */
   autoSubmitOrder?: boolean;
 }
 
 export function ChamproBuilderEmbed({
   sportSlug,
+  sportTitle,
   embedKey,
   height = "800px",
   onCheckout,
@@ -61,6 +70,8 @@ export function ChamproBuilderEmbed({
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [builderError, setBuilderError] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
 
   const category = CHAMPRO_CATEGORIES[sportSlug];
 
@@ -73,6 +84,32 @@ export function ChamproBuilderEmbed({
     // Fallback to all categories
     return `${baseUrl}?lic=${embedKey}`;
   };
+
+  // Report builder errors to Slack
+  const reportBuilderError = useCallback(async (errorType: string, errorMessage: string) => {
+    try {
+      await supabase.functions.invoke("champro-builder-error", {
+        body: {
+          errorType,
+          errorMessage,
+          sportSlug,
+          sportTitle: sportTitle || category?.name,
+          userAgent: navigator.userAgent,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      console.log("Builder error reported to Slack");
+    } catch (err) {
+      console.error("Failed to report builder error:", err);
+    }
+  }, [sportSlug, sportTitle, category?.name]);
+
+  // Reload the iframe
+  const handleRetry = useCallback(() => {
+    setBuilderError(null);
+    setIframeKey(prev => prev + 1);
+    toast.info("Reloading the uniform designer...");
+  }, []);
 
   /**
    * Submit the design to Champro Order API via our backend
@@ -112,9 +149,10 @@ export function ChamproBuilderEmbed({
     }
   };
 
-  // Listen for messages from the Custom Builder iframe
+  // Listen for messages from the Custom Builder iframe (success + error)
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
+      // Check for Champro builder messages
       if (event.data && event.data.sender === "CustomBuilder") {
         const { action, message } = event.data;
         console.log("Champro Custom Builder event:", action, message);
@@ -122,6 +160,7 @@ export function ChamproBuilderEmbed({
         if (action === "ProcessDesign") {
           // Design was saved - message contains the Session ID
           setSessionId(message);
+          setBuilderError(null);
           console.log("Design saved with Session ID:", message);
 
           // Call the onCheckout callback if provided
@@ -137,12 +176,32 @@ export function ChamproBuilderEmbed({
             submitToChampro(message);
           }
         }
+
+        // Check for error actions from the builder
+        if (action === "Error" || action === "CartError") {
+          console.error("Champro builder error:", message);
+          setBuilderError(message || "An error occurred in the designer");
+          reportBuilderError(action, message || "Unknown error");
+          toast.error("Design could not be saved. Please try again.");
+        }
+      }
+
+      // Also check for string-based error messages from the iframe
+      if (typeof event.data === "string") {
+        const isKnownError = CHAMPRO_ERROR_PATTERNS.some(pattern => 
+          event.data.toLowerCase().includes(pattern.toLowerCase())
+        );
+        if (isKnownError) {
+          console.error("Champro builder error detected:", event.data);
+          setBuilderError(event.data);
+          reportBuilderError("IframeError", event.data);
+        }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [onCheckout, sportSlug, autoSubmitOrder]);
+  }, [onCheckout, sportSlug, autoSubmitOrder, reportBuilderError]);
 
   if (!embedKey) {
     return (
@@ -156,11 +215,39 @@ export function ChamproBuilderEmbed({
 
   return (
     <div className="w-full">
+      {/* Error banner with retry */}
+      {builderError && (
+        <div className="mb-4 p-4 bg-destructive/10 rounded-lg border border-destructive/30 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-medium text-destructive">
+              The uniform designer encountered an error
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {builderError}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Our team has been notified. Please try again or contact us if the issue persists.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRetry}
+            className="shrink-0"
+          >
+            <RefreshCw className="w-4 h-4 mr-1" />
+            Retry
+          </Button>
+        </div>
+      )}
+
       <div
         className="relative w-full bg-background rounded-lg overflow-hidden border border-border"
         style={{ height }}
       >
         <iframe
+          key={iframeKey}
           ref={iframeRef}
           src={getEmbedUrl()}
           title="Champro Custom Uniform Builder"
@@ -178,7 +265,7 @@ export function ChamproBuilderEmbed({
         </div>
       )}
 
-      {sessionId && !isSubmitting && (
+      {sessionId && !isSubmitting && !builderError && (
         <div className="mt-4 p-4 bg-accent/10 rounded-lg border border-accent/20">
           <p className="text-sm text-muted-foreground">
             Your design has been saved.{" "}
