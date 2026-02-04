@@ -492,6 +492,48 @@ export type Database = {
           },
         ]
       }
+      lookbook_products: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          msrp: number | null
+          name: string
+          sort_order: number
+          sport: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          msrp?: number | null
+          name: string
+          sort_order?: number
+          sport: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          msrp?: number | null
+          name?: string
+          sort_order?: number
+          sport?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       promo_leads: {
         Row: {
           company_name: string
