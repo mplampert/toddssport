@@ -15,14 +15,15 @@ interface LookbookInput {
   includeProducts: boolean;
 }
 
-interface LookbookProduct {
-  id: string;
-  name: string;
-  sport: string;
-  type: string;
-  image_url: string | null;
-  msrp: number | null;
+interface CatalogStyle {
+  style_id: number;
+  style_name: string;
+  brand_name: string;
+  title: string | null;
   description: string | null;
+  base_category: string | null;
+  style_image: string | null;
+  is_featured: boolean;
 }
 
 interface PackageItem {
@@ -40,6 +41,15 @@ interface LookbookPackage {
   items: PackageItem[];
   totalRange: string;
   marketingCopy: string;
+}
+
+// Strip HTML tags from description
+function stripHtml(html: string): string {
+  return html
+    ?.replace(/<[^>]*>/g, '')
+    .replace(/&[^;]+;/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim() || '';
 }
 
 serve(async (req) => {
@@ -67,32 +77,34 @@ serve(async (req) => {
       );
     }
 
-    let catalogProducts: LookbookProduct[] = [];
+    let catalogStyles: CatalogStyle[] = [];
     
-    // Fetch products from catalog if requested
+    // Fetch featured products from catalog if requested
     if (includeProducts) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
 
-      const { data: products, error } = await supabase
-        .from('lookbook_products')
-        .select('*')
-        .eq('sport', sport.toLowerCase())
+      // Get featured styles, prioritizing those matching the sport-related categories
+      const { data: styles, error } = await supabase
+        .from('catalog_styles')
+        .select('style_id, style_name, brand_name, title, description, base_category, style_image, is_featured')
         .eq('is_active', true)
-        .order('sort_order');
+        .eq('is_featured', true)
+        .order('brand_name')
+        .limit(20);
 
       if (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching styles:', error);
       } else {
-        catalogProducts = products || [];
+        catalogStyles = styles || [];
       }
     }
 
-    // Build the AI prompt
-    const productContext = catalogProducts.length > 0 
-      ? `\n\nAvailable products from our catalog for ${sport}:\n${catalogProducts.map(p => 
-          `- ${p.name} (${p.type}): $${p.msrp || 'TBD'} - ${p.description || 'Custom team apparel'}`
+    // Build the AI prompt with catalog context
+    const productContext = catalogStyles.length > 0 
+      ? `\n\nFeatured products from our catalog (use these when appropriate):\n${catalogStyles.map(s => 
+          `- ${s.brand_name} ${s.style_name}: ${s.title || s.base_category || 'Apparel'} - ${stripHtml(s.description || '').slice(0, 100)}...`
         ).join('\n')}`
       : '';
 
@@ -111,10 +123,10 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
       "description": "2-3 sentence description of the package",
       "items": [
         {
-          "name": "Item name",
-          "type": "jersey|shorts|hoodie|tee|hat|bag|uniform-set|warmup",
+          "name": "Item name (use real product names from catalog when available)",
+          "type": "jersey|shorts|hoodie|tee|hat|bag|uniform-set|warmup|polo|jacket",
           "priceRange": "$XX-$XX per piece",
-          "isFromCatalog": false
+          "isFromCatalog": true or false
         }
       ],
       "totalRange": "$XXX-$XXX per player",
@@ -130,6 +142,8 @@ Guidelines:
 - Price ranges should align with the budget tier specified
 - Include a mix of uniforms and spiritswear items
 - Reference team colors naturally in descriptions
+- If catalog products are available, reference them by brand and style name
+- Mark items as isFromCatalog: true when using real products from the list above
 - Make the copy energetic and professional`;
 
     const userPrompt = `Create a lookbook for:
@@ -139,9 +153,9 @@ Level: ${level}
 Team Colors: ${colors}
 Budget Tier: ${budget}
 
-${catalogProducts.length > 0 ? 'Prioritize using the catalog products listed above when appropriate. Mark those items with isFromCatalog: true and use their actual prices.' : 'Generate all items with estimated price ranges since no catalog products are available for this sport.'}`;
+${catalogStyles.length > 0 ? `We have ${catalogStyles.length} featured products in our catalog. Prioritize using these real products when they fit the sport and package tier. For items not in the catalog, generate appropriate suggestions with estimated prices.` : 'Generate all items with estimated price ranges since no featured catalog products are available.'}`;
 
-    console.log(`Generating lookbook for ${teamName} (${sport})`);
+    console.log(`Generating lookbook for ${teamName} (${sport}) with ${catalogStyles.length} catalog styles`);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -216,7 +230,7 @@ ${catalogProducts.length > 0 ? 'Prioritize using the catalog products listed abo
         level,
         colors,
         budget,
-        catalogProductsUsed: catalogProducts.length,
+        catalogProductsUsed: catalogStyles.length,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
