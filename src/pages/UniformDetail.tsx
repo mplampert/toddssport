@@ -263,6 +263,7 @@ export default function UniformDetail() {
                 <>
                   <ChamproBuilderEmbed
                     sportSlug={sport.slug}
+                    sportTitle={sport.title}
                     embedKey={embedKey}
                     height="850px"
                     onCheckout={handleDesignSaved}
