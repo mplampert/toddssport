@@ -32,6 +32,7 @@ import AdminFlyers from "./pages/admin/AdminFlyers";
 import AdminFlyerNew from "./pages/admin/AdminFlyerNew";
 import AdminMessageGenerator from "./pages/admin/AdminMessageGenerator";
 import AdminLookbookGenerator from "./pages/admin/AdminLookbookGenerator";
+import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -73,6 +74,7 @@ const App = () => (
           <Route path="/admin/flyers/:id/edit" element={<AdminFlyerNew />} />
           <Route path="/admin/message-generator" element={<AdminMessageGenerator />} />
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
+          <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -92,6 +92,174 @@ export type Database = {
         }
         Relationships: []
       }
+      catalog_categories: {
+        Row: {
+          category_id: number
+          created_at: string
+          id: number
+          image: string | null
+          name: string
+          url: string | null
+        }
+        Insert: {
+          category_id: number
+          created_at?: string
+          id?: number
+          image?: string | null
+          name: string
+          url?: string | null
+        }
+        Update: {
+          category_id?: number
+          created_at?: string
+          id?: number
+          image?: string | null
+          name?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
+      catalog_specs: {
+        Row: {
+          brand_name: string | null
+          created_at: string
+          id: number
+          part_number: string | null
+          size_name: string | null
+          size_order: string | null
+          spec_id: number
+          spec_name: string
+          style_id: number
+          style_name: string | null
+          value: string | null
+        }
+        Insert: {
+          brand_name?: string | null
+          created_at?: string
+          id?: number
+          part_number?: string | null
+          size_name?: string | null
+          size_order?: string | null
+          spec_id: number
+          spec_name: string
+          style_id: number
+          style_name?: string | null
+          value?: string | null
+        }
+        Update: {
+          brand_name?: string | null
+          created_at?: string
+          id?: number
+          part_number?: string | null
+          size_name?: string | null
+          size_order?: string | null
+          spec_id?: number
+          spec_name?: string
+          style_id?: number
+          style_name?: string | null
+          value?: string | null
+        }
+        Relationships: []
+      }
+      catalog_styles: {
+        Row: {
+          base_category: string | null
+          brand_image: string | null
+          brand_name: string
+          catalog_page_number: number | null
+          categories: string | null
+          companion_group: number | null
+          comparable_group: number | null
+          created_at: string
+          description: string | null
+          id: number
+          is_active: boolean | null
+          is_featured: boolean | null
+          new_style: boolean | null
+          part_number: string | null
+          prop65_chemicals: string | null
+          style_id: number
+          style_image: string | null
+          style_name: string
+          sustainable_style: boolean | null
+          title: string | null
+          unique_style_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_category?: string | null
+          brand_image?: string | null
+          brand_name: string
+          catalog_page_number?: number | null
+          categories?: string | null
+          companion_group?: number | null
+          comparable_group?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          new_style?: boolean | null
+          part_number?: string | null
+          prop65_chemicals?: string | null
+          style_id: number
+          style_image?: string | null
+          style_name: string
+          sustainable_style?: boolean | null
+          title?: string | null
+          unique_style_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_category?: string | null
+          brand_image?: string | null
+          brand_name?: string
+          catalog_page_number?: number | null
+          categories?: string | null
+          companion_group?: number | null
+          comparable_group?: number | null
+          created_at?: string
+          description?: string | null
+          id?: number
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          new_style?: boolean | null
+          part_number?: string | null
+          prop65_chemicals?: string | null
+          style_id?: number
+          style_image?: string | null
+          style_name?: string
+          sustainable_style?: boolean | null
+          title?: string | null
+          unique_style_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      catalog_transit_days: {
+        Row: {
+          created_at: string
+          id: number
+          ship_from: string
+          ship_to: string
+          transit_days: number
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          ship_from: string
+          ship_to: string
+          transit_days: number
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          ship_from?: string
+          ship_to?: string
+          transit_days?: number
+        }
+        Relationships: []
+      }
       catalogs: {
         Row: {
           catalog_url: string
