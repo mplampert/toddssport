@@ -153,7 +153,7 @@ const SUPPLIER_CONFIGS: Record<string, SupplierConfig> = {
     usernameEnvKey: 'PROMOSTANDARDS_USERNAME',
     passwordEnvKey: 'PROMOSTANDARDS_PASSWORD',
     wsVersionProductData: '2.0.0',
-    wsVersionMedia: '1.1.0',
+    wsVersionMedia: '1.0.0',  // ImprintID uses 1.0.0
     wsVersionPricing: '1.0.0',
   },
   hit: {
@@ -242,6 +242,8 @@ async function fetchProductFromAPI(productId: string, config: SupplierConfig): P
       <shar:wsVersion>${config.wsVersionProductData}</shar:wsVersion>
       <shar:id>${username}</shar:id>
       <shar:password>${password}</shar:password>
+      <shar:localizationCountry>US</shar:localizationCountry>
+      <shar:localizationLanguage>en</shar:localizationLanguage>
       <shar:productId>${productId}</shar:productId>
     </ns:GetProductRequest>
   </soap:Body>
@@ -262,15 +264,17 @@ async function fetchMediaFromAPI(productId: string, config: SupplierConfig): Pro
   const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:ns="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/"
+               xmlns:shar="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/SharedObjects/">
   <soap:Body>
-    <GetMediaContentRequest xmlns="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/">
-      <wsVersion>${config.wsVersionMedia}</wsVersion>
-      <id>${username}</id>
-      <password>${password}</password>
-      <productId>${productId}</productId>
-      <mediaType>Image</mediaType>
-    </GetMediaContentRequest>
+    <ns:GetMediaContentRequest>
+      <shar:wsVersion>${config.wsVersionMedia}</shar:wsVersion>
+      <shar:id>${username}</shar:id>
+      <shar:password>${password}</shar:password>
+      <shar:mediaType>Image</shar:mediaType>
+      <shar:productId>${productId}</shar:productId>
+    </ns:GetMediaContentRequest>
   </soap:Body>
 </soap:Envelope>`;
 
@@ -289,17 +293,22 @@ async function fetchPricingFromAPI(productId: string, config: SupplierConfig): P
   const password = Deno.env.get(config.passwordEnvKey);
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:ns="http://www.promostandards.org/WSDL/PricingAndConfiguration/${config.wsVersionPricing}/"
+               xmlns:shar="http://www.promostandards.org/WSDL/PricingAndConfiguration/${config.wsVersionPricing}/SharedObjects/">
   <soap:Body>
-    <GetConfigurationAndPricingRequest xmlns="http://www.promostandards.org/WSDL/PricingAndConfiguration/${config.wsVersionPricing}/">
-      <wsVersion>${config.wsVersionPricing}</wsVersion>
-      <id>${username}</id>
-      <password>${password}</password>
-      <productId>${productId}</productId>
-      <currency>USD</currency>
-      <fobId>1</fobId>
-      <configurationType>Blank</configurationType>
-    </GetConfigurationAndPricingRequest>
+    <ns:GetConfigurationAndPricingRequest>
+      <shar:wsVersion>${config.wsVersionPricing}</shar:wsVersion>
+      <shar:id>${username}</shar:id>
+      <shar:password>${password}</shar:password>
+      <shar:productId>${productId}</shar:productId>
+      <shar:currency>USD</shar:currency>
+      <shar:fobId>1</shar:fobId>
+      <shar:priceType>Net</shar:priceType>
+      <shar:localizationCountry>US</shar:localizationCountry>
+      <shar:localizationLanguage>en</shar:localizationLanguage>
+      <shar:configurationType>Blank</shar:configurationType>
+    </ns:GetConfigurationAndPricingRequest>
   </soap:Body>
 </soap:Envelope>`;
 
