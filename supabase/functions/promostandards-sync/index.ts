@@ -232,14 +232,18 @@ function parseProductSellableResponse(xml: string): any[] {
   const products: any[] = [];
   const productBlocks = extractBlock(xml, 'ProductSellable');
   
+  console.log(`Found ${productBlocks.length} ProductSellable blocks`);
+  
   for (const block of productBlocks) {
     const productId = extractTagValue(block, 'productId');
-    const productName = extractTagValue(block, 'productName');
+    const partId = extractTagValue(block, 'partId');
+    const productName = extractTagValue(block, 'productName'); // May not exist in sellable response
     
-    if (productId && productName) {
+    if (productId) {
       products.push({
         productId,
-        productName,
+        partId,
+        productName: productName || productId, // Fallback to productId if name not provided
       });
     }
   }
