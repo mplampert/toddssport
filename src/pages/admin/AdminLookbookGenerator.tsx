@@ -10,6 +10,7 @@ import { Loader2, Sparkles, Download, Eye, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { LookbookPreview } from "@/components/admin/lookbook/LookbookPreview";
+import { PromoProductPicker } from "@/components/admin/lookbook/PromoProductPicker";
 import { generateLookbookPDF } from "@/lib/lookbookPdf";
 
 interface PackageItem {
@@ -39,6 +40,18 @@ interface LookbookData {
   colors: string;
   budget: string;
   catalogProductsUsed: number;
+  promoProductsUsed?: number;
+}
+
+interface PromoProduct {
+  id: string;
+  product_id: string;
+  product_name: string;
+  description: string | null;
+  product_brand: string | null;
+  product_category: string | null;
+  promo_media?: { url: string; is_primary: boolean }[];
+  promo_pricing?: { quantity_min: number; price: number }[];
 }
 
 const SPORTS = [
@@ -73,6 +86,7 @@ export default function AdminLookbookGenerator() {
   const [budget, setBudget] = useState("");
   const [teamName, setTeamName] = useState("");
   const [includeProducts, setIncludeProducts] = useState(true);
+  const [selectedPromoProducts, setSelectedPromoProducts] = useState<PromoProduct[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [lookbookData, setLookbookData] = useState<LookbookData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -92,6 +106,20 @@ export default function AdminLookbookGenerator() {
     setLookbookData(null);
 
     try {
+      // Prepare promo products data for the edge function
+      const promoProductsData = selectedPromoProducts.map(p => ({
+        id: p.id,
+        productId: p.product_id,
+        name: p.product_name,
+        description: p.description,
+        brand: p.product_brand,
+        category: p.product_category,
+        imageUrl: p.promo_media?.find(m => m.is_primary)?.url || p.promo_media?.[0]?.url,
+        lowestPrice: p.promo_pricing?.length 
+          ? Math.min(...p.promo_pricing.map(pr => pr.price)) 
+          : null,
+      }));
+
       const { data, error } = await supabase.functions.invoke('generate-lookbook', {
         body: {
           sport,
@@ -99,7 +127,8 @@ export default function AdminLookbookGenerator() {
           colors,
           budget,
           teamName,
-          includeProducts
+          includeProducts,
+          promoProducts: promoProductsData,
         }
       });
 
@@ -259,6 +288,17 @@ export default function AdminLookbookGenerator() {
                   id="includeProducts"
                   checked={includeProducts}
                   onCheckedChange={setIncludeProducts}
+                />
+              </div>
+
+              <div className="space-y-2 pt-2 border-t">
+                <Label>Promo Products (Optional)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select specific products from your PromoStandards catalog
+                </p>
+                <PromoProductPicker
+                  selectedProducts={selectedPromoProducts}
+                  onSelectionChange={setSelectedPromoProducts}
                 />
               </div>
 

@@ -9,6 +9,9 @@ verify_jwt = false
 [functions.import-catalog]
 verify_jwt = false
 
+[functions.promostandards-sync]
+verify_jwt = false
+
 [functions.champro-api]
 verify_jwt = true
 
