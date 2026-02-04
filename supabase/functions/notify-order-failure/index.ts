@@ -189,6 +189,8 @@ async function sendEmailNotification(payload: OrderFailurePayload): Promise<bool
   const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "alerts@toddssport.com";
   const alertEmail = Deno.env.get("ALERT_EMAIL");
 
+  logStep("Email config", { fromEmail, hasApiKey: !!resendApiKey, alertEmail });
+
   if (!resendApiKey) {
     logStep("Resend API key not configured, skipping email");
     return false;
@@ -260,8 +262,11 @@ async function sendEmailNotification(payload: OrderFailurePayload): Promise<bool
       ? `$${(payload.amountTotal / 100).toFixed(2)}` 
       : "N/A";
 
+    const fromAddress = `Todds Sport Alerts <${fromEmail}>`;
+    logStep("Sending email", { from: fromAddress, to: alertEmail });
+
     const emailResponse = await resend.emails.send({
-      from: `Todd's Sport <${fromEmail}>`,
+      from: fromAddress,
       to: alertEmail.split(",").map((e: string) => e.trim()),
       subject: `🚨 MANUAL CHAMPRO PO REQUIRED - ${payload.po}${payload.errorDetails?.messageCode ? ` [${payload.errorDetails.messageCode}]` : ""}`,
       html: `
