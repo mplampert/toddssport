@@ -104,6 +104,64 @@ async function callChamproViaProxy(
   }
 }
 
+// Send order confirmation emails via the send-order-emails edge function
+async function sendOrderEmails(
+  supabaseUrl: string,
+  supabaseServiceKey: string,
+  payload: {
+    orderId: string;
+    po: string;
+    orderDate: string;
+    customerEmail: string;
+    customerName: string;
+    customerPhone?: string;
+    shipTo: {
+      firstName: string;
+      lastName: string;
+      address: string;
+      address2: string;
+      city: string;
+      stateCode: string;
+      zipCode: string;
+      countryCode: string;
+      phone: string;
+    };
+    items: { name: string; size?: string; quantity: number; price: number }[];
+    subtotal: number;
+    tax: number;
+    shipping: number;
+    total: number;
+    teamName?: string;
+    sportSlug?: string;
+    leadTime?: string;
+    champroSessionId?: string;
+    champroOrderNumber?: string;
+    stripeSessionId?: string;
+  }
+): Promise<void> {
+  try {
+    logStep("Sending order confirmation emails", { orderId: payload.orderId, customerEmail: payload.customerEmail });
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/send-order-emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseServiceKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      logStep("Order emails sent successfully", result);
+    } else {
+      logStep("Failed to send order emails", { status: response.status });
+    }
+  } catch (error) {
+    logStep("Error sending order emails", { error: String(error) });
+  }
+}
+
 // Send failure notification via the notify-order-failure edge function
 async function notifyOrderFailure(
   supabaseUrl: string,
@@ -400,6 +458,38 @@ Deno.serve(async (req: Request) => {
                 .eq("id", orderId);
 
               logStep("Order submitted to Champro successfully", { champroOrderNumber });
+
+              // Send order confirmation emails (customer + internal)
+              await sendOrderEmails(supabaseUrl, supabaseServiceKey, {
+                orderId,
+                po,
+                orderDate: new Date().toISOString(),
+                customerEmail: session.customer_email || "",
+                customerName: customerName || `${shipTo.firstName} ${shipTo.lastName}`,
+                customerPhone: customerDetails?.phone || shipTo.phone,
+                shipTo: {
+                  firstName: shipTo.firstName,
+                  lastName: shipTo.lastName,
+                  address: shipTo.address,
+                  address2: shipTo.address2,
+                  city: shipTo.city,
+                  stateCode: shipTo.stateCode,
+                  zipCode: shipTo.zipCode,
+                  countryCode: shipTo.countryCode,
+                  phone: shipTo.phone,
+                },
+                items: [], // Custom uniform - items come from Champro session
+                subtotal: session.amount_subtotal || session.amount_total || 0,
+                tax: 0, // Tax included in total for now
+                shipping: 0, // Shipping included in total for now
+                total: session.amount_total || 0,
+                teamName: teamName || undefined,
+                sportSlug: sportSlug || undefined,
+                leadTime: mapLeadTimeToChampro(leadTime),
+                champroSessionId,
+                champroOrderNumber,
+                stripeSessionId: session.id,
+              });
             } else {
               // Champro API call failed - extract detailed error info
               // Champro error structure: RequestErrors[], Orders[].OrderErrors[], Message, MessageCode
@@ -475,6 +565,37 @@ Deno.serve(async (req: Request) => {
                 champroPayload,
                 stripeSessionId: session.id,
               });
+
+              // Still send customer confirmation email even if Champro failed (payment succeeded)
+              await sendOrderEmails(supabaseUrl, supabaseServiceKey, {
+                orderId,
+                po,
+                orderDate: new Date().toISOString(),
+                customerEmail: session.customer_email || "",
+                customerName: customerName || `${shipTo.firstName} ${shipTo.lastName}`,
+                customerPhone: customerDetails?.phone || shipTo.phone,
+                shipTo: {
+                  firstName: shipTo.firstName,
+                  lastName: shipTo.lastName,
+                  address: shipTo.address,
+                  address2: shipTo.address2,
+                  city: shipTo.city,
+                  stateCode: shipTo.stateCode,
+                  zipCode: shipTo.zipCode,
+                  countryCode: shipTo.countryCode,
+                  phone: shipTo.phone,
+                },
+                items: [],
+                subtotal: session.amount_subtotal || session.amount_total || 0,
+                tax: 0,
+                shipping: 0,
+                total: session.amount_total || 0,
+                teamName: teamName || undefined,
+                sportSlug: sportSlug || undefined,
+                leadTime: mapLeadTimeToChampro(leadTime),
+                champroSessionId,
+                stripeSessionId: session.id,
+              });
             }
           } catch (champroError) {
             const errorMessage = champroError instanceof Error ? champroError.message : String(champroError);
@@ -516,6 +637,37 @@ Deno.serve(async (req: Request) => {
               quantity: quantity || undefined,
               amountTotal: session.amount_total || undefined,
               errorMessage,
+              stripeSessionId: session.id,
+            });
+
+            // Still send customer confirmation email even if Champro failed (payment succeeded)
+            await sendOrderEmails(supabaseUrl, supabaseServiceKey, {
+              orderId,
+              po,
+              orderDate: new Date().toISOString(),
+              customerEmail: session.customer_email || "",
+              customerName: customerName || `${shipTo.firstName} ${shipTo.lastName}`,
+              customerPhone: customerDetails?.phone || shipTo.phone,
+              shipTo: {
+                firstName: shipTo.firstName,
+                lastName: shipTo.lastName,
+                address: shipTo.address,
+                address2: shipTo.address2,
+                city: shipTo.city,
+                stateCode: shipTo.stateCode,
+                zipCode: shipTo.zipCode,
+                countryCode: shipTo.countryCode,
+                phone: shipTo.phone,
+              },
+              items: [],
+              subtotal: session.amount_subtotal || session.amount_total || 0,
+              tax: 0,
+              shipping: 0,
+              total: session.amount_total || 0,
+              teamName: teamName || undefined,
+              sportSlug: sportSlug || undefined,
+              leadTime: mapLeadTimeToChampro(leadTime),
+              champroSessionId,
               stripeSessionId: session.id,
             });
           }
