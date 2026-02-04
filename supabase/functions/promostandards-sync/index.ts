@@ -19,6 +19,60 @@ interface SyncRequest {
   partId?: string;
 }
 
+// ========== XML Parsing Helpers (defined early for use in API functions) ==========
+
+function extractTagValue(xml: string, tagName: string): string | null {
+  const patterns = [
+    new RegExp(`<[^>]*:${tagName}[^>]*>([^<]*)<`, 'i'),
+    new RegExp(`<${tagName}[^>]*>([^<]*)<`, 'i'),
+  ];
+  
+  for (const pattern of patterns) {
+    const match = xml.match(pattern);
+    if (match) return match[1].trim();
+  }
+  return null;
+}
+
+function extractAllTagValues(xml: string, tagName: string): string[] {
+  const values: string[] = [];
+  const patterns = [
+    new RegExp(`<[^>]*:${tagName}[^>]*>([^<]*)<`, 'gi'),
+    new RegExp(`<${tagName}[^>]*>([^<]*)<`, 'gi'),
+  ];
+  
+  for (const pattern of patterns) {
+    let match;
+    while ((match = pattern.exec(xml)) !== null) {
+      if (match[1].trim()) values.push(match[1].trim());
+    }
+  }
+  return values;
+}
+
+function extractBlock(xml: string, tagName: string): string[] {
+  const blocks: string[] = [];
+  const pattern = new RegExp(`<[^>]*:?${tagName}[^>]*>(.*?)</[^>]*:?${tagName}>`, 'gis');
+  let match;
+  while ((match = pattern.exec(xml)) !== null) {
+    blocks.push(match[0]);
+  }
+  return blocks;
+}
+
+// Parse service message errors from SOAP responses
+function parseServiceError(xml: string): { code: string; description: string } | null {
+  const errorCode = extractTagValue(xml, 'code');
+  const errorDesc = extractTagValue(xml, 'description');
+  
+  if (errorCode && errorDesc) {
+    return { code: errorCode, description: errorDesc };
+  }
+  return null;
+}
+
+// ========== End XML Parsing Helpers ==========
+
 // Helper to make SOAP requests
 async function soapRequest(url: string, soapAction: string, body: string): Promise<string> {
   const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
@@ -51,7 +105,7 @@ async function soapRequest(url: string, soapAction: string, body: string): Promi
 }
 
 // Get sellable products list from Product Data API
-async function getSellableProducts(): Promise<any[]> {
+async function getSellableProducts(): Promise<{ products: any[]; error?: { code: string; description: string } }> {
   const username = Deno.env.get('PROMOSTANDARDS_USERNAME');
   const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
 
@@ -78,9 +132,15 @@ async function getSellableProducts(): Promise<any[]> {
   // Log full response for debugging
   console.log('GetProductSellable full response:', response);
 
+  // Check for service errors first
+  const error = parseServiceError(response);
+  if (error) {
+    return { products: [], error };
+  }
+
   // Parse the XML response
   const products = parseProductSellableResponse(response);
-  return products;
+  return { products };
 }
 
 // Get product details from Product Data API
@@ -168,47 +228,6 @@ async function getProductPricing(productId: string, partId?: string): Promise<an
   return parsePricingResponse(response);
 }
 
-// Simple XML parsing helpers (no external dependencies)
-function extractTagValue(xml: string, tagName: string): string | null {
-  // Handle namespaced tags like ns1:productId or just productId
-  const patterns = [
-    new RegExp(`<[^>]*:${tagName}[^>]*>([^<]*)<`, 'i'),
-    new RegExp(`<${tagName}[^>]*>([^<]*)<`, 'i'),
-  ];
-  
-  for (const pattern of patterns) {
-    const match = xml.match(pattern);
-    if (match) return match[1].trim();
-  }
-  return null;
-}
-
-function extractAllTagValues(xml: string, tagName: string): string[] {
-  const values: string[] = [];
-  const patterns = [
-    new RegExp(`<[^>]*:${tagName}[^>]*>([^<]*)<`, 'gi'),
-    new RegExp(`<${tagName}[^>]*>([^<]*)<`, 'gi'),
-  ];
-  
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(xml)) !== null) {
-      if (match[1].trim()) values.push(match[1].trim());
-    }
-  }
-  return values;
-}
-
-function extractBlock(xml: string, tagName: string): string[] {
-  const blocks: string[] = [];
-  const pattern = new RegExp(`<[^>]*:?${tagName}[^>]*>(.*?)</[^>]*:?${tagName}>`, 'gis');
-  let match;
-  while ((match = pattern.exec(xml)) !== null) {
-    blocks.push(match[0]);
-  }
-  return blocks;
-}
-
 function parseProductSellableResponse(xml: string): any[] {
   const products: any[] = [];
   const productBlocks = extractBlock(xml, 'ProductSellable');
@@ -229,6 +248,12 @@ function parseProductSellableResponse(xml: string): any[] {
 }
 
 function parseProductResponse(xml: string): any {
+  // First check for service errors
+  const error = parseServiceError(xml);
+  if (error) {
+    return { error };
+  }
+
   const productId = extractTagValue(xml, 'productId');
   const productName = extractTagValue(xml, 'productName');
   const description = extractTagValue(xml, 'description');
@@ -344,9 +369,15 @@ serve(async (req) => {
       case 'get_sellable': {
         // Get list of sellable products
         console.log('Fetching sellable products from PromoStandards...');
-        const products = await getSellableProducts();
-        console.log(`Found ${products.length} sellable products`);
-        result = { products, count: products.length };
+        const sellableResult = await getSellableProducts();
+        
+        // Check for API errors
+        if (sellableResult.error) {
+          throw new Error(`PromoStandards API Error [${sellableResult.error.code}]: ${sellableResult.error.description}`);
+        }
+        
+        console.log(`Found ${sellableResult.products.length} sellable products`);
+        result = { products: sellableResult.products, count: sellableResult.products.length };
         break;
       }
 
@@ -356,8 +387,13 @@ serve(async (req) => {
         console.log(`Syncing product ${productId}...`);
         const productData = await getProductDetails(productId);
         
+        // Check for API errors
+        if (productData.error) {
+          throw new Error(`PromoStandards API Error [${productData.error.code}]: ${productData.error.description}`);
+        }
+        
         if (!productData.productId) {
-          throw new Error(`Product ${productId} not found`);
+          throw new Error(`Product ${productId} not found in API response`);
         }
 
         // Upsert product
