@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Search, 
   RefreshCw, 
@@ -21,6 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+type SupplierCode = 'imprintid' | 'hit' | 'all';
+
 interface PromoProduct {
   id: string;
   product_id: string;
@@ -31,31 +34,64 @@ interface PromoProduct {
   product_sub_category: string | null;
   is_featured: boolean;
   last_synced_at: string | null;
+  supplier_id: string;
   promo_media?: { url: string; is_primary: boolean }[];
   promo_pricing?: { quantity_min: number; price: number }[];
+  promo_suppliers?: { code: string; name: string };
 }
+
+const SUPPLIER_LABELS: Record<string, string> = {
+  imprintid: 'ImprintID',
+  hit: 'HIT Promo',
+  all: 'All Suppliers',
+};
 
 export default function AdminPromoProducts() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const [syncProductId, setSyncProductId] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState<SupplierCode>("imprintid");
+  const [browseSupplier, setBrowseSupplier] = useState<SupplierCode>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Fetch suppliers
+  const { data: suppliers } = useQuery({
+    queryKey: ['promo-suppliers'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('promo_suppliers')
+        .select('id, code, name')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    }
+  });
+
   // Fetch synced products from our database
   const { data: products, isLoading } = useQuery({
-    queryKey: ['promo-products', searchTerm],
+    queryKey: ['promo-products', searchTerm, browseSupplier],
     queryFn: async () => {
       let query = supabase
         .from('promo_products')
         .select(`
           *,
           promo_media (url, is_primary),
-          promo_pricing (quantity_min, price)
+          promo_pricing (quantity_min, price),
+          promo_suppliers!inner (code, name)
         `)
         .eq('is_active', true)
         .order('is_featured', { ascending: false })
         .order('product_name');
+
+      // Filter by supplier
+      if (browseSupplier !== 'all') {
+        const supplierData = suppliers?.find(s => s.code === browseSupplier);
+        if (supplierData) {
+          query = query.eq('supplier_id', supplierData.id);
+        }
+      }
 
       if (searchTerm) {
         query = query.or(`product_name.ilike.%${searchTerm}%,product_id.ilike.%${searchTerm}%,product_category.ilike.%${searchTerm}%`);
@@ -64,35 +100,38 @@ export default function AdminPromoProducts() {
       const { data, error } = await query.limit(100);
       if (error) throw error;
       return data as PromoProduct[];
-    }
+    },
+    enabled: !!suppliers
   });
 
   // Sync a single product
   const syncProduct = useMutation({
-    mutationFn: async (productId: string) => {
+    mutationFn: async ({ productId, supplier }: { productId: string; supplier: SupplierCode }) => {
+      if (supplier === 'all') throw new Error('Please select a specific supplier');
+      
       // Sync product data
       const { data: productResult, error: productError } = await supabase.functions.invoke('promostandards-sync', {
-        body: { action: 'sync_product', productId }
+        body: { action: 'sync_product', productId, supplier }
       });
       if (productError) throw productError;
       if (productResult.error) throw new Error(productResult.error);
 
       // Sync media
       const { data: mediaResult, error: mediaError } = await supabase.functions.invoke('promostandards-sync', {
-        body: { action: 'sync_media', productId }
+        body: { action: 'sync_media', productId, supplier }
       });
       if (mediaError) throw mediaError;
 
       // Get pricing
       const { data: pricingResult, error: pricingError } = await supabase.functions.invoke('promostandards-sync', {
-        body: { action: 'get_pricing', productId }
+        body: { action: 'get_pricing', productId, supplier }
       });
       if (pricingError) throw pricingError;
 
       return { 
         product: productResult.product, 
-        mediaCount: mediaResult.mediaCount,
-        pricingCount: pricingResult.pricingCount
+        mediaCount: mediaResult?.mediaCount || 0,
+        pricingCount: pricingResult?.pricingCount || 0
       };
     },
     onSuccess: (data) => {
@@ -128,9 +167,11 @@ export default function AdminPromoProducts() {
 
   // Get sellable products list
   const getSellable = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (supplier: SupplierCode) => {
+      if (supplier === 'all') throw new Error('Please select a specific supplier');
+      
       const { data, error } = await supabase.functions.invoke('promostandards-sync', {
-        body: { action: 'get_sellable' }
+        body: { action: 'get_sellable', supplier }
       });
       if (error) throw error;
       if (data.error) throw new Error(data.error);
@@ -139,7 +180,7 @@ export default function AdminPromoProducts() {
     onSuccess: (data) => {
       toast({
         title: "Sellable products retrieved",
-        description: `Found ${data.count} sellable products from ImprintID.`
+        description: `Found ${data.count} sellable products from ${SUPPLIER_LABELS[data.supplier] || data.supplier}.`
       });
     },
     onError: (error) => {
@@ -171,6 +212,13 @@ export default function AdminPromoProducts() {
     setSelectedProducts(newSelection);
   };
 
+  const getSupplierBadge = (product: PromoProduct) => {
+    const code = product.promo_suppliers?.code;
+    if (code === 'hit') return { label: 'HIT', variant: 'default' as const };
+    if (code === 'imprintid') return { label: 'ImprintID', variant: 'secondary' as const };
+    return { label: code || 'Unknown', variant: 'outline' as const };
+  };
+
   const featuredProducts = products?.filter(p => p.is_featured) || [];
   const allProducts = products || [];
 
@@ -180,7 +228,7 @@ export default function AdminPromoProducts() {
         <div>
           <h1 className="text-2xl font-bold">Promo Products</h1>
           <p className="text-muted-foreground">
-            Browse and sync products from PromoStandards (ImprintID) for lookbooks and quotes.
+            Browse and sync products from PromoStandards suppliers for lookbooks and quotes.
           </p>
         </div>
 
@@ -204,6 +252,19 @@ export default function AdminPromoProducts() {
                   className="pl-10"
                 />
               </div>
+              <Select value={browseSupplier} onValueChange={(v) => setBrowseSupplier(v as SupplierCode)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue placeholder="All Suppliers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Suppliers</SelectItem>
+                  {suppliers?.map((s) => (
+                    <SelectItem key={s.code} value={s.code}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {selectedProducts.size > 0 && (
@@ -233,84 +294,90 @@ export default function AdminPromoProducts() {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {allProducts.map((product) => (
-                  <Card key={product.id} className={`relative ${selectedProducts.has(product.id) ? 'ring-2 ring-accent' : ''}`}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2">
-                          <Checkbox
-                            checked={selectedProducts.has(product.id)}
-                            onCheckedChange={() => toggleProductSelection(product.id)}
+                {allProducts.map((product) => {
+                  const supplierBadge = getSupplierBadge(product);
+                  return (
+                    <Card key={product.id} className={`relative ${selectedProducts.has(product.id) ? 'ring-2 ring-accent' : ''}`}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <Checkbox
+                              checked={selectedProducts.has(product.id)}
+                              onCheckedChange={() => toggleProductSelection(product.id)}
+                            />
+                            <div>
+                              <CardTitle className="text-sm line-clamp-2">
+                                {product.product_name}
+                              </CardTitle>
+                              <CardDescription className="text-xs flex items-center gap-2">
+                                {product.product_id}
+                                <Badge variant={supplierBadge.variant} className="text-[10px] px-1 py-0">
+                                  {supplierBadge.label}
+                                </Badge>
+                              </CardDescription>
+                            </div>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className={product.is_featured ? 'text-accent' : 'text-muted-foreground'}
+                            onClick={() => toggleFeatured.mutate({ 
+                              id: product.id, 
+                              isFeatured: !product.is_featured 
+                            })}
+                          >
+                            <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-3">
+                        {getPrimaryImage(product) ? (
+                          <img
+                            src={getPrimaryImage(product)}
+                            alt={product.product_name}
+                            className="w-full h-32 object-contain bg-secondary rounded"
                           />
-                          <div>
-                            <CardTitle className="text-sm line-clamp-2">
-                              {product.product_name}
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                              {product.product_id}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className={product.is_featured ? 'text-accent' : 'text-muted-foreground'}
-                          onClick={() => toggleFeatured.mutate({ 
-                            id: product.id, 
-                            isFeatured: !product.is_featured 
-                          })}
-                        >
-                          <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {getPrimaryImage(product) ? (
-                        <img
-                          src={getPrimaryImage(product)}
-                          alt={product.product_name}
-                          className="w-full h-32 object-contain bg-secondary rounded"
-                        />
-                      ) : (
-                        <div className="w-full h-32 bg-secondary rounded flex items-center justify-center">
-                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                      
-                      <div className="flex flex-wrap gap-1">
-                        {product.product_category && (
-                          <Badge variant="secondary" className="text-xs">
-                            {product.product_category}
-                          </Badge>
-                        )}
-                        {product.product_brand && (
-                          <Badge variant="outline" className="text-xs">
-                            {product.product_brand}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1 text-muted-foreground">
-                          <ImageIcon className="w-3 h-3" />
-                          <span>{product.promo_media?.length || 0}</span>
-                        </div>
-                        {getLowestPrice(product) && (
-                          <div className="flex items-center gap-1 font-medium text-accent">
-                            <DollarSign className="w-3 h-3" />
-                            <span>From ${getLowestPrice(product)?.toFixed(2)}</span>
+                        ) : (
+                          <div className="w-full h-32 bg-secondary rounded flex items-center justify-center">
+                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
                           </div>
                         )}
-                      </div>
+                        
+                        <div className="flex flex-wrap gap-1">
+                          {product.product_category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {product.product_category}
+                            </Badge>
+                          )}
+                          {product.product_brand && (
+                            <Badge variant="outline" className="text-xs">
+                              {product.product_brand}
+                            </Badge>
+                          )}
+                        </div>
 
-                      {product.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {product.description}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <ImageIcon className="w-3 h-3" />
+                            <span>{product.promo_media?.length || 0}</span>
+                          </div>
+                          {getLowestPrice(product) && (
+                            <div className="flex items-center gap-1 font-medium text-accent">
+                              <DollarSign className="w-3 h-3" />
+                              <span>From ${getLowestPrice(product)?.toFixed(2)}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {product.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
@@ -323,19 +390,32 @@ export default function AdminPromoProducts() {
                   Sync Individual Product
                 </CardTitle>
                 <CardDescription>
-                  Enter a PromoStandards Product ID to sync it from ImprintID
+                  Enter a PromoStandards Product ID to sync from the selected supplier
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-2">
+                  <Select value={selectedSupplier} onValueChange={(v) => setSelectedSupplier(v as SupplierCode)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Select Supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers?.map((s) => (
+                        <SelectItem key={s.code} value={s.code}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Input
-                    placeholder="Enter Product ID (e.g., 1234)"
+                    placeholder="Enter Product ID (e.g., LNYBR34)"
                     value={syncProductId}
                     onChange={(e) => setSyncProductId(e.target.value)}
+                    className="flex-1"
                   />
                   <Button
-                    onClick={() => syncProduct.mutate(syncProductId)}
-                    disabled={!syncProductId || syncProduct.isPending}
+                    onClick={() => syncProduct.mutate({ productId: syncProductId, supplier: selectedSupplier })}
+                    disabled={!syncProductId || syncProduct.isPending || selectedSupplier === 'all'}
                   >
                     {syncProduct.isPending ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -360,25 +440,42 @@ export default function AdminPromoProducts() {
                   Discover Sellable Products
                 </CardTitle>
                 <CardDescription>
-                  Get a list of all sellable products from ImprintID
+                  Get a list of all sellable products from a supplier
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <Button
-                  onClick={() => getSellable.mutate()}
-                  disabled={getSellable.isPending}
-                  variant="outline"
-                >
-                  {getSellable.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                  )}
-                  Get Sellable Products
-                </Button>
+                <div className="flex gap-2">
+                  <Select value={selectedSupplier} onValueChange={(v) => setSelectedSupplier(v as SupplierCode)}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Select Supplier" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers?.map((s) => (
+                        <SelectItem key={s.code} value={s.code}>
+                          {s.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={() => getSellable.mutate(selectedSupplier)}
+                    disabled={getSellable.isPending || selectedSupplier === 'all'}
+                    variant="outline"
+                  >
+                    {getSellable.isPending ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                    )}
+                    Get Sellable Products
+                  </Button>
+                </div>
                 
                 {getSellable.data?.products && (
                   <div className="max-h-64 overflow-y-auto border rounded p-2 space-y-1">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      <Badge variant="outline">{getSellable.data.supplier}</Badge> — {getSellable.data.count} products
+                    </p>
                     {getSellable.data.products.slice(0, 50).map((p: any, i: number) => (
                       <div 
                         key={i} 
@@ -415,46 +512,52 @@ export default function AdminPromoProducts() {
               </Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {featuredProducts.map((product) => (
-                  <Card key={product.id}>
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <CardTitle className="text-sm line-clamp-2">
-                            {product.product_name}
-                          </CardTitle>
-                          <CardDescription className="text-xs">
-                            {product.product_id}
-                          </CardDescription>
+                {featuredProducts.map((product) => {
+                  const supplierBadge = getSupplierBadge(product);
+                  return (
+                    <Card key={product.id}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm line-clamp-2">
+                              {product.product_name}
+                            </CardTitle>
+                            <CardDescription className="text-xs flex items-center gap-2">
+                              {product.product_id}
+                              <Badge variant={supplierBadge.variant} className="text-[10px] px-1 py-0">
+                                {supplierBadge.label}
+                              </Badge>
+                            </CardDescription>
+                          </div>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-accent"
+                            onClick={() => toggleFeatured.mutate({
+                              id: product.id, 
+                              isFeatured: false 
+                            })}
+                          >
+                            <Star className="w-4 h-4" fill="currentColor" />
+                          </Button>
                         </div>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="text-accent"
-                          onClick={() => toggleFeatured.mutate({
-                            id: product.id, 
-                            isFeatured: false 
-                          })}
-                        >
-                          <Star className="w-4 h-4" fill="currentColor" />
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {getPrimaryImage(product) ? (
-                        <img
-                          src={getPrimaryImage(product)}
-                          alt={product.product_name}
-                          className="w-full h-32 object-contain bg-secondary rounded"
-                        />
-                      ) : (
-                        <div className="w-full h-32 bg-secondary rounded flex items-center justify-center">
-                          <ImageIcon className="w-8 h-8 text-muted-foreground" />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardHeader>
+                      <CardContent>
+                        {getPrimaryImage(product) ? (
+                          <img
+                            src={getPrimaryImage(product)}
+                            alt={product.product_name}
+                            className="w-full h-32 object-contain bg-secondary rounded"
+                          />
+                        ) : (
+                          <div className="w-full h-32 bg-secondary rounded flex items-center justify-center">
+                            <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
