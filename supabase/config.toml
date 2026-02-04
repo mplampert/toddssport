@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.promostandards-sync]
 verify_jwt = false
 
+[functions.promo-api]
+verify_jwt = false
+
 [functions.champro-api]
 verify_jwt = true
 
