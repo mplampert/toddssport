@@ -1,8 +1,17 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, RefreshCw, MessageCircleWarning } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 
 // Champro Custom Builder category mappings - all 26 categories
 const CHAMPRO_CATEGORIES: Record<string, { id: number; name: string }> = {
@@ -72,6 +81,9 @@ export function ChamproBuilderEmbed({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [builderError, setBuilderError] = useState<string | null>(null);
   const [iframeKey, setIframeKey] = useState(0);
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportDescription, setReportDescription] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
 
   const category = CHAMPRO_CATEGORIES[sportSlug];
 
@@ -88,7 +100,7 @@ export function ChamproBuilderEmbed({
   // Report builder errors to Slack
   const reportBuilderError = useCallback(async (errorType: string, errorMessage: string) => {
     try {
-      await supabase.functions.invoke("champro-builder-error", {
+      const { error } = await supabase.functions.invoke("champro-builder-error", {
         body: {
           errorType,
           errorMessage,
@@ -98,11 +110,37 @@ export function ChamproBuilderEmbed({
           timestamp: new Date().toISOString(),
         },
       });
+      if (error) {
+        console.error("Failed to report error:", error);
+        return false;
+      }
       console.log("Builder error reported to Slack");
+      return true;
     } catch (err) {
       console.error("Failed to report builder error:", err);
+      return false;
     }
   }, [sportSlug, sportTitle, category?.name]);
+
+  // Handle manual error report from user
+  const handleReportIssue = useCallback(async () => {
+    if (!reportDescription.trim()) {
+      toast.error("Please describe the issue you encountered");
+      return;
+    }
+    
+    setIsReporting(true);
+    const success = await reportBuilderError("UserReported", reportDescription);
+    setIsReporting(false);
+    
+    if (success) {
+      toast.success("Issue reported! Our team will look into it.");
+      setReportDialogOpen(false);
+      setReportDescription("");
+    } else {
+      toast.error("Failed to report issue. Please try again or contact us directly.");
+    }
+  }, [reportDescription, reportBuilderError]);
 
   // Reload the iframe
   const handleRetry = useCallback(() => {
@@ -255,6 +293,42 @@ export function ChamproBuilderEmbed({
           style={{ border: "none", overflow: "hidden" }}
           allow="fullscreen"
         />
+      </div>
+
+      {/* Report Issue Button - always visible */}
+      <div className="mt-3 flex justify-end">
+        <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+              <MessageCircleWarning className="w-4 h-4 mr-1.5" />
+              Report an Issue
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Report a Problem</DialogTitle>
+              <DialogDescription>
+                Seeing an error in the designer? Let us know what happened and we'll look into it.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <Textarea
+                placeholder="Describe what happened (e.g., 'I clicked Process Design and got an error saying product could not be added to cart')"
+                value={reportDescription}
+                onChange={(e) => setReportDescription(e.target.value)}
+                rows={4}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setReportDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleReportIssue} disabled={isReporting}>
+                  {isReporting ? "Sending..." : "Send Report"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {isSubmitting && (
