@@ -6,7 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
-// PromoStandards API endpoints
+// PromoStandards API endpoints for ImprintID
+// Note: These use WCF services with specific SOAPAction formats
 const PRODUCT_DATA_URL = 'https://productdata.imprintid.com/ProductDataT.svc';
 const MEDIA_CONTENT_URL = 'https://mediacontent.imprintid.com/MediaContents.svc';
 const PRICING_CONFIG_URL = 'https://productprice.imprintid.com/ProductPricingConfig.svc';
@@ -36,13 +37,17 @@ async function soapRequest(url: string, soapAction: string, body: string): Promi
     body: body,
   });
 
+  const text = await response.text();
+  
   if (!response.ok) {
-    const text = await response.text();
     console.error('SOAP Error:', response.status, text);
     throw new Error(`SOAP request failed: ${response.status}`);
   }
 
-  return await response.text();
+  // Log successful response for debugging (first 500 chars)
+  console.log(`SOAP Response (${soapAction}):`, text.substring(0, 500));
+  
+  return text;
 }
 
 // Get sellable products list from Product Data API
@@ -51,23 +56,27 @@ async function getSellableProducts(): Promise<any[]> {
   const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
-               xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/"
+               xmlns:shar="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/">
   <soap:Body>
     <ns:GetProductSellableRequest>
-      <ns:wsVersion>2.0.0</ns:wsVersion>
-      <ns:id>${username}</ns:id>
-      <ns:password>${password}</ns:password>
-      <ns:isSellable>true</ns:isSellable>
+      <shar:wsVersion>2.0.0</shar:wsVersion>
+      <shar:id>${username}</shar:id>
+      <shar:password>${password}</shar:password>
+      <shar:isSellable>true</shar:isSellable>
     </ns:GetProductSellableRequest>
   </soap:Body>
 </soap:Envelope>`;
 
   const response = await soapRequest(
     PRODUCT_DATA_URL,
-    'http://www.promostandards.org/WSDL/ProductDataService/2.0.0/GetProductSellable',
+    'getProductSellable',
     soapBody
   );
+
+  // Log full response for debugging
+  console.log('GetProductSellable full response:', response);
 
   // Parse the XML response
   const products = parseProductSellableResponse(response);
@@ -80,21 +89,22 @@ async function getProductDetails(productId: string): Promise<any> {
   const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
-               xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/"
+               xmlns:shar="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/">
   <soap:Body>
     <ns:GetProductRequest>
-      <ns:wsVersion>2.0.0</ns:wsVersion>
-      <ns:id>${username}</ns:id>
-      <ns:password>${password}</ns:password>
-      <ns:productId>${productId}</ns:productId>
+      <shar:wsVersion>2.0.0</shar:wsVersion>
+      <shar:id>${username}</shar:id>
+      <shar:password>${password}</shar:password>
+      <shar:productId>${productId}</shar:productId>
     </ns:GetProductRequest>
   </soap:Body>
 </soap:Envelope>`;
 
   const response = await soapRequest(
     PRODUCT_DATA_URL,
-    'http://www.promostandards.org/WSDL/ProductDataService/2.0.0/GetProduct',
+    'getProduct',
     soapBody
   );
 
@@ -107,22 +117,21 @@ async function getMediaContent(productId: string): Promise<any[]> {
   const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
-               xmlns:ns="http://www.promostandards.org/WSDL/MediaService/1.1.0/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <ns:GetMediaContentRequest>
-      <ns:wsVersion>1.1.0</ns:wsVersion>
-      <ns:id>${username}</ns:id>
-      <ns:password>${password}</ns:password>
-      <ns:productId>${productId}</ns:productId>
-      <ns:mediaType>Image</ns:mediaType>
-    </ns:GetMediaContentRequest>
+    <GetMediaContentRequest xmlns="http://www.promostandards.org/WSDL/MediaService/1.1.0/">
+      <wsVersion>1.1.0</wsVersion>
+      <id>${username}</id>
+      <password>${password}</password>
+      <productId>${productId}</productId>
+      <mediaType>Image</mediaType>
+    </GetMediaContentRequest>
   </soap:Body>
 </soap:Envelope>`;
 
   const response = await soapRequest(
     MEDIA_CONTENT_URL,
-    'http://www.promostandards.org/WSDL/MediaService/1.1.0/GetMediaContent',
+    'getMediaContent',
     soapBody
   );
 
@@ -135,25 +144,24 @@ async function getProductPricing(productId: string, partId?: string): Promise<an
   const password = Deno.env.get('PROMOSTANDARDS_PASSWORD');
 
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
-               xmlns:ns="http://www.promostandards.org/WSDL/PricingAndConfiguration/1.0.0/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <ns:GetConfigurationAndPricingRequest>
-      <ns:wsVersion>1.0.0</ns:wsVersion>
-      <ns:id>${username}</ns:id>
-      <ns:password>${password}</ns:password>
-      <ns:productId>${productId}</ns:productId>
-      ${partId ? `<ns:partId>${partId}</ns:partId>` : ''}
-      <ns:currency>USD</ns:currency>
-      <ns:fobId>1</ns:fobId>
-      <ns:configurationType>Blank</ns:configurationType>
-    </ns:GetConfigurationAndPricingRequest>
+    <GetConfigurationAndPricingRequest xmlns="http://www.promostandards.org/WSDL/PricingAndConfiguration/1.0.0/">
+      <wsVersion>1.0.0</wsVersion>
+      <id>${username}</id>
+      <password>${password}</password>
+      <productId>${productId}</productId>
+      ${partId ? `<partId>${partId}</partId>` : ''}
+      <currency>USD</currency>
+      <fobId>1</fobId>
+      <configurationType>Blank</configurationType>
+    </GetConfigurationAndPricingRequest>
   </soap:Body>
 </soap:Envelope>`;
 
   const response = await soapRequest(
     PRICING_CONFIG_URL,
-    'http://www.promostandards.org/WSDL/PricingAndConfiguration/1.0.0/GetConfigurationAndPricing',
+    'getConfigurationAndPricing',
     soapBody
   );
 
