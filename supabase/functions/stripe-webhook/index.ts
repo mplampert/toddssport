@@ -112,6 +112,25 @@ async function notifyOrderFailure(
     orderId: string;
     po: string;
     customerEmail?: string;
+    customerName?: string;
+    customerPhone?: string;
+    shipTo?: {
+      firstName: string;
+      lastName: string;
+      address: string;
+      address2: string;
+      city: string;
+      stateCode: string;
+      zipCode: string;
+      countryCode: string;
+      phone: string;
+    };
+    teamName?: string;
+    champroSessionId?: string;
+    sportSlug?: string;
+    leadTime?: string;
+    quantity?: string;
+    amountTotal?: number;
     errorMessage: string;
     errorDetails?: {
       messageCode?: string | null;
@@ -120,6 +139,7 @@ async function notifyOrderFailure(
       orderErrors?: { message?: string; field?: string }[];
     };
     champroResponse?: unknown;
+    champroPayload?: unknown;
     stripeSessionId?: string;
   }
 ): Promise<void> {
@@ -277,25 +297,30 @@ Deno.serve(async (req: Request) => {
 
         const po = existingOrder?.po || `WEB-${orderId}`;
 
+        // Build request payload for storage
+        const requestPayload = {
+          stripe_session_id: session.id,
+          sport_slug: sportSlug,
+          product_master: productMaster,
+          quantity: quantity,
+          lead_time: leadTime,
+          lead_time_name: mapLeadTimeToChampro(leadTime),
+          team_name: teamName,
+          customer_name: customerName,
+          customer_email: session.customer_email,
+          customer_phone: customerDetails?.phone || "",
+          amount_total: session.amount_total,
+          payment_status: session.payment_status,
+          ship_to: shipTo,
+        };
+
         // Update order status to paid
         const { data: order, error: updateError } = await supabase
           .from("champro_orders")
           .update({
             status: "paid",
-            request_payload: {
-              stripe_session_id: session.id,
-              sport_slug: sportSlug,
-              product_master: productMaster,
-              quantity: quantity,
-              lead_time: leadTime,
-              lead_time_name: mapLeadTimeToChampro(leadTime),
-              team_name: teamName,
-              customer_name: customerName,
-              customer_email: session.customer_email,
-              amount_total: session.amount_total,
-              payment_status: session.payment_status,
-              ship_to: shipTo,
-            },
+            customer_email: session.customer_email,
+            request_payload: requestPayload,
           })
           .eq("id", orderId)
           .select()
@@ -366,6 +391,7 @@ Deno.serve(async (req: Request) => {
                   status: "submitted_to_champro",
                   response_payload: champroData,
                   sent_to_champro: true,
+                  needs_manual_champro: false,
                   champro_order_number: champroOrderNumber,
                   sub_order_ids: champroData.Orders?.map((o: { OrderNumber?: string; SalesID?: string }) => 
                     o.OrderNumber || o.SalesID
@@ -408,23 +434,45 @@ Deno.serve(async (req: Request) => {
                 fullResponse: champroData,
               });
 
+              // Mark order as needing manual Champro submission
               await supabase
                 .from("champro_orders")
                 .update({
                   status: "paid_error_champro",
                   response_payload: champroData,
                   sent_to_champro: false,
+                  needs_manual_champro: true,
                 })
                 .eq("id", orderId);
 
-              // Send notification with full error details
+              // Send notification with full order details for manual PO
               await notifyOrderFailure(supabaseUrl, supabaseServiceKey, {
                 orderId,
                 po,
                 customerEmail: session.customer_email || undefined,
+                customerName: customerName || shipTo.firstName + " " + shipTo.lastName,
+                customerPhone: customerDetails?.phone || shipTo.phone,
+                shipTo: {
+                  firstName: shipTo.firstName,
+                  lastName: shipTo.lastName,
+                  address: shipTo.address,
+                  address2: shipTo.address2,
+                  city: shipTo.city,
+                  stateCode: shipTo.stateCode,
+                  zipCode: shipTo.zipCode,
+                  countryCode: shipTo.countryCode,
+                  phone: shipTo.phone,
+                },
+                teamName: teamName || undefined,
+                champroSessionId,
+                sportSlug: sportSlug || undefined,
+                leadTime: mapLeadTimeToChampro(leadTime),
+                quantity: quantity || undefined,
+                amountTotal: session.amount_total || undefined,
                 errorMessage,
-                errorDetails, // Include structured error details
+                errorDetails,
                 champroResponse: champroData,
+                champroPayload,
                 stripeSessionId: session.id,
               });
             }
@@ -432,30 +480,60 @@ Deno.serve(async (req: Request) => {
             const errorMessage = champroError instanceof Error ? champroError.message : String(champroError);
             logStep("Error calling Champro API", { error: errorMessage });
             
+            // Mark order as needing manual Champro submission
             await supabase
               .from("champro_orders")
               .update({
                 status: "paid_error_champro",
                 response_payload: { error: errorMessage },
                 sent_to_champro: false,
+                needs_manual_champro: true,
               })
               .eq("id", orderId);
 
-            // Send notification
+            // Send notification with full order details
             await notifyOrderFailure(supabaseUrl, supabaseServiceKey, {
               orderId,
               po,
               customerEmail: session.customer_email || undefined,
+              customerName: customerName || shipTo.firstName + " " + shipTo.lastName,
+              customerPhone: customerDetails?.phone || shipTo.phone,
+              shipTo: {
+                firstName: shipTo.firstName,
+                lastName: shipTo.lastName,
+                address: shipTo.address,
+                address2: shipTo.address2,
+                city: shipTo.city,
+                stateCode: shipTo.stateCode,
+                zipCode: shipTo.zipCode,
+                countryCode: shipTo.countryCode,
+                phone: shipTo.phone,
+              },
+              teamName: teamName || undefined,
+              champroSessionId,
+              sportSlug: sportSlug || undefined,
+              leadTime: mapLeadTimeToChampro(leadTime),
+              quantity: quantity || undefined,
+              amountTotal: session.amount_total || undefined,
               errorMessage,
               stripeSessionId: session.id,
             });
           }
         } else {
           logStep("Champro API not configured or no session ID - order ready for manual processing");
+          
+          // Mark as needing manual processing if no auto-submission possible
+          await supabase
+            .from("champro_orders")
+            .update({
+              needs_manual_champro: true,
+            })
+            .eq("id", orderId);
         }
       }
     }
 
+    // Always return 200 to Stripe so payment stays successful
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -463,6 +541,10 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("Webhook error:", error);
-    return new Response(`Webhook Error: ${errorMessage}`, { status: 500 });
+    // Still return 200 to prevent Stripe from retrying - we've logged the error
+    return new Response(JSON.stringify({ received: true, error: errorMessage }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
