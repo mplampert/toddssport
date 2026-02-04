@@ -1,5 +1,8 @@
 project_id = "ookvohtvmjcgrfahigyr"
 
+[functions.generate-message]
+verify_jwt = false
+
 [functions.champro-api]
 verify_jwt = true
 
