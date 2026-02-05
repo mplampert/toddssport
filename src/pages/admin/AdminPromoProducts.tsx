@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ export default function AdminPromoProducts() {
   const [browseSupplier, setBrowseSupplier] = useState<SupplierCode>("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Fetch suppliers
   const { data: suppliers } = useQuery({
@@ -297,13 +299,14 @@ export default function AdminPromoProducts() {
                 {allProducts.map((product) => {
                   const supplierBadge = getSupplierBadge(product);
                   return (
-                    <Card key={product.id} className={`relative ${selectedProducts.has(product.id) ? 'ring-2 ring-accent' : ''}`}>
+                    <Card key={product.id} className={`relative cursor-pointer hover:shadow-md transition-shadow ${selectedProducts.has(product.id) ? 'ring-2 ring-accent' : ''}`} onClick={() => navigate(`/promo-products/${product.product_id}`)}>
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2">
                             <Checkbox
                               checked={selectedProducts.has(product.id)}
                               onCheckedChange={() => toggleProductSelection(product.id)}
+                              onClick={(e) => e.stopPropagation()}
                             />
                             <div>
                               <CardTitle className="text-sm line-clamp-2">
@@ -321,10 +324,13 @@ export default function AdminPromoProducts() {
                             size="icon"
                             variant="ghost"
                             className={product.is_featured ? 'text-accent' : 'text-muted-foreground'}
-                            onClick={() => toggleFeatured.mutate({ 
-                              id: product.id, 
-                              isFeatured: !product.is_featured 
-                            })}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFeatured.mutate({ 
+                                id: product.id, 
+                                isFeatured: !product.is_featured 
+                              });
+                            }}
                           >
                             <Star className="w-4 h-4" fill={product.is_featured ? 'currentColor' : 'none'} />
                           </Button>
