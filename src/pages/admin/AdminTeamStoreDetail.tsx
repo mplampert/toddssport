@@ -1,9 +1,9 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ExternalLink } from "lucide-react";
 import { TeamStoreBasicsForm } from "@/components/admin/team-stores/TeamStoreBasicsForm";
 import { TeamStoreBrandingPreview } from "@/components/admin/team-stores/TeamStoreBrandingPreview";
 import { TeamStoreProducts } from "@/components/admin/team-stores/TeamStoreProducts";
@@ -53,16 +53,23 @@ export default function AdminTeamStoreDetail() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/admin/team-stores")}>
-            <ChevronLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">{store.name}</h1>
-            <p className="text-muted-foreground text-sm">
-              /team-stores/{store.slug}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/team-stores")}>
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">{store.name}</h1>
+              <p className="text-muted-foreground text-sm">
+                /team-stores/{store.slug}
+              </p>
+            </div>
           </div>
+          <Button variant="outline" asChild>
+            <Link to={`/team-stores/${store.slug}`} target="_blank">
+              <ExternalLink className="w-4 h-4 mr-2" /> View Store
+            </Link>
+          </Button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
