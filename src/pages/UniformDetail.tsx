@@ -302,8 +302,8 @@ export default function UniformDetail() {
                   Our online uniform designer is launching soon! In the meantime, contact us for a
                   personalized {sport.title.toLowerCase()} uniform consultation and quote.
                 </p>
-                <Button onClick={scrollToQuote} className="btn-cta">
-                  Contact Us for a Quote
+                <Button asChild className="btn-cta">
+                  <Link to="/contact">Contact Us for a Quote</Link>
                 </Button>
               </div>
             </div>
