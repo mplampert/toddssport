@@ -39,6 +39,7 @@ import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import AdminPromoProducts from "./pages/admin/AdminPromoProducts";
 import AdminTeamStores from "./pages/admin/AdminTeamStores";
 import AdminTeamStoreDetail from "./pages/admin/AdminTeamStoreDetail";
+import StoreDashboard from "./pages/admin/team-store/StoreDashboard";
 import StoreOverview from "./pages/admin/team-store/StoreOverview";
 import StoreProducts from "./pages/admin/team-store/StoreProducts";
 import StoreLogos from "./pages/admin/team-store/StoreLogos";
@@ -98,7 +99,8 @@ const App = () => (
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />} />
           <Route path="/admin/team-stores/:id/*" element={<AdminTeamStoreDetail />}>
-            <Route index element={<StoreOverview />} />
+            <Route index element={<StoreDashboard />} />
+            <Route path="dashboard" element={<StoreDashboard />} />
             <Route path="products" element={<StoreProducts />} />
             <Route path="logos" element={<StoreLogos />} />
             <Route path="branding" element={<StoreBranding />} />

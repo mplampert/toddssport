@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const storeNavItems = [
-  { path: "", label: "Overview", icon: LayoutDashboard },
+  { path: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "products", label: "Products", icon: Package },
   { path: "logos", label: "Logos", icon: Image },
   { path: "branding", label: "Branding", icon: Palette },
@@ -108,11 +108,14 @@ export default function AdminTeamStoreDetail() {
 
           {/* Nav items */}
           {storeNavItems.map((item) => {
-            const isActive = currentSub === item.path;
+            const isActive =
+              item.path === "dashboard"
+                ? currentSub === "" || currentSub === "dashboard"
+                : currentSub === item.path;
             return (
               <Link
                 key={item.path}
-                to={item.path ? `${basePath}/${item.path}` : basePath}
+                to={`${basePath}/${item.path}`}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   isActive
                     ? "bg-accent text-accent-foreground"
