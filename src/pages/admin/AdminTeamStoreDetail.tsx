@@ -1,17 +1,40 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ExternalLink } from "lucide-react";
-import { TeamStoreBasicsForm } from "@/components/admin/team-stores/TeamStoreBasicsForm";
-import { TeamStoreBrandingPreview } from "@/components/admin/team-stores/TeamStoreBrandingPreview";
-import { TeamStoreProducts } from "@/components/admin/team-stores/TeamStoreProducts";
-import { TeamStoreOrders } from "@/components/admin/team-stores/TeamStoreOrders";
+import { Badge } from "@/components/ui/badge";
+import {
+  ChevronLeft,
+  ExternalLink,
+  LayoutDashboard,
+  Package,
+  Image,
+  Palette,
+  ShoppingCart,
+  BarChart3,
+  Truck,
+  Megaphone,
+  Settings,
+  Store,
+} from "lucide-react";
+
+const storeNavItems = [
+  { path: "", label: "Overview", icon: LayoutDashboard },
+  { path: "products", label: "Products", icon: Package },
+  { path: "logos", label: "Logos", icon: Image },
+  { path: "branding", label: "Branding", icon: Palette },
+  { path: "orders", label: "Orders", icon: ShoppingCart },
+  { path: "reports", label: "Reports", icon: BarChart3 },
+  { path: "fulfillment", label: "Fulfillment", icon: Truck },
+  { path: "marketing", label: "Marketing", icon: Megaphone },
+  { path: "settings", label: "Settings", icon: Settings },
+];
 
 export default function AdminTeamStoreDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id, "*": subPath } = useParams<{ id: string; "*": string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data: store, isLoading } = useQuery({
     queryKey: ["admin-team-store", id],
@@ -50,47 +73,76 @@ export default function AdminTeamStoreDetail() {
     );
   }
 
+  const basePath = `/admin/team-stores/${id}`;
+  const currentSub = subPath ?? "";
+
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" onClick={() => navigate("/admin/team-stores")}>
-              <ChevronLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="text-3xl font-bold text-foreground">{store.name}</h1>
-              <p className="text-muted-foreground text-sm">
-                /team-stores/{store.slug}
-              </p>
+      <div className="flex gap-0 -m-6">
+        {/* Store sidebar */}
+        <aside className="w-56 shrink-0 border-r border-border bg-background min-h-[calc(100vh-4rem)] p-3 space-y-1">
+          {/* Store header */}
+          <div className="px-2 pb-3 mb-2 border-b border-border">
+            <Link
+              to="/admin/team-stores"
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2"
+            >
+              <ChevronLeft className="w-3 h-3" /> All Stores
+            </Link>
+            <div className="flex items-center gap-2">
+              {store.logo_url ? (
+                <img src={store.logo_url} alt="" className="w-8 h-8 object-contain rounded bg-muted p-0.5" />
+              ) : (
+                <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                  <Store className="w-4 h-4 text-muted-foreground" />
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">{store.name}</p>
+                <Badge variant={store.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                  {store.active ? "Active" : "Inactive"}
+                </Badge>
+              </div>
             </div>
           </div>
-          <Button variant="outline" asChild>
-            <Link to={`/team-stores/${store.slug}`} target="_blank">
-              <ExternalLink className="w-4 h-4 mr-2" /> View Store
-            </Link>
-          </Button>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <TeamStoreBasicsForm store={store} />
+          {/* Nav items */}
+          {storeNavItems.map((item) => {
+            const isActive = currentSub === item.path;
+            return (
+              <Link
+                key={item.path}
+                to={item.path ? `${basePath}/${item.path}` : basePath}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+
+          {/* View store link */}
+          <div className="pt-3 mt-3 border-t border-border">
+            <a
+              href={`/team-stores/${store.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+              View Store
+            </a>
           </div>
-          <div>
-            <TeamStoreBrandingPreview
-              name={store.name}
-              logo_url={store.logo_url}
-              primary_color={store.primary_color}
-              secondary_color={store.secondary_color}
-              start_date={store.start_date}
-              end_date={store.end_date}
-            />
-          </div>
-        </div>
+        </aside>
 
-        <TeamStoreProducts storeId={store.id} />
-
-        <TeamStoreOrders storeId={store.id} />
+        {/* Main content */}
+        <main className="flex-1 p-6 min-w-0">
+          <Outlet context={{ store }} />
+        </main>
       </div>
     </AdminLayout>
   );
