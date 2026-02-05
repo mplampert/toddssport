@@ -186,19 +186,30 @@ async function getProductDetails(productId: string, config: SupplierConfig): Pro
   const username = Deno.env.get(config.usernameEnvKey);
   const password = Deno.env.get(config.passwordEnvKey);
 
+  const ns = 'http://www.promostandards.org/WSDL/ProductDataService/2.0.0/';
+  const shared = 'http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/';
+
+  // Use vendor-exact inline xmlns format for ImprintID compatibility
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-               xmlns:ns="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/"
-               xmlns:shar="http://www.promostandards.org/WSDL/ProductDataService/2.0.0/SharedObjects/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <ns:GetProductRequest>
-      <shar:wsVersion>${config.wsVersionProductData}</shar:wsVersion>
-      <shar:id>${username}</shar:id>
-      <shar:password>${password}</shar:password>
-      <shar:localizationCountry>US</shar:localizationCountry>
-      <shar:localizationLanguage>en</shar:localizationLanguage>
-      <shar:productId>${productId}</shar:productId>
-    </ns:GetProductRequest>
+    <GetProductRequest xmlns="${ns}">
+      <wsVersion xmlns="${shared}">${config.wsVersionProductData}</wsVersion>
+      <id xmlns="${shared}">${username}</id>
+      <password xmlns="${shared}">${password}</password>
+      <localizationCountry xmlns="${shared}">US</localizationCountry>
+      <localizationLanguage xmlns="${shared}">en</localizationLanguage>
+      <productId xmlns="${shared}">${productId}</productId>
+      <partId xmlns="${shared}"></partId>
+      <colorName xmlns="${shared}"></colorName>
+      <ApparelSizeArray xmlns="${shared}">
+        <ApparelSize>
+          <apparelStyle>Unisex</apparelStyle>
+          <labelSize>OSFA</labelSize>
+          <customSize></customSize>
+        </ApparelSize>
+      </ApparelSizeArray>
+    </GetProductRequest>
   </soap:Body>
 </soap:Envelope>`;
 
@@ -208,6 +219,9 @@ async function getProductDetails(productId: string, config: SupplierConfig): Pro
     soapBody,
     config
   );
+
+  console.log(`[${config.code}] GetProduct raw response length: ${response.length}`);
+  console.log(`[${config.code}] GetProduct response preview:`, response.substring(0, 1000));
 
   return parseProductResponse(response);
 }
