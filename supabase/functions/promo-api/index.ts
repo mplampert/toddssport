@@ -653,6 +653,8 @@ async function handleGetProduct(
 
   const supplierLower = supplierCode.toLowerCase();
 
+  console.log(`[promo-api] handleGetProduct: raw="${productId}" supplier="${supplierLower}" item="${itemNumber}"`);
+
   // First check database
   let query = supabase
     .from('promo_products')
@@ -662,7 +664,7 @@ async function handleGetProduct(
       promo_pricing (*),
       promo_suppliers!inner (code, name)
     `)
-    .eq('product_id', itemNumber);
+    .eq('product_id', itemNumber || productId);
 
   if (supplierLower) {
     query = query.eq('promo_suppliers.code', supplierLower);
@@ -676,9 +678,11 @@ async function handleGetProduct(
   }
 
   // If not in DB or force refresh, fetch from API
-  const config = SUPPLIER_CONFIGS[supplierLower];
+  // Resolve supplier: use parsed value, or try to detect from DB, or default to imprintid
+  const resolvedSupplier = supplierLower || 'imprintid';
+  const config = SUPPLIER_CONFIGS[resolvedSupplier];
   if (!config) {
-    throw new Error(`Unknown supplier: ${supplierCode}`);
+    throw new Error(`Unknown supplier: ${resolvedSupplier}. Valid: ${Object.keys(SUPPLIER_CONFIGS).join(', ')}`);
   }
 
   try {
