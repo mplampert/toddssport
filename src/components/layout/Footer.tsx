@@ -41,7 +41,6 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
             <h4 className="font-bold text-lg mb-4">Quick Links</h4>
             <nav className="flex flex-col gap-2">
@@ -56,6 +55,9 @@ export function Footer() {
               </Link>
               <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 Contact
+              </Link>
+              <Link to="/webstore-terms" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+                Webstore Terms
               </Link>
             </nav>
           </div>
@@ -82,10 +84,9 @@ export function Footer() {
 
         <div className="border-t border-primary-foreground/20 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-primary-foreground/60 text-sm">
           <p>© {new Date().getFullYear()} Todd's Sporting Goods. All rights reserved.</p>
-        <div className="flex flex-wrap gap-6">
+          <div className="flex flex-wrap gap-6">
             <Link to="/privacy-policy" className="hover:text-primary-foreground transition-colors">Privacy Policy</Link>
             <Link to="/terms-of-service" className="hover:text-primary-foreground transition-colors">Terms of Service</Link>
-            <Link to="/webstore-terms" className="hover:text-primary-foreground transition-colors">Webstore Terms</Link>
             <Link to="/auth?returnTo=/admin" className="hover:text-primary-foreground transition-colors text-xs opacity-50">Admin</Link>
           </div>
         </div>
