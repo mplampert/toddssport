@@ -2,6 +2,22 @@ import { supabase } from "@/integrations/supabase/client";
 
 // ========== Todd's Standard Product Schema Types ==========
 
+export interface ToddMediaItem {
+  url: string;
+  mediaType: string;
+  type: string; // 'Primary' | 'Alternate' | 'Thumbnail' | 'Other'
+  view: string | null;
+  rank: number;
+  color: string | null;
+  description: string | null;
+  partId: string | null;
+  width: number | null;
+  height: number | null;
+  singlePart: boolean;
+  classTypes: { id: number; name: string }[];
+  locations: { id: number; name: string }[];
+}
+
 export interface ToddColor {
   code: string;
   name: string;
@@ -161,6 +177,22 @@ class PromoAPIClient {
         action: 'get',
         productId,
         refresh,
+      },
+    });
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  /**
+   * Get media/images for a product directly from the supplier API
+   * @param productId Format: SUPPLIER:itemNumber or just itemNumber (defaults to imprintid)
+   */
+  async getMedia(productId: string): Promise<ToddMediaItem[]> {
+    const { data, error } = await supabase.functions.invoke('promo-api', {
+      body: {
+        action: 'media',
+        productId,
       },
     });
 

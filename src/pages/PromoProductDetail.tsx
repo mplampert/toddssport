@@ -1,6 +1,8 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { promoAPI } from "@/lib/promo-api";
+import type { ToddProductFull } from "@/lib/promo-api";
 import { ProductDetailCard } from "@/components/promo/ProductDetailCard";
 import { GHLQuoteForm } from "@/components/shared/GHLQuoteForm";
 import { Header } from "@/components/layout/Header";
@@ -18,6 +20,37 @@ export default function PromoProductDetail() {
     enabled: !!id,
     staleTime: 5 * 60 * 1000,
   });
+
+  // Fetch media separately from the supplier API
+  const { data: mediaItems } = useQuery({
+    queryKey: ["promo-product-media", id],
+    queryFn: () => promoAPI.getMedia(id!),
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Merge media into product if product has no images but media fetch returned some
+  const enrichedProduct = useMemo<ToddProductFull | undefined>(() => {
+    if (!product) return undefined;
+    if (!mediaItems || mediaItems.length === 0) return product;
+    // If product already has images from DB, keep them; otherwise use API media
+    if (product.images.length > 0) return product;
+    return {
+      ...product,
+      images: mediaItems.map(m => ({
+        type: (m.type === 'Primary' ? 'front' : m.type === 'Thumbnail' ? 'detail' : 'other') as 'front' | 'back' | 'detail' | 'lifestyle' | 'other',
+        url: m.url,
+      })),
+      colors: mediaItems
+        .filter(m => m.color)
+        .reduce((acc, m) => {
+          if (!acc.find(c => c.name === m.color)) {
+            acc.push({ code: m.color!.replace(/\s+/g, '-').toLowerCase(), name: m.color!, imageUrl: m.url });
+          }
+          return acc;
+        }, [] as ToddProductFull['colors']),
+    };
+  }, [product, mediaItems]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -63,14 +96,14 @@ export default function PromoProductDetail() {
             </div>
           )}
 
-          {product && <ProductDetailCard product={product} />}
+          {enrichedProduct && <ProductDetailCard product={enrichedProduct} />}
         </div>
 
         {/* Quote Form CTA */}
-        {product && (
+        {enrichedProduct && (
           <GHLQuoteForm
             heading="Request a Quote for This Product"
-            subheading={`Interested in ${product.name}? Fill out the form below and our team will get back to you with custom pricing and options.`}
+            subheading={`Interested in ${enrichedProduct.name}? Fill out the form below and our team will get back to you with custom pricing and options.`}
           />
         )}
       </main>

@@ -30,7 +30,7 @@ const SUPPLIER_CONFIGS: Record<string, SupplierConfig> = {
     usernameEnvKey: 'PROMOSTANDARDS_USERNAME',
     passwordEnvKey: 'PROMOSTANDARDS_PASSWORD',
     wsVersionProductData: '2.0.0',
-    wsVersionMedia: '1.0.0',  // ImprintID uses 1.0.0
+    wsVersionMedia: '1.1.0',  // WSDL namespace is 1.0.0 but wsVersion value is 1.1.0
     wsVersionPricing: '1.0.0',
   },
   hit: {
@@ -230,19 +230,21 @@ async function getMediaContent(productId: string, config: SupplierConfig): Promi
   const username = Deno.env.get(config.usernameEnvKey);
   const password = Deno.env.get(config.passwordEnvKey);
 
-  // MediaService 1.0.0 uses different namespace structure - inline xmlns on each child
+  // WSDL namespace is always 1.0.0, but wsVersion element value may differ
+  const ns = `http://www.promostandards.org/WSDL/MediaService/1.0.0/`;
+  const shared = `http://www.promostandards.org/WSDL/MediaService/1.0.0/SharedObjects/`;
+
+  // Vendor-exact inline xmlns format matching ImprintID WSDL
   const soapBody = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
-               xmlns:ns="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/"
-               xmlns:shar="http://www.promostandards.org/WSDL/MediaService/${config.wsVersionMedia}/SharedObjects/">
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
   <soap:Body>
-    <ns:GetMediaContentRequest>
-      <shar:wsVersion>${config.wsVersionMedia}</shar:wsVersion>
-      <shar:id>${username}</shar:id>
-      <shar:password>${password}</shar:password>
-      <shar:mediaType>Image</shar:mediaType>
-      <shar:productId>${productId}</shar:productId>
-    </ns:GetMediaContentRequest>
+    <GetMediaContentRequest xmlns="${ns}">
+      <wsVersion xmlns="${shared}">${config.wsVersionMedia}</wsVersion>
+      <id xmlns="${shared}">${username}</id>
+      <password xmlns="${shared}">${password}</password>
+      <mediaType xmlns="${shared}">Image</mediaType>
+      <productId xmlns="${shared}">${productId}</productId>
+    </GetMediaContentRequest>
   </soap:Body>
 </soap:Envelope>`;
 
@@ -252,6 +254,9 @@ async function getMediaContent(productId: string, config: SupplierConfig): Promi
     soapBody,
     config
   );
+
+  console.log(`[${config.code}] GetMediaContent raw response length: ${response.length}`);
+  console.log(`[${config.code}] GetMediaContent response preview:`, response.substring(0, 1500));
 
   return parseMediaContentResponse(response);
 }
@@ -361,27 +366,78 @@ function parseMediaContentResponse(xml: string): any[] {
   const media: any[] = [];
   const mediaBlocks = extractBlock(xml, 'MediaContent');
   
+  console.log(`[parseMedia] Found ${mediaBlocks.length} MediaContent blocks`);
+  
   for (const block of mediaBlocks) {
     const url = extractTagValue(block, 'url');
     const mediaType = extractTagValue(block, 'mediaType') || 'Image';
     const width = extractTagValue(block, 'width');
     const height = extractTagValue(block, 'height');
     const color = extractTagValue(block, 'color');
-    const decorationMethod = extractTagValue(block, 'decorationMethod');
-    const location = extractTagValue(block, 'location');
+    const description = extractTagValue(block, 'description');
+    const singlePart = extractTagValue(block, 'singlePart');
+    const partId = extractTagValue(block, 'partId');
+    
+    // Parse ClassType for image classification (Primary, Alternate, Thumbnail, etc.)
+    const classTypeBlocks = extractBlock(block, 'ClassType');
+    const classTypes: { id: number; name: string }[] = [];
+    for (const ct of classTypeBlocks) {
+      const ctId = extractTagValue(ct, 'classTypeId');
+      const ctName = extractTagValue(ct, 'classTypeName');
+      if (ctId && ctName) classTypes.push({ id: parseInt(ctId), name: ctName });
+    }
+
+    // Parse Location info
+    const locationBlocks = extractBlock(block, 'Location');
+    const locations: { id: number; name: string }[] = [];
+    for (const loc of locationBlocks) {
+      const locId = extractTagValue(loc, 'locationId');
+      const locName = extractTagValue(loc, 'locationName');
+      if (locId && locName) locations.push({ id: parseInt(locId), name: locName });
+    }
+
+    // Parse Decoration info
+    const decorationBlocks = extractBlock(block, 'Decoration');
+    const decorations: { id: number; name: string }[] = [];
+    for (const dec of decorationBlocks) {
+      const decId = extractTagValue(dec, 'decorationId');
+      const decName = extractTagValue(dec, 'decorationName');
+      if (decId && decName) decorations.push({ id: parseInt(decId), name: decName });
+    }
+
+    // Determine image type from classTypes
+    const primaryType = classTypes.find(c => c.name.toLowerCase().includes('primary'));
+    const type = primaryType ? 'Primary' : 
+                 classTypes.find(c => c.name.toLowerCase().includes('alternate')) ? 'Alternate' :
+                 classTypes.find(c => c.name.toLowerCase().includes('thumbnail')) ? 'Thumbnail' : 
+                 classTypes[0]?.name || 'Other';
+
+    // Determine view from classTypes or location
+    const viewType = classTypes.find(c => /front|back|side|top|bottom|detail|lifestyle/i.test(c.name));
+    const view = viewType?.name || locations[0]?.name || null;
     
     if (url) {
       media.push({
         url,
         mediaType,
+        type,
+        view,
+        rank: primaryType ? 0 : 1,
         width: width ? parseInt(width) : null,
         height: height ? parseInt(height) : null,
         color,
-        decorationMethod,
-        location,
+        description,
+        partId,
+        singlePart: singlePart === 'true',
+        classTypes,
+        locations,
+        decorations,
       });
     }
   }
+
+  // Sort: Primary first, then by rank
+  media.sort((a, b) => a.rank - b.rank);
   
   return media;
 }
