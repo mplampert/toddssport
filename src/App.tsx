@@ -35,6 +35,7 @@ import AdminMessageGenerator from "./pages/admin/AdminMessageGenerator";
 import AdminLookbookGenerator from "./pages/admin/AdminLookbookGenerator";
 import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import AdminPromoProducts from "./pages/admin/AdminPromoProducts";
+import PromoProductDetail from "./pages/PromoProductDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +57,7 @@ const App = () => (
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />
           <Route path="/promotional-products" element={<PromotionalProducts />} />
+          <Route path="/promo-products/:id" element={<PromoProductDetail />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/catalogs" element={<Catalogs />} />
           <Route path="/find-your-rep" element={<FindYourRep />} />
