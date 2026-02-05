@@ -574,7 +574,17 @@ serve(async (req) => {
           .eq('promo_product_id', existingProduct.id);
 
         if (mediaItems.length > 0) {
-          const mediaToInsert = mediaItems.map((m, idx) => ({
+          // Deduplicate by URL to avoid storing repeated media rows
+          const seenUrls = new Set<string>();
+          const uniqueMedia = mediaItems.filter(m => {
+            if (seenUrls.has(m.url)) return false;
+            seenUrls.add(m.url);
+            return true;
+          });
+
+          console.log(`[${supplier}] Deduped media: ${mediaItems.length} -> ${uniqueMedia.length}`);
+
+          const mediaToInsert = uniqueMedia.map((m, idx) => ({
             promo_product_id: existingProduct.id,
             media_type: m.mediaType,
             url: m.url,
