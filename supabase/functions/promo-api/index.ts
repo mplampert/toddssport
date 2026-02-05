@@ -304,7 +304,17 @@ async function fetchMediaFromAPI(productId: string, config: SupplierConfig): Pro
   return parseMediaResponse(response);
 }
 
-async function fetchPricingFromAPI(productId: string, config: SupplierConfig): Promise<any[]> {
+interface PricingResult {
+  priceBreaks: any[];
+  fobPoints: { id: string; name: string; postalCode: string | null }[];
+  decorationMethods: string[];
+  imprintLocations: { name: string; maxArea: string | null }[];
+  leadTimeDays: number | null;
+  rushAvailable: boolean;
+  currency: string;
+}
+
+async function fetchPricingFromAPI(productId: string, config: SupplierConfig): Promise<PricingResult> {
   const username = Deno.env.get(config.usernameEnvKey);
   const password = Deno.env.get(config.passwordEnvKey);
 
@@ -328,14 +338,32 @@ async function fetchPricingFromAPI(productId: string, config: SupplierConfig): P
   </soap:Body>
 </soap:Envelope>`;
 
-  const response = await soapRequest(
-    config.pricingConfigUrl,
-    'getConfigurationAndPricing',
-    soapBody,
-    config
-  );
+  console.log(`[promo-api] Pricing SOAP request for ${productId} to ${config.pricingConfigUrl}`);
 
-  return parsePricingResponse(response);
+  try {
+    const response = await soapRequest(
+      config.pricingConfigUrl,
+      'getConfigurationAndPricing',
+      soapBody,
+      config
+    );
+
+    console.log(`[promo-api] Pricing response length: ${response.length}`);
+    console.log(`[promo-api] Pricing response preview:`, response.substring(0, 2000));
+
+    return parsePricingResponse(response);
+  } catch (err) {
+    console.error(`[promo-api] Pricing API error for ${productId}:`, err);
+    return {
+      priceBreaks: [],
+      fobPoints: [],
+      decorationMethods: [],
+      imprintLocations: [],
+      leadTimeDays: null,
+      rushAvailable: false,
+      currency: 'USD',
+    };
+  }
 }
 
 // ========== Response Parsers ==========
@@ -441,9 +469,11 @@ function parseMediaResponse(xml: string): any[] {
   return media;
 }
 
-function parsePricingResponse(xml: string): any[] {
-  const pricing: any[] = [];
+function parsePricingResponse(xml: string): PricingResult {
+  const priceBreaks: any[] = [];
   const priceBlocks = extractBlock(xml, 'PartPrice');
+  
+  console.log(`[promo-api parsePricing] Found ${priceBlocks.length} PartPrice blocks`);
   
   for (const block of priceBlocks) {
     const minQuantity = extractTagValue(block, 'minQuantity');
@@ -451,15 +481,152 @@ function parsePricingResponse(xml: string): any[] {
     const discountCode = extractTagValue(block, 'discountCode');
     
     if (price) {
-      pricing.push({
+      priceBreaks.push({
         minQty: minQuantity ? parseInt(minQuantity) : 1,
         unitPrice: parseFloat(price),
         discountCode,
       });
     }
   }
+
+  // Deduplicate price breaks by minQty (keep lowest price)
+  const uniqueBreaks = new Map<number, any>();
+  for (const pb of priceBreaks) {
+    const existing = uniqueBreaks.get(pb.minQty);
+    if (!existing || pb.unitPrice < existing.unitPrice) {
+      uniqueBreaks.set(pb.minQty, pb);
+    }
+  }
+
+  // Parse FOB points (shipping origins)
+  const fobPoints: { id: string; name: string; postalCode: string | null }[] = [];
+  const fobBlocks = extractBlock(xml, 'FobPoint');
+  console.log(`[promo-api parsePricing] Found ${fobBlocks.length} FobPoint blocks`);
+  for (const block of fobBlocks) {
+    const fobId = extractTagValue(block, 'fobId');
+    const fobName = extractTagValue(block, 'fobCity') || extractTagValue(block, 'fobState') || 'Unknown';
+    const postalCode = extractTagValue(block, 'fobPostalCode');
+    if (fobId) fobPoints.push({ id: fobId, name: fobName, postalCode });
+  }
+
+  // Parse decoration/imprint info from Configuration
+  const decorationMethods: string[] = [];
+  const imprintLocations: { name: string; maxArea: string | null }[] = [];
   
-  return pricing;
+  const locationBlocks = extractBlock(xml, 'Location');
+  console.log(`[promo-api parsePricing] Found ${locationBlocks.length} Location blocks`);
+  for (const block of locationBlocks) {
+    const locName = extractTagValue(block, 'locationName');
+    const maxW = extractTagValue(block, 'maxImprintWidth');
+    const maxH = extractTagValue(block, 'maxImprintHeight');
+    const maxArea = maxW && maxH ? `${maxW}" x ${maxH}"` : null;
+    if (locName) imprintLocations.push({ name: locName, maxArea });
+    
+    const methodName = extractTagValue(block, 'decorationName') || extractTagValue(block, 'methodName');
+    if (methodName && !decorationMethods.includes(methodName)) decorationMethods.push(methodName);
+  }
+
+  // Also check DecorationMethod blocks directly
+  const decoBlocks = extractBlock(xml, 'DecorationMethod');
+  for (const block of decoBlocks) {
+    const methodName = extractTagValue(block, 'decorationName') || extractTagValue(block, 'methodName');
+    if (methodName && !decorationMethods.includes(methodName)) decorationMethods.push(methodName);
+  }
+
+  // Parse lead time
+  let leadTimeDays: number | null = null;
+  let rushAvailable = false;
+  const leadTimeVal = extractTagValue(xml, 'leadTime');
+  if (leadTimeVal) {
+    const days = parseInt(leadTimeVal);
+    if (!isNaN(days)) leadTimeDays = days;
+  }
+  const rushVal = extractTagValue(xml, 'rushService');
+  if (rushVal?.toLowerCase() === 'true') rushAvailable = true;
+
+  // Parse currency
+  const currency = extractTagValue(xml, 'currency') || 'USD';
+
+  // Check for error
+  const errorMessage = extractTagValue(xml, 'ErrorMessage');
+  if (errorMessage) {
+    console.warn(`[promo-api parsePricing] API returned error: ${errorMessage}`);
+  }
+
+  console.log(`[promo-api parsePricing] Result: ${Array.from(uniqueBreaks.values()).length} price breaks, ${fobPoints.length} FOBs, ${decorationMethods.length} deco methods, ${imprintLocations.length} locations, leadTime=${leadTimeDays}`);
+
+  return {
+    priceBreaks: Array.from(uniqueBreaks.values()).sort((a, b) => a.minQty - b.minQty),
+    fobPoints,
+    decorationMethods,
+    imprintLocations,
+    leadTimeDays,
+    rushAvailable,
+    currency,
+  };
+}
+
+// ========== Description Parser (fallback for missing structured data) ==========
+
+function parseDescriptionForDetails(description: string | null): {
+  leadTimeDays: number | null;
+  rushAvailable: boolean;
+  setupCharge: { amount: number; note: string } | null;
+  decorationMethods: string[];
+  fobOrigin: string | null;
+} {
+  if (!description) return { leadTimeDays: null, rushAvailable: false, setupCharge: null, decorationMethods: [], fobOrigin: null };
+
+  const result: ReturnType<typeof parseDescriptionForDetails> = {
+    leadTimeDays: null,
+    rushAvailable: false,
+    setupCharge: null,
+    decorationMethods: [],
+    fobOrigin: null,
+  };
+
+  // Lead time: "5-7 business days", "Produced in 5 business days", "Lead Time: 10 days"
+  const leadMatch = description.match(/(?:lead\s*time|produced\s*in)[:\s]*(\d+)(?:\s*[-–]\s*(\d+))?\s*(?:business\s*)?days/i);
+  if (leadMatch) {
+    // Use the higher number if range
+    result.leadTimeDays = parseInt(leadMatch[2] || leadMatch[1]);
+  }
+
+  // Rush: "Rush available", "rush service"
+  if (/rush\s*(?:available|service|option)/i.test(description)) {
+    result.rushAvailable = true;
+  }
+
+  // Setup charge: "Setup: $40(V)", "Setup Charge: $50.00"
+  const setupMatch = description.match(/setup[^:]*:\s*\$?([\d.]+)/i);
+  if (setupMatch) {
+    const afterSetup = description.substring(description.indexOf(setupMatch[0]));
+    const noteMatch = afterSetup.match(/for\s+([^.]{3,40})/i);
+    result.setupCharge = {
+      amount: parseFloat(setupMatch[1]),
+      note: noteMatch ? noteMatch[1].trim() : 'Setup charge',
+    };
+  }
+
+  // Decoration methods: common promo terms
+  const decoTerms = [
+    'screen print', 'digital print', 'heat transfer', 'embroidery',
+    'laser engrav', 'pad print', 'UV print', 'sublimation', 'deboss',
+    'emboss', 'decal', 'full color', 'etching', 'hot stamp',
+  ];
+  for (const term of decoTerms) {
+    if (new RegExp(term, 'i').test(description)) {
+      result.decorationMethods.push(term.replace(/^\w/, c => c.toUpperCase()));
+    }
+  }
+
+  // FOB / Ships from: "Ships from CA", "FOB: Los Angeles"
+  const fobMatch = description.match(/(?:ships?\s*from|FOB)[:\s]*([A-Za-z\s,]+?)(?:\.|$)/i);
+  if (fobMatch) {
+    result.fobOrigin = fobMatch[1].trim();
+  }
+
+  return result;
 }
 
 // ========== Schema Mappers ==========
@@ -468,7 +635,7 @@ function mapToToddProductFull(
   supplierCode: string,
   productData: any,
   mediaData: any[],
-  pricingData: any[]
+  pricingData: PricingResult
 ): ToddProductFull {
   // Map media to images with type inference
   const images: ToddImage[] = mediaData.map(m => {
@@ -496,16 +663,43 @@ function mapToToddProductFull(
     }
   }
 
-  // Map pricing
-  const priceBreaks: ToddPriceBreak[] = pricingData
-    .sort((a, b) => a.minQty - b.minQty)
-    .map(p => ({
+  // Map pricing from enriched result
+  const priceBreaks: ToddPriceBreak[] = pricingData.priceBreaks
+    .sort((a: any, b: any) => a.minQty - b.minQty)
+    .map((p: any) => ({
       minQty: p.minQty,
       unitPrice: p.unitPrice,
     }));
 
   // Extract features from description or keywords
   const features = productData.keywords || [];
+
+  // Parse description for fallback data
+  const descParsed = parseDescriptionForDetails(productData.description);
+
+  // Build shipping origin: prefer API, fallback to description
+  const shippingOrigin = pricingData.fobPoints.length > 0
+    ? pricingData.fobPoints.map(f => f.postalCode ? `${f.name} (${f.postalCode})` : f.name).join(', ')
+    : descParsed.fobOrigin;
+
+  // Decoration methods: prefer API, fallback to description
+  const allDecoMethods = pricingData.decorationMethods.length > 0
+    ? pricingData.decorationMethods
+    : descParsed.decorationMethods;
+
+  // Lead time: prefer API, fallback to description
+  const leadTimeDays = pricingData.leadTimeDays ?? descParsed.leadTimeDays;
+  const rushAvailable = pricingData.rushAvailable || descParsed.rushAvailable;
+
+  // Extra charges from description setup
+  const extraCharges: ToddExtraCharge[] = [];
+  if (descParsed.setupCharge) {
+    extraCharges.push({
+      type: 'Setup',
+      amount: descParsed.setupCharge.amount,
+      note: descParsed.setupCharge.note,
+    });
+  }
 
   return {
     id: `${supplierCode.toUpperCase()}:${productData.productId}`,
@@ -515,37 +709,37 @@ function mapToToddProductFull(
     shortName: null,
     
     description: productData.description,
-    fabric: null, // Would need to parse from description or specs
+    fabric: null,
     features,
-    gender: null, // Would need to infer from product name/category
+    gender: null,
     fit: null,
     
-    sizes: [], // PromoStandards doesn't always provide this clearly
+    sizes: [],
     sizeNotes: null,
     colors: Array.from(colorMap.values()),
     
     imprint: {
-      method: null,
-      includedLocation: null,
-      locations: [],
+      method: allDecoMethods.length > 0 ? allDecoMethods.join(', ') : null,
+      includedLocation: pricingData.imprintLocations.length > 0 ? pricingData.imprintLocations[0].name : null,
+      locations: pricingData.imprintLocations,
       maxColors: null,
       tapeCharge: null,
     },
     
     pricing: {
-      currency: 'USD',
-      baseDecoration: null,
+      currency: pricingData.currency,
+      baseDecoration: allDecoMethods.length > 0 ? allDecoMethods[0] : null,
       priceBreaks,
-      extraCharges: [],
+      extraCharges,
     },
     
     leadTime: {
-      standardDays: null,
-      rushAvailable: false,
+      standardDays: leadTimeDays,
+      rushAvailable: rushAvailable,
     },
     
     shipping: {
-      origin: null,
+      origin: shippingOrigin,
       cartonInfo: null,
     },
     
@@ -728,7 +922,14 @@ async function handleGetProduct(
 
   if (dbProducts && dbProducts.length > 0 && !forceRefresh) {
     const dbProduct = dbProducts[0];
-    return mapDbProductToFull(dbProduct, dbProduct.promo_suppliers?.code || supplierLower);
+    const dbResult = mapDbProductToFull(dbProduct, dbProduct.promo_suppliers?.code || supplierLower);
+    
+    // If DB product has no pricing, enrich from API
+    const hasPricing = dbResult.pricing.priceBreaks.length > 0;
+    if (hasPricing) {
+      return dbResult;
+    }
+    console.log(`[promo-api] DB product ${productId} has no pricing, enriching from API...`);
   }
 
   // If not in DB or force refresh, fetch from API
@@ -746,7 +947,7 @@ async function handleGetProduct(
       fetchPricingFromAPI(itemNumber, config),
     ]);
 
-    return mapToToddProductFull(supplierLower, productData, mediaData, pricingData);
+    return mapToToddProductFull(resolvedSupplier, productData, mediaData, pricingData);
   } catch (error) {
     console.error(`Error fetching from ${config.name}:`, error);
     throw error;
