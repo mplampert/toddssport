@@ -19,6 +19,7 @@ import { UniformDetailHero } from "@/components/uniforms/UniformDetailHero";
 import { UniformBenefits } from "@/components/uniforms/UniformBenefits";
 import { UniformHowItWorks } from "@/components/uniforms/UniformHowItWorks";
 import { UniformFAQ } from "@/components/uniforms/UniformFAQ";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface ProductPricing {
   moq: number;
@@ -224,7 +225,7 @@ export default function UniformDetail() {
     );
   }
 
-  const hasBuilder = hasChamproBuilder(sport.slug);
+  const hasBuilder = FEATURE_FLAGS.ENABLE_CHAMPRO && hasChamproBuilder(sport.slug);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -289,18 +290,20 @@ export default function UniformDetail() {
         {/* FAQ Section */}
         <UniformFAQ sportName={sport.title} />
 
-        {/* CTA for sports without builder */}
+        {/* Coming Soon / Quote CTA (shown when builder is off) */}
         {!hasBuilder && (
           <section className="py-16 bg-background">
             <div className="container mx-auto px-4">
               <div className="text-center p-8 bg-accent/10 rounded-xl border border-accent/20 max-w-3xl mx-auto">
-                <h3 className="text-xl font-bold text-foreground mb-2">Request a Custom Quote</h3>
+                <h3 className="text-xl font-bold text-foreground mb-2">
+                  Custom Uniforms Coming Soon
+                </h3>
                 <p className="text-muted-foreground mb-6">
-                  Contact us for a personalized {sport.title.toLowerCase()} uniform consultation and
-                  quote.
+                  Our online uniform designer is launching soon! In the meantime, contact us for a
+                  personalized {sport.title.toLowerCase()} uniform consultation and quote.
                 </p>
                 <Button onClick={scrollToQuote} className="btn-cta">
-                  Request a {sport.title} Uniform Quote
+                  Contact Us for a Quote
                 </Button>
               </div>
             </div>
