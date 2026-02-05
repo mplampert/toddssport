@@ -167,17 +167,42 @@ export default function AdminPromoProducts() {
     }
   });
 
-  // Get sellable products list
+  // Get sellable products list (uses direct fetch with longer timeout for large payloads)
   const getSellable = useMutation({
     mutationFn: async (supplier: SupplierCode) => {
       if (supplier === 'all') throw new Error('Please select a specific supplier');
       
-      const { data, error } = await supabase.functions.invoke('promostandards-sync', {
-        body: { action: 'get_sellable', supplier }
-      });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      return data;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120_000); // 2 min timeout
+      
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/promostandards-sync`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session?.access_token}`,
+              'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ action: 'get_sellable', supplier }),
+            signal: controller.signal,
+          }
+        );
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        return data;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err instanceof DOMException && err.name === 'AbortError') {
+          throw new Error('Request timed out — the supplier API may be slow. Try again.');
+        }
+        throw err;
+      }
     },
     onSuccess: (data) => {
       toast({
