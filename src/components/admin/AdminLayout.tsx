@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign, LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag, Gift } from "lucide-react";
+import { LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign, LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag, Gift, Store } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
 
@@ -118,6 +118,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { path: "/admin/message-generator", label: "AI Message Generator", icon: Sparkles },
     { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
     { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
+    { path: "/admin/team-stores", label: "Team Stores", icon: Store },
     { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
   ];
 

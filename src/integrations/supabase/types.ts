@@ -1188,6 +1188,87 @@ export type Database = {
         }
         Relationships: []
       }
+      team_store_products: {
+        Row: {
+          created_at: string
+          id: string
+          sort_order: number
+          style_id: number
+          team_store_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          style_id: number
+          team_store_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          sort_order?: number
+          style_id?: number
+          team_store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_products_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "catalog_styles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_products_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_stores: {
+        Row: {
+          active: boolean
+          created_at: string
+          end_date: string | null
+          id: string
+          logo_url: string | null
+          name: string
+          primary_color: string | null
+          secondary_color: string | null
+          slug: string
+          start_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          logo_url?: string | null
+          name: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          end_date?: string | null
+          id?: string
+          logo_url?: string | null
+          name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug?: string
+          start_date?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       testimonials: {
         Row: {
           created_at: string | null
