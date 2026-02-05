@@ -35,6 +35,7 @@ import AdminMessageGenerator from "./pages/admin/AdminMessageGenerator";
 import AdminLookbookGenerator from "./pages/admin/AdminLookbookGenerator";
 import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import AdminPromoProducts from "./pages/admin/AdminPromoProducts";
+import AdminTeamStores from "./pages/admin/AdminTeamStores";
 import PromoProductDetail from "./pages/PromoProductDetail";
 import NotFound from "./pages/NotFound";
 
@@ -81,6 +82,7 @@ const App = () => (
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
+          <Route path="/admin/team-stores" element={<AdminTeamStores />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
