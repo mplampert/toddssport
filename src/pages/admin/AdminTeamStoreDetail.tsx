@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link, useLocation, Outlet } from "react-router-dom";
+import { useParams, useNavigate, Link, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 
 const storeNavItems = [
-  { path: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "dashboard", label: "Overview", icon: LayoutDashboard },
   { path: "products", label: "Products", icon: Package },
   { path: "logos", label: "Logos", icon: Image },
   { path: "branding", label: "Branding", icon: Palette },
@@ -34,7 +34,6 @@ const storeNavItems = [
 export default function AdminTeamStoreDetail() {
   const { id, "*": subPath } = useParams<{ id: string; "*": string }>();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const { data: store, isLoading } = useQuery({
     queryKey: ["admin-team-store", id],
@@ -78,9 +77,9 @@ export default function AdminTeamStoreDetail() {
 
   return (
     <AdminLayout>
-      <div className="flex gap-0 -m-6">
-        {/* Store sidebar */}
-        <aside className="w-56 shrink-0 border-r border-border bg-background min-h-[calc(100vh-4rem)] p-3 space-y-1">
+      <div className="flex gap-0 -mx-6 -my-6">
+        {/* Store inner sidebar */}
+        <aside className="w-52 shrink-0 border-r border-border bg-background min-h-[calc(100vh-4rem)] p-3 space-y-1">
           {/* Store header */}
           <div className="px-2 pb-3 mb-2 border-b border-border">
             <Link
@@ -143,7 +142,7 @@ export default function AdminTeamStoreDetail() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 p-6 min-w-0">
+        <main className="flex-1 p-6 min-w-0 overflow-auto">
           <Outlet context={{ store }} />
         </main>
       </div>
