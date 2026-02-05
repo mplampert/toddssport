@@ -164,7 +164,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === item.path
+                  location.pathname === item.path || (item.path !== "/admin" && location.pathname.startsWith(item.path + "/"))
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
