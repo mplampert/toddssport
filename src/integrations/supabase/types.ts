@@ -54,6 +54,7 @@ export type Database = {
           sport_slug: string
           sport_title: string | null
           team_name: string | null
+          team_store_id: string | null
           unit_price: number | null
           updated_at: string
           user_id: string | null
@@ -70,6 +71,7 @@ export type Database = {
           sport_slug: string
           sport_title?: string | null
           team_name?: string | null
+          team_store_id?: string | null
           unit_price?: number | null
           updated_at?: string
           user_id?: string | null
@@ -86,11 +88,27 @@ export type Database = {
           sport_slug?: string
           sport_title?: string | null
           team_name?: string | null
+          team_store_id?: string | null
           unit_price?: number | null
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       catalog_categories: {
         Row: {
@@ -1190,25 +1208,37 @@ export type Database = {
       }
       team_store_products: {
         Row: {
+          active: boolean
           created_at: string
           id: string
+          notes: string | null
+          price_override: number | null
           sort_order: number
           style_id: number
           team_store_id: string
+          updated_at: string
         }
         Insert: {
+          active?: boolean
           created_at?: string
           id?: string
+          notes?: string | null
+          price_override?: number | null
           sort_order?: number
           style_id: number
           team_store_id: string
+          updated_at?: string
         }
         Update: {
+          active?: boolean
           created_at?: string
           id?: string
+          notes?: string | null
+          price_override?: number | null
           sort_order?: number
           style_id?: number
           team_store_id?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -1246,7 +1276,7 @@ export type Database = {
           secondary_color: string | null
           slug: string
           start_date: string | null
-          store_pin: string
+          store_pin: string | null
           updated_at: string
         }
         Insert: {
@@ -1260,7 +1290,7 @@ export type Database = {
           secondary_color?: string | null
           slug: string
           start_date?: string | null
-          store_pin?: string
+          store_pin?: string | null
           updated_at?: string
         }
         Update: {
@@ -1274,7 +1304,7 @@ export type Database = {
           secondary_color?: string | null
           slug?: string
           start_date?: string | null
-          store_pin?: string
+          store_pin?: string | null
           updated_at?: string
         }
         Relationships: []
