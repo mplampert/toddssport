@@ -621,7 +621,18 @@ serve(async (req) => {
           .eq('promo_product_id', existingProduct.id);
 
         if (pricingItems.length > 0) {
-          const pricingToInsert = pricingItems.map(p => ({
+          // Deduplicate by quantity_min+price to avoid storing repeated part-level rows
+          const seen = new Set<string>();
+          const uniquePricing = pricingItems.filter(p => {
+            const key = `${p.quantityMin}|${p.price}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+
+          console.log(`[${supplier}] Deduped pricing: ${pricingItems.length} -> ${uniquePricing.length}`);
+
+          const pricingToInsert = uniquePricing.map(p => ({
             promo_product_id: existingProduct.id,
             currency: 'USD',
             quantity_min: p.quantityMin,
