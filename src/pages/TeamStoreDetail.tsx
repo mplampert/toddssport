@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
@@ -7,16 +7,47 @@ import { Footer } from "@/components/layout/Footer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Lock, ShoppingBag, Calendar } from "lucide-react";
+import { Lock, ShoppingBag, Calendar, ArrowLeft } from "lucide-react";
+
+interface StoreData {
+  id: string;
+  name: string;
+  slug: string;
+  start_date: string | null;
+  end_date: string | null;
+  logo_url: string | null;
+  primary_color: string;
+  secondary_color: string;
+  store_pin: string | null;
+}
 
 export default function TeamStoreDetail() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
   const [pin, setPin] = useState("");
   const [submittedPin, setSubmittedPin] = useState<string | null>(null);
   const [error, setError] = useState("");
 
-  // Verify PIN via RPC
-  const { data: store, isLoading, isError } = useQuery({
+  // First, load basic store info (public view — no PIN exposed)
+  const { data: storePublic, isLoading: loadingStore } = useQuery({
+    queryKey: ["team-store-public", slug],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_stores")
+        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin")
+        .eq("slug", slug!)
+        .eq("active", true)
+        .single();
+      if (error) throw error;
+      return data as StoreData;
+    },
+    enabled: !!slug,
+  });
+
+  const requiresPin = storePublic?.store_pin && storePublic.store_pin.trim() !== "";
+
+  // Verify PIN via RPC (only if store requires a PIN)
+  const { data: verifiedStore, isError: pinFailed, isLoading: verifying } = useQuery({
     queryKey: ["team-store-verify", slug, submittedPin],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("verify_store_pin", {
@@ -25,34 +56,30 @@ export default function TeamStoreDetail() {
       });
       if (error) throw error;
       if (!data) throw new Error("Invalid PIN");
-      return data as {
-        id: string;
-        name: string;
-        slug: string;
-        start_date: string | null;
-        end_date: string | null;
-        logo_url: string | null;
-        primary_color: string;
-        secondary_color: string;
-      };
+      return data as unknown as StoreData;
     },
-    enabled: !!submittedPin && !!slug,
+    enabled: !!submittedPin && !!slug && requiresPin === true,
     retry: false,
   });
 
-  // Load products once verified
+  // The active store: either PIN-verified or directly loaded (no PIN)
+  const store = requiresPin ? verifiedStore : storePublic;
+  const pinVerified = !requiresPin || !!verifiedStore;
+
+  // Load products once store is accessible
   const { data: products = [] } = useQuery({
     queryKey: ["team-store-products-public", store?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, sort_order, catalog_styles(id, style_name, brand_name, style_image, description)")
+        .select("id, sort_order, notes, price_override, active, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
         .eq("team_store_id", store!.id)
+        .eq("active", true)
         .order("sort_order");
       if (error) throw error;
       return data;
     },
-    enabled: !!store?.id,
+    enabled: !!store?.id && pinVerified,
   });
 
   const handlePinSubmit = (e: React.FormEvent) => {
@@ -65,11 +92,41 @@ export default function TeamStoreDetail() {
     setSubmittedPin(pin.trim());
   };
 
-  // Show error if PIN was wrong
-  const pinFailed = submittedPin && isError;
+  // Loading
+  if (loadingStore) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-accent" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
-  // PIN entry gate
-  if (!store) {
+  // Store not found
+  if (!storePublic) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground">Store Not Found</h1>
+            <p className="text-muted-foreground mt-2">This team store doesn't exist or is no longer active.</p>
+            <Button asChild className="mt-6 btn-cta">
+              <Link to="/team-stores">Browse Team Stores</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  // PIN gate (only if store has a PIN set)
+  if (requiresPin && !verifiedStore) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
@@ -80,7 +137,7 @@ export default function TeamStoreDetail() {
                 <Lock className="w-8 h-8 text-accent" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">Team Store Access</h1>
+                <h1 className="text-2xl font-bold text-foreground">{storePublic.name}</h1>
                 <p className="text-muted-foreground mt-2">
                   Enter the PIN provided by your team administrator to access this store.
                 </p>
@@ -96,13 +153,13 @@ export default function TeamStoreDetail() {
                   className="text-center text-lg tracking-widest"
                   autoFocus
                 />
-                {(error || pinFailed) && (
+                {(error || (submittedPin && pinFailed)) && (
                   <p className="text-sm text-destructive">
-                    {error || "Invalid PIN or store not found. Please try again."}
+                    {error || "Invalid PIN. Please try again."}
                   </p>
                 )}
-                <Button type="submit" className="w-full btn-cta" disabled={isLoading}>
-                  {isLoading ? "Verifying…" : "Access Store"}
+                <Button type="submit" className="w-full btn-cta" disabled={verifying}>
+                  {verifying ? "Verifying…" : "Access Store"}
                 </Button>
               </form>
               <p className="text-xs text-muted-foreground">
@@ -116,8 +173,8 @@ export default function TeamStoreDetail() {
     );
   }
 
-  // Verified — show store
-  const dateRange = store.start_date || store.end_date
+  // Store content
+  const dateRange = store?.start_date || store?.end_date
     ? `${store.start_date ?? "—"} to ${store.end_date ?? "—"}`
     : null;
 
@@ -129,14 +186,19 @@ export default function TeamStoreDetail() {
         <section
           className="py-16 px-4"
           style={{
-            background: `linear-gradient(135deg, ${store.primary_color}dd, ${store.secondary_color}99)`,
+            background: `linear-gradient(135deg, ${store?.primary_color || "#1a1a2e"}dd, ${store?.secondary_color || "#e2e8f0"}99)`,
           }}
         >
           <div className="container mx-auto text-center">
-            {store.logo_url && (
+            <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white mb-4">
+              <Link to="/team-stores">
+                <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
+              </Link>
+            </Button>
+            {store?.logo_url && (
               <img src={store.logo_url} alt={store.name} className="w-24 h-24 object-contain mx-auto mb-4 rounded-xl bg-white/90 p-2" />
             )}
-            <h1 className="text-4xl font-bold text-white drop-shadow-lg">{store.name}</h1>
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">{store?.name}</h1>
             {dateRange && (
               <div className="flex items-center justify-center gap-2 mt-3 text-white/90">
                 <Calendar className="w-4 h-4" />
@@ -168,7 +230,13 @@ export default function TeamStoreDetail() {
                       <CardContent className="p-4">
                         <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
                         <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
-                        {style?.description && (
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground mt-2">{item.notes}</p>
+                        )}
+                        {item.price_override != null && (
+                          <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
+                        )}
+                        {style?.description && !item.notes && (
                           <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{style.description}</p>
                         )}
                       </CardContent>

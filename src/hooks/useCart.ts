@@ -16,6 +16,7 @@ export interface CartItem {
   category: string | null;
   product_master: string | null;
   unit_price: number | null;
+  team_store_id: string | null;
   created_at: string;
   updated_at: string;
 }

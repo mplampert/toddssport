@@ -10,6 +10,7 @@ import TeamsAndLeagues from "./pages/TeamsAndLeagues";
 import Uniforms from "./pages/Uniforms";
 import UniformDetail from "./pages/UniformDetail";
 import TeamStores from "./pages/TeamStores";
+import TeamStoresListing from "./pages/TeamStoresListing";
 import TeamStoreDetail from "./pages/TeamStoreDetail";
 import Fanwear from "./pages/Fanwear";
 import Corporate from "./pages/Corporate";
@@ -55,7 +56,8 @@ const App = () => (
           <Route path="/teams-leagues" element={<TeamsAndLeagues />} />
           <Route path="/uniforms" element={<Uniforms />} />
           <Route path="/uniforms/:sport" element={<UniformDetail />} />
-          <Route path="/team-stores" element={<TeamStores />} />
+          <Route path="/team-stores" element={<TeamStoresListing />} />
+          <Route path="/team-stores/info" element={<TeamStores />} />
           <Route path="/team-stores/:slug" element={<TeamStoreDetail />} />
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />

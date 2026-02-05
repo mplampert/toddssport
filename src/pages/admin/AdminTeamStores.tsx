@@ -36,7 +36,7 @@ const emptyForm = {
   primary_color: "#000000",
   secondary_color: "#ffffff",
   active: false,
-  store_pin: "0000",
+  store_pin: "",
 };
 
 export default function AdminTeamStores() {
@@ -69,7 +69,7 @@ export default function AdminTeamStores() {
         primary_color: values.primary_color,
         secondary_color: values.secondary_color,
         active: values.active,
-        store_pin: values.store_pin,
+        store_pin: values.store_pin || null,
       };
       if (values.id) {
         const { error } = await supabase.from("team_stores").update(payload).eq("id", values.id);
@@ -116,7 +116,7 @@ export default function AdminTeamStores() {
       primary_color: store.primary_color,
       secondary_color: store.secondary_color,
       active: store.active,
-      store_pin: (store as any).store_pin ?? "0000",
+      store_pin: (store as any).store_pin ?? "",
     });
     setDialogOpen(true);
   };
@@ -139,7 +139,7 @@ export default function AdminTeamStores() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-foreground">Team Stores</h1>
-            <p className="text-muted-foreground mt-1">Create and manage team stores (admin only — not public yet)</p>
+            <p className="text-muted-foreground mt-1">Create and manage team stores. Active stores appear at /team-stores.</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(o) => { setDialogOpen(o); if (!o) resetForm(); }}>
             <DialogTrigger asChild>
@@ -210,14 +210,14 @@ export default function AdminTeamStores() {
                   <Label>Active</Label>
                 </div>
                 <div className="space-y-2">
-                  <Label>Store PIN *</Label>
+                  <Label>Store PIN (optional)</Label>
                   <Input
                     value={form.store_pin}
                     onChange={(e) => setForm((f) => ({ ...f, store_pin: e.target.value }))}
-                    placeholder="0000"
+                    placeholder="Leave blank for open access"
                     maxLength={10}
                   />
-                  <p className="text-xs text-muted-foreground">Visitors must enter this PIN to view the store.</p>
+                  <p className="text-xs text-muted-foreground">If set, visitors must enter this PIN. Leave blank for open access.</p>
                 </div>
                 <Button type="submit" className="w-full btn-cta" disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? "Saving…" : editingId ? "Update Store" : "Create Store"}
