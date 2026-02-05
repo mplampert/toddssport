@@ -36,6 +36,7 @@ const emptyForm = {
   primary_color: "#000000",
   secondary_color: "#ffffff",
   active: false,
+  store_pin: "0000",
 };
 
 export default function AdminTeamStores() {
@@ -68,6 +69,7 @@ export default function AdminTeamStores() {
         primary_color: values.primary_color,
         secondary_color: values.secondary_color,
         active: values.active,
+        store_pin: values.store_pin,
       };
       if (values.id) {
         const { error } = await supabase.from("team_stores").update(payload).eq("id", values.id);
@@ -114,6 +116,7 @@ export default function AdminTeamStores() {
       primary_color: store.primary_color,
       secondary_color: store.secondary_color,
       active: store.active,
+      store_pin: (store as any).store_pin ?? "0000",
     });
     setDialogOpen(true);
   };
@@ -205,6 +208,16 @@ export default function AdminTeamStores() {
                 <div className="flex items-center gap-3">
                   <Switch checked={form.active} onCheckedChange={(v) => setForm((f) => ({ ...f, active: v }))} />
                   <Label>Active</Label>
+                </div>
+                <div className="space-y-2">
+                  <Label>Store PIN *</Label>
+                  <Input
+                    value={form.store_pin}
+                    onChange={(e) => setForm((f) => ({ ...f, store_pin: e.target.value }))}
+                    placeholder="0000"
+                    maxLength={10}
+                  />
+                  <p className="text-xs text-muted-foreground">Visitors must enter this PIN to view the store.</p>
                 </div>
                 <Button type="submit" className="w-full btn-cta" disabled={saveMutation.isPending}>
                   {saveMutation.isPending ? "Saving…" : editingId ? "Update Store" : "Create Store"}

@@ -1225,6 +1225,13 @@ export type Database = {
             referencedRelation: "team_stores"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "team_store_products_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
         ]
       }
       team_stores: {
@@ -1239,6 +1246,7 @@ export type Database = {
           secondary_color: string | null
           slug: string
           start_date: string | null
+          store_pin: string
           updated_at: string
         }
         Insert: {
@@ -1252,6 +1260,7 @@ export type Database = {
           secondary_color?: string | null
           slug: string
           start_date?: string | null
+          store_pin?: string
           updated_at?: string
         }
         Update: {
@@ -1265,6 +1274,7 @@ export type Database = {
           secondary_color?: string | null
           slug?: string
           start_date?: string | null
+          store_pin?: string
           updated_at?: string
         }
         Relationships: []
@@ -1406,7 +1416,48 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      team_stores_public: {
+        Row: {
+          active: boolean | null
+          created_at: string | null
+          end_date: string | null
+          id: string | null
+          logo_url: string | null
+          name: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          slug: string | null
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug?: string | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          created_at?: string | null
+          end_date?: string | null
+          id?: string | null
+          logo_url?: string | null
+          name?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          slug?: string | null
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -1416,6 +1467,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      verify_store_pin: { Args: { _pin: string; _slug: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
