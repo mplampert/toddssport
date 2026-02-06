@@ -12,13 +12,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, ArrowLeft, Package, ShoppingCart, Check } from "lucide-react";
-import { getProducts, formatSSPrice, getStockStatus, type SSProduct } from "@/lib/ss-activewear";
+import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 
 export default function SSProductDetail() {
   const { styleId } = useParams<{ styleId: string }>();
   const navigate = useNavigate();
   const [products, setProducts] = useState<SSProduct[]>([]);
+  const [styleInfo, setStyleInfo] = useState<SSStyle | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>("all");
@@ -30,14 +31,20 @@ export default function SSProductDetail() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getProducts({ style: styleId });
-        const results = Array.isArray(data) ? data : [];
+        const [productsData, stylesData] = await Promise.all([
+          getProducts({ style: styleId }),
+          getStyles({ style: styleId }),
+        ]);
+        const results = Array.isArray(productsData) ? productsData : [];
         if (results.length === 0) {
           toast.error("This product is no longer available.");
           navigate("/ss-products", { replace: true });
           return;
         }
         setProducts(results);
+        const styles = Array.isArray(stylesData) ? stylesData : [];
+        const match = styles.find((s) => String(s.styleID) === styleId);
+        if (match) setStyleInfo(match);
       } catch (err) {
         console.error("Failed to load product details:", err);
         setError(err instanceof Error ? err.message : "Failed to load product");
@@ -130,9 +137,18 @@ export default function SSProductDetail() {
                   {heroProduct?.brandName && (
                     <Badge variant="secondary" className="mb-3">{heroProduct.brandName}</Badge>
                   )}
-                  <h1 className="text-3xl font-bold text-foreground mb-4">
-                    Style #{styleId}
+                  <h1 className="text-3xl font-bold text-foreground mb-2">
+                    {styleInfo?.title || styleInfo?.styleName || `Style #${styleId}`}
                   </h1>
+                  {styleInfo?.partNumber && (
+                    <p className="text-sm text-muted-foreground mb-1">Part #{styleInfo.partNumber}</p>
+                  )}
+                  {styleInfo?.description && (
+                    <div
+                      className="text-sm text-muted-foreground mb-4 prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: styleInfo.description }}
+                    />
+                  )}
 
                   {/* Color selector */}
                   <div className="mb-4">
