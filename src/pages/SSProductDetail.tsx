@@ -140,8 +140,8 @@ export default function SSProductDetail() {
                   <h1 className="text-3xl font-bold text-foreground mb-2">
                     {styleInfo?.title || styleInfo?.styleName || `Style #${styleId}`}
                   </h1>
-                  {styleInfo?.partNumber && (
-                    <p className="text-sm text-muted-foreground mb-1">Part #{styleInfo.partNumber}</p>
+                  {heroProduct?.sku && (
+                    <p className="text-sm text-muted-foreground mb-1">SKU: {heroProduct.sku}</p>
                   )}
                   {styleInfo?.description && (
                     <div
@@ -205,6 +205,7 @@ export default function SSProductDetail() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-secondary/50 text-left">
+                        <th className="px-4 py-3 font-semibold">SKU</th>
                         <th className="px-4 py-3 font-semibold">Color</th>
                         <th className="px-4 py-3 font-semibold">Size</th>
                         <th className="px-4 py-3 font-semibold text-right">Piece Price</th>
@@ -219,6 +220,7 @@ export default function SSProductDetail() {
                         const stock = getStockStatus(p.qty);
                         return (
                           <tr key={`${p.productId}-${i}`} className="border-t border-border hover:bg-secondary/20">
+                            <td className="px-4 py-3 font-mono text-xs">{p.sku || "—"}</td>
                             <td className="px-4 py-3">{p.colorName}</td>
                             <td className="px-4 py-3">{p.sizeName}</td>
                             <td className="px-4 py-3 text-right font-medium">{formatSSPrice(p.piecePrice)}</td>

@@ -213,7 +213,7 @@ export default function SSProducts() {
                         {style.title || style.styleName}
                       </h3>
                       {style.partNumber && (
-                        <p className="text-xs text-muted-foreground mb-2">#{style.partNumber}</p>
+                        <p className="text-xs text-muted-foreground mb-2">SKU: {style.partNumber}</p>
                       )}
                       {style.baseCategory && (
                         <p className="text-xs text-muted-foreground mt-auto">{style.baseCategory}</p>
