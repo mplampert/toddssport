@@ -24,6 +24,7 @@ export interface SSProduct {
   productId: number;
   styleID: number;
   brandName?: string;
+  sku?: string;
   colorName: string;
   colorCode: string;
   colorGroup?: string;
