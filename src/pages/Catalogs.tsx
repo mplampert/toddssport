@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/Footer";
 import { CatalogCard } from "@/components/shared/CatalogCard";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Loader2, BookOpen } from "lucide-react";
+import { Loader2, BookOpen, Package } from "lucide-react";
 
 interface Catalog {
   id: string;
@@ -93,6 +93,22 @@ const Catalogs = () => {
                 </p>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* S&S Activewear Catalog CTA */}
+        <section className="py-12 bg-card border-y border-border">
+          <div className="container mx-auto px-4 text-center">
+            <Package className="w-10 h-10 text-accent mx-auto mb-4" />
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground mb-3">
+              Blank Apparel Catalog
+            </h2>
+            <p className="text-muted-foreground max-w-xl mx-auto mb-6">
+              Browse thousands of blank apparel styles with real-time pricing and inventory from S&amp;S Activewear.
+            </p>
+            <Button asChild className="btn-cta px-8 py-6 text-lg">
+              <Link to="/ss-products">Browse Blank Apparel</Link>
+            </Button>
           </div>
         </section>
 

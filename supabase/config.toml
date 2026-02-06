@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.send-order-emails]
 verify_jwt = false
+
+[functions.ss-activewear]
+verify_jwt = false

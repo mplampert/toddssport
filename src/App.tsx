@@ -52,6 +52,8 @@ import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
 import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import PromoProductDetail from "./pages/PromoProductDetail";
+import SSProducts from "./pages/SSProducts";
+import SSProductDetail from "./pages/SSProductDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -87,6 +89,8 @@ const App = () => (
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
           <Route path="/my-orders" element={<MyOrders />} />
           <Route path="/cart" element={<Cart />} />
+          <Route path="/ss-products" element={<SSProducts />} />
+          <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
