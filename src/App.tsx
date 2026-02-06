@@ -38,6 +38,7 @@ import AdminLookbookGenerator from "./pages/admin/AdminLookbookGenerator";
 import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import AdminPromoProducts from "./pages/admin/AdminPromoProducts";
 import AdminTeamStores from "./pages/admin/AdminTeamStores";
+import NewTeamStoreWizard from "./pages/admin/NewTeamStoreWizard";
 import AdminTeamStoreDetail from "./pages/admin/AdminTeamStoreDetail";
 import StoreDashboard from "./pages/admin/team-store/StoreDashboard";
 import StoreOverview from "./pages/admin/team-store/StoreOverview";
@@ -98,6 +99,7 @@ const App = () => (
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />} />
+          <Route path="/admin/team-stores/new" element={<NewTeamStoreWizard />} />
           <Route path="/admin/team-stores/:id/*" element={<AdminTeamStoreDetail />}>
             <Route index element={<StoreDashboard />} />
             <Route path="dashboard" element={<StoreDashboard />} />
