@@ -37,6 +37,7 @@ const Index = () => {
         <meta property="og:description" content="Official home for custom team uniforms, spirit wear stores, and fundraising gear in Beverly, MA." />
         <meta property="og:url" content="https://toddssportinggoods.com/" />
         <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
+        <meta property="fb:app_id" content="290429385513054" />
         <link rel="canonical" href="https://toddssportinggoods.com/" />
       </Helmet>
       <Header />

@@ -20,6 +20,7 @@ export default function TeamStores() {
         <meta property="og:description" content="Launch your own branded online team store for uniforms, spirit wear, and fundraising gear." />
         <meta property="og:url" content="https://toddssportinggoods.com/team-stores" />
         <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
+        <meta property="fb:app_id" content="290429385513054" />
         <link rel="canonical" href="https://toddssportinggoods.com/team-stores" />
       </Helmet>
       <Header />
