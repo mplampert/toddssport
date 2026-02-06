@@ -2,40 +2,28 @@ import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
-import { Input } from "@/components/ui/input";
+import { Loader2, Package, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Loader2, Search, Package, ArrowLeft, Filter } from "lucide-react";
-import { getStyles, getCategories, formatSSPrice, type SSStyle, type SSCategory } from "@/lib/ss-activewear";
+import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+
+interface BrandCard {
+  name: string;
+  image?: string;
+  styleCount: number;
+}
 
 export default function SSProducts() {
   const [styles, setStyles] = useState<SSStyle[]>([]);
-  const [categories, setCategories] = useState<SSCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
-  const [brandFilter, setBrandFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("name");
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [stylesData, catsData] = await Promise.all([
-          getStyles(),
-          getCategories(),
-        ]);
-        setStyles(Array.isArray(stylesData) ? stylesData : []);
-        setCategories(Array.isArray(catsData) ? catsData : []);
+        const data = await getStyles();
+        setStyles(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Failed to load SS products:", err);
         setError(err instanceof Error ? err.message : "Failed to load products");
@@ -46,45 +34,24 @@ export default function SSProducts() {
     load();
   }, []);
 
-  const brands = useMemo(() => {
-    const set = new Set(styles.map((s) => s.brandName).filter(Boolean));
-    return Array.from(set).sort();
-  }, [styles]);
-
-  const baseCategories = useMemo(() => {
-    const set = new Set(styles.map((s) => s.baseCategory).filter(Boolean));
-    return Array.from(set).sort() as string[];
-  }, [styles]);
-
-  const filtered = useMemo(() => {
-    let result = styles;
-
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.styleName?.toLowerCase().includes(q) ||
-          s.title?.toLowerCase().includes(q) ||
-          s.brandName?.toLowerCase().includes(q) ||
-          s.partNumber?.toLowerCase().includes(q)
-      );
-    }
-
-    if (brandFilter !== "all") {
-      result = result.filter((s) => s.brandName === brandFilter);
-    }
-
-    if (categoryFilter !== "all") {
-      result = result.filter((s) => s.baseCategory === categoryFilter);
-    }
-
-    result.sort((a, b) => {
-      if (sortBy === "brand") return (a.brandName || "").localeCompare(b.brandName || "");
-      return (a.styleName || "").localeCompare(b.styleName || "");
+  const brands = useMemo<BrandCard[]>(() => {
+    const map = new Map<string, BrandCard>();
+    styles.forEach((s) => {
+      if (!s.brandName) return;
+      const existing = map.get(s.brandName);
+      if (existing) {
+        existing.styleCount++;
+        if (!existing.image && s.brandImage) existing.image = s.brandImage;
+      } else {
+        map.set(s.brandName, {
+          name: s.brandName,
+          image: s.brandImage,
+          styleCount: 1,
+        });
+      }
     });
-
-    return result;
-  }, [styles, search, brandFilter, categoryFilter, sortBy]);
+    return Array.from(map.values()).sort((a, b) => b.styleCount - a.styleCount);
+  }, [styles]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -103,130 +70,65 @@ export default function SSProducts() {
               </h1>
             </div>
             <p className="text-lg text-primary-foreground/70 max-w-2xl ml-8">
-              Browse thousands of blank apparel styles from top brands. Real-time pricing &amp; inventory from S&amp;S Activewear.
+              Browse thousands of blank apparel styles from top brands. Select a brand to explore their full catalog.
             </p>
           </div>
         </section>
 
-        {/* Filters */}
-        <section className="border-b border-border bg-card sticky top-0 z-20">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search by style, brand, or part number…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Select value={brandFilter} onValueChange={setBrandFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="All Brands" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Brands</SelectItem>
-                  {brands.map((b) => (
-                    <SelectItem key={b} value={b}>{b}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full md:w-48">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {baseCategories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full md:w-40">
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name</SelectItem>
-                  <SelectItem value="brand">Brand</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {!loading && (
-              <p className="text-sm text-muted-foreground mt-2">
-                <Filter className="w-3 h-3 inline mr-1" />
-                {filtered.length.toLocaleString()} styles found
-              </p>
-            )}
-          </div>
-        </section>
-
-        {/* Grid */}
+        {/* Brand Grid */}
         <section className="py-10">
           <div className="container mx-auto px-4">
             {loading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-accent" />
-                <span className="ml-3 text-muted-foreground">Loading catalog…</span>
+                <span className="ml-3 text-muted-foreground">Loading brands…</span>
               </div>
             ) : error ? (
               <div className="text-center py-20">
                 <p className="text-destructive mb-4">{error}</p>
                 <Button onClick={() => window.location.reload()}>Retry</Button>
               </div>
-            ) : filtered.length === 0 ? (
+            ) : brands.length === 0 ? (
               <div className="text-center py-20">
                 <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                <h3 className="text-xl font-semibold mb-2">No products found</h3>
-                <p className="text-muted-foreground">Try adjusting your filters or search terms.</p>
+                <h3 className="text-xl font-semibold mb-2">No brands found</h3>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filtered.slice(0, 100).map((style) => (
-                  <Link
-                    key={style.styleID}
-                    to={`/ss-products/${style.styleID}`}
-                    className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
-                  >
-                    <div className="relative h-48 bg-secondary overflow-hidden">
-                      {style.styleImage ? (
-                        <img
-                          src={style.styleImage}
-                          alt={style.styleName}
-                          className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Package className="w-12 h-12 text-muted-foreground/30" />
-                        </div>
-                      )}
-                      {style.brandName && (
-                        <Badge variant="secondary" className="absolute top-3 left-3 bg-background/90 backdrop-blur-sm text-xs">
-                          {style.brandName}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="p-4 flex flex-col flex-grow">
-                      <h3 className="font-semibold text-foreground mb-1 group-hover:text-accent transition-colors line-clamp-2">
-                        {style.title || style.styleName}
+              <>
+                <p className="text-sm text-muted-foreground mb-6">
+                  {brands.length} brands · {styles.length.toLocaleString()} total styles
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+                  {brands.map((brand) => (
+                    <Link
+                      key={brand.name}
+                      to={`/ss-products/brand/${encodeURIComponent(brand.name)}`}
+                      className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center p-6"
+                    >
+                      <div className="w-full h-24 flex items-center justify-center mb-4">
+                        {brand.image ? (
+                          <img
+                            src={brand.image}
+                            alt={brand.name}
+                            className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className="text-2xl font-bold text-muted-foreground/40">
+                            {brand.name.charAt(0)}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="font-semibold text-foreground text-center group-hover:text-accent transition-colors text-sm">
+                        {brand.name}
                       </h3>
-                      {style.partNumber && (
-                        <p className="text-xs text-muted-foreground mb-2">SKU: {style.partNumber}</p>
-                      )}
-                      {style.baseCategory && (
-                        <p className="text-xs text-muted-foreground mt-auto">{style.baseCategory}</p>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-            {filtered.length > 100 && (
-              <p className="text-center text-muted-foreground mt-8">
-                Showing first 100 of {filtered.length.toLocaleString()} results. Refine your search to see more.
-              </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {brand.styleCount} {brand.styleCount === 1 ? "style" : "styles"}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>
