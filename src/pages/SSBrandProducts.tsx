@@ -32,8 +32,9 @@ export default function SSBrandProducts() {
       setLoading(true);
       setError(null);
       try {
-        const data = await getStyles({ brand: decodedBrand });
-        setStyles(Array.isArray(data) ? data : []);
+        const data = await getStyles();
+        const allStyles = Array.isArray(data) ? data : [];
+        setStyles(allStyles.filter((s) => s.brandName === decodedBrand));
       } catch (err) {
         console.error("Failed to load brand products:", err);
         setError(err instanceof Error ? err.message : "Failed to load products");
