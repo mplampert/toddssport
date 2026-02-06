@@ -16,6 +16,7 @@ export default function Uniforms() {
         <meta property="og:description" content="Design custom team uniforms for every sport. Premium brands, full customization." />
         <meta property="og:url" content="https://toddssportinggoods.com/uniforms" />
         <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
+        <meta property="fb:app_id" content="290429385513054" />
         <link rel="canonical" href="https://toddssportinggoods.com/uniforms" />
       </Helmet>
       <Header />

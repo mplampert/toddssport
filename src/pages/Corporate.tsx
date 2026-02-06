@@ -21,6 +21,7 @@ const Corporate = () => {
         <meta property="og:description" content="Custom corporate apparel, promotional products, and company stores for your brand." />
         <meta property="og:url" content="https://toddssportinggoods.com/corporate" />
         <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
+        <meta property="fb:app_id" content="290429385513054" />
         <link rel="canonical" href="https://toddssportinggoods.com/corporate" />
       </Helmet>
       <Header />
