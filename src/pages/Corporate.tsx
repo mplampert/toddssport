@@ -20,7 +20,7 @@ const Corporate = () => {
         <meta property="og:title" content="Corporate Apparel & Branded Gear | Todd's Sporting Goods" />
         <meta property="og:description" content="Custom corporate apparel, promotional products, and company stores for your brand." />
         <meta property="og:url" content="https://toddssportinggoods.com/corporate" />
-        <meta property="og:image" content="https://toddssportinggoods.com/favicon.png" />
+        <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
         <link rel="canonical" href="https://toddssportinggoods.com/corporate" />
       </Helmet>
       <Header />

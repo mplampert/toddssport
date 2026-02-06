@@ -16,7 +16,7 @@ const PromotionalProducts = () => {
         <meta property="og:title" content="Promotional Products & Branded Merch | Todd's Sporting Goods" />
         <meta property="og:description" content="Custom branded merchandise, employee gifts, and event kits from Todd's Sporting Goods." />
         <meta property="og:url" content="https://toddssportinggoods.com/promotional-products" />
-        <meta property="og:image" content="https://toddssportinggoods.com/favicon.png" />
+        <meta property="og:image" content="https://toddssportinggoods.com/og-image.jpg" />
         <link rel="canonical" href="https://toddssportinggoods.com/promotional-products" />
       </Helmet>
       <Header />
