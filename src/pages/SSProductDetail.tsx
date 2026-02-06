@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 export default function SSProductDetail() {
   const { styleId } = useParams<{ styleId: string }>();
+  const navigate = useNavigate();
   const [products, setProducts] = useState<SSProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,13 @@ export default function SSProductDetail() {
       setError(null);
       try {
         const data = await getProducts({ style: styleId });
-        setProducts(Array.isArray(data) ? data : []);
+        const results = Array.isArray(data) ? data : [];
+        if (results.length === 0) {
+          toast.error("This product is no longer available.");
+          navigate("/ss-products", { replace: true });
+          return;
+        }
+        setProducts(results);
       } catch (err) {
         console.error("Failed to load product details:", err);
         setError(err instanceof Error ? err.message : "Failed to load product");
