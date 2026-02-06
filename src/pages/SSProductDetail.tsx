@@ -168,9 +168,14 @@ export default function SSProductDetail() {
               Blank Apparel
             </Link>
             <span>/</span>
-            {styleInfo?.baseCategory && (
+            {heroProduct?.brandName && (
               <>
-                <span>{styleInfo.baseCategory}</span>
+                <Link
+                  to={`/ss-products/brand/${encodeURIComponent(heroProduct.brandName)}`}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {heroProduct.brandName}
+                </Link>
                 <span>/</span>
               </>
             )}

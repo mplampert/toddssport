@@ -53,6 +53,7 @@ import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import PromoProductDetail from "./pages/PromoProductDetail";
 import SSProducts from "./pages/SSProducts";
+import SSBrandProducts from "./pages/SSBrandProducts";
 import SSProductDetail from "./pages/SSProductDetail";
 import NotFound from "./pages/NotFound";
 
@@ -90,6 +91,7 @@ const App = () => (
           <Route path="/my-orders" element={<MyOrders />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/ss-products" element={<SSProducts />} />
+          <Route path="/ss-products/brand/:brandName" element={<SSBrandProducts />} />
           <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
