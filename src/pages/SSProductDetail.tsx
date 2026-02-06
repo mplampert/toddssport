@@ -199,59 +199,6 @@ export default function SSProductDetail() {
                 </div>
               </div>
 
-              {/* Variants Table */}
-              <div className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-secondary/50 text-left">
-                        <th className="px-4 py-3 font-semibold">SKU</th>
-                        <th className="px-4 py-3 font-semibold">Color</th>
-                        <th className="px-4 py-3 font-semibold">Size</th>
-                        <th className="px-4 py-3 font-semibold text-right">Piece Price</th>
-                        <th className="px-4 py-3 font-semibold text-right">Dozen Price</th>
-                        <th className="px-4 py-3 font-semibold text-right">Case Price</th>
-                        <th className="px-4 py-3 font-semibold text-center">Stock</th>
-                        <th className="px-4 py-3 font-semibold text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filtered.slice(0, 50).map((p, i) => {
-                        const stock = getStockStatus(p.qty);
-                        return (
-                          <tr key={`${p.productId}-${i}`} className="border-t border-border hover:bg-secondary/20">
-                            <td className="px-4 py-3 font-mono text-xs">{p.sku || "—"}</td>
-                            <td className="px-4 py-3">{p.colorName}</td>
-                            <td className="px-4 py-3">{p.sizeName}</td>
-                            <td className="px-4 py-3 text-right font-medium">{formatSSPrice(p.piecePrice)}</td>
-                            <td className="px-4 py-3 text-right">{formatSSPrice(p.dozenPrice)}</td>
-                            <td className="px-4 py-3 text-right">{formatSSPrice(p.casePrice)}</td>
-                            <td className={`px-4 py-3 text-center text-xs font-medium ${stock.color}`}>
-                              {stock.label}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleAddToCart(p)}
-                                disabled={p.qty === 0}
-                              >
-                                <ShoppingCart className="w-3 h-3 mr-1" />
-                                Add
-                              </Button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {filtered.length > 50 && (
-                  <p className="text-center text-muted-foreground text-sm py-4">
-                    Showing 50 of {filtered.length} variants. Narrow by color/size to see more.
-                  </p>
-                )}
-              </div>
             </>
           )}
         </div>
