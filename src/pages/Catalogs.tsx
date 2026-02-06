@@ -6,6 +6,7 @@ import { CatalogCard } from "@/components/shared/CatalogCard";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Loader2, BookOpen, Package } from "lucide-react";
+import { FEATURE_FLAGS } from "@/lib/featureFlags";
 
 interface Catalog {
   id: string;
@@ -97,6 +98,7 @@ const Catalogs = () => {
         </section>
 
         {/* S&S Activewear Catalog CTA */}
+        {FEATURE_FLAGS.ENABLE_SS_CATALOG && (
         <section className="py-12 bg-card border-y border-border">
           <div className="container mx-auto px-4 text-center">
             <Package className="w-10 h-10 text-accent mx-auto mb-4" />
@@ -111,6 +113,7 @@ const Catalogs = () => {
             </Button>
           </div>
         </section>
+        )}
 
         {/* Find Your Rep Section */}
         <section className="bg-secondary py-16">
