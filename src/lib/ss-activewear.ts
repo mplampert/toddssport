@@ -51,10 +51,18 @@ async function callSSApi<T>(endpoint: string, params?: Record<string, string | n
 
   if (error) {
     console.error("SS API invoke error:", error);
+    // If the edge function returned a 404, treat as empty result
+    if (error.message?.includes("404")) {
+      return [] as unknown as T;
+    }
     throw new Error(error.message || "Failed to call S&S API");
   }
 
   if (data?.error) {
+    // Handle 404 from S&S API (discontinued/not found items)
+    if (data.error.includes("404")) {
+      return [] as unknown as T;
+    }
     throw new Error(data.error);
   }
 
