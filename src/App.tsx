@@ -68,8 +68,8 @@ const App = () => (
           <Route path="/teams-leagues" element={<TeamsAndLeagues />} />
           <Route path="/uniforms" element={<Uniforms />} />
           <Route path="/uniforms/:sport" element={<UniformDetail />} />
-          <Route path="/team-stores" element={<TeamStoresListing />} />
-          <Route path="/team-stores/info" element={<TeamStores />} />
+          <Route path="/team-stores" element={<TeamStores />} />
+          <Route path="/team-stores/browse" element={<TeamStoresListing />} />
           <Route path="/team-stores/:slug" element={<TeamStoreDetail />} />
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />
