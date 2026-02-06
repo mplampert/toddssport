@@ -7,6 +7,28 @@ const corsHeaders = {
 };
 
 const SS_BASE = "https://api.ssactivewear.com/v2";
+const SS_MEDIA_BASE = "https://www.ssactivewear.com/";
+
+/** Prefix relative image paths with the S&S media base URL */
+function resolveImages(data: unknown): unknown {
+  const imageFields = [
+    "styleImage", "brandImage", "colorFrontImage", "colorSideImage",
+    "colorBackImage", "colorDirectSideImage", "colorOnModelFrontImage",
+    "colorOnModelBackImage", "colorOnModelSideImage", "colorSwatchImage", "image",
+  ];
+  if (Array.isArray(data)) return data.map((item) => resolveImages(item));
+  if (data && typeof data === "object") {
+    const obj = { ...(data as Record<string, unknown>) };
+    for (const field of imageFields) {
+      const val = obj[field];
+      if (typeof val === "string" && val.length > 0 && !val.startsWith("http")) {
+        obj[field] = `${SS_MEDIA_BASE}${val}`;
+      }
+    }
+    return obj;
+  }
+  return data;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -66,8 +88,9 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    const resolved = resolveImages(data);
 
-    return new Response(JSON.stringify(data), {
+    return new Response(JSON.stringify(resolved), {
       headers: {
         ...corsHeaders,
         "Content-Type": "application/json",
