@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -29,6 +30,15 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>Todd's Sporting Goods | Custom Team Uniforms & Gear</title>
+        <meta name="description" content="Official home for custom team uniforms, spirit wear stores, and fundraising gear in Beverly, MA." />
+        <meta property="og:title" content="Todd's Sporting Goods | Custom Team Uniforms & Gear" />
+        <meta property="og:description" content="Official home for custom team uniforms, spirit wear stores, and fundraising gear in Beverly, MA." />
+        <meta property="og:url" content="https://toddssportinggoods.com/" />
+        <meta property="og:image" content="/favicon.png" />
+        <link rel="canonical" href="https://toddssportinggoods.com/" />
+      </Helmet>
       <Header />
       <main className="flex-grow">
         <HeroSection />
