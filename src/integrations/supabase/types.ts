@@ -1268,7 +1268,12 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          description: string | null
           end_date: string | null
+          fundraising_goal: number | null
+          fundraising_percent: number | null
+          hero_subtitle: string | null
+          hero_title: string | null
           id: string
           logo_url: string | null
           name: string
@@ -1277,12 +1282,18 @@ export type Database = {
           slug: string
           start_date: string | null
           store_pin: string | null
+          store_type: string | null
           updated_at: string
         }
         Insert: {
           active?: boolean
           created_at?: string
+          description?: string | null
           end_date?: string | null
+          fundraising_goal?: number | null
+          fundraising_percent?: number | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -1291,12 +1302,18 @@ export type Database = {
           slug: string
           start_date?: string | null
           store_pin?: string | null
+          store_type?: string | null
           updated_at?: string
         }
         Update: {
           active?: boolean
           created_at?: string
+          description?: string | null
           end_date?: string | null
+          fundraising_goal?: number | null
+          fundraising_percent?: number | null
+          hero_subtitle?: string | null
+          hero_title?: string | null
           id?: string
           logo_url?: string | null
           name?: string
@@ -1305,6 +1322,7 @@ export type Database = {
           slug?: string
           start_date?: string | null
           store_pin?: string | null
+          store_type?: string | null
           updated_at?: string
         }
         Relationships: []

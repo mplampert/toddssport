@@ -72,10 +72,13 @@ export default function AdminTeamStores() {
             <h1 className="text-3xl font-bold text-foreground">Team Stores</h1>
             <p className="text-muted-foreground mt-1">Create and manage team stores.</p>
           </div>
+          <Button className="btn-cta" onClick={() => navigate("/admin/team-stores/new")}>
+            <Plus className="w-4 h-4 mr-2" /> New Team Store
+          </Button>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button className="btn-cta">
-                <Plus className="w-4 h-4 mr-2" /> Create Team Store
+              <Button variant="outline">
+                <Plus className="w-4 h-4 mr-2" /> Quick Create
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-sm">
