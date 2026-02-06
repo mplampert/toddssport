@@ -31,6 +31,10 @@ export interface SSProduct {
   colorFrontImage?: string;
   colorSideImage?: string;
   colorBackImage?: string;
+  colorDirectSideImage?: string;
+  colorSwatchImage?: string;
+  color1?: string;
+  color2?: string;
   sizeName: string;
   sizeOrder?: string;
   caseQty?: number;
@@ -41,7 +45,6 @@ export interface SSProduct {
   casePrice?: number;
   salePrice?: number;
   qty?: number;
-  // inventory fields
   warehouses?: { warehouseAbbr: string; qty: number }[];
 }
 
