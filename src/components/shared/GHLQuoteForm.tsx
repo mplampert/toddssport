@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { trackFormView } from "@/lib/ga4";
 
 interface GHLQuoteFormProps {
   heading?: string;
@@ -11,6 +12,26 @@ export const GHLQuoteForm = ({
   subheading = "Share your project details and we'll get back to you with options tailored to your needs.",
   className = "",
 }: GHLQuoteFormProps) => {
+  const trackedRef = useRef(false);
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Track when form scrolls into view (once per mount)
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !trackedRef.current) {
+          trackedRef.current = true;
+          trackFormView(heading ?? "Quote Form");
+        }
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [heading]);
+
   useEffect(() => {
     // Load the GHL form embed script
     const existingScript = document.querySelector(
@@ -26,7 +47,7 @@ export const GHLQuoteForm = ({
   }, []);
 
   return (
-    <section id="quote-form" className={`section-padding bg-secondary ${className}`}>
+    <section ref={sectionRef} id="quote-form" className={`section-padding bg-secondary ${className}`}>
       <div className="container mx-auto px-4">
         <div className="text-center mb-8">
           <h2 className="section-heading text-primary">{heading}</h2>

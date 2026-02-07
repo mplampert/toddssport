@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { trackCTAClick, trackOutboundClick } from "@/lib/ga4";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,10 +49,10 @@ export function Header() {
       .map(id => document.getElementById(id))
       .find(el => el !== null);
     
+    trackCTAClick("Get a Quote", "header");
     if (formSection) {
       formSection.scrollIntoView({ behavior: "smooth" });
     } else {
-      // Navigate to contact page if no form found
       window.location.href = "/contact";
     }
     setMobileMenuOpen(false);
@@ -104,6 +105,7 @@ export function Header() {
               target="_blank"
               rel="noopener noreferrer"
               className="nav-link"
+              onClick={() => trackOutboundClick("https://tsgonline.chipply.com/", "Find My Store")}
             >
               Find My Store
             </a>
