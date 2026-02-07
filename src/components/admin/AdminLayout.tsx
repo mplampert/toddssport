@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
-  Gift, Store, Layers, ShoppingCart, Heart, Image,
+  Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -37,6 +39,21 @@ const teamStoresNavItems = [
   { path: "/admin/team-stores/logos", label: "Logos", icon: Image },
   { path: "/admin/team-stores/settings", label: "Settings", icon: Settings },
 ];
+
+// Matches /admin/team-stores/:uuid and extracts the uuid
+const STORE_ID_REGEX = /^\/admin\/team-stores\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/;
+
+function getStoreNavItems(storeId: string) {
+  const base = `/admin/team-stores/${storeId}`;
+  return [
+    { path: base, label: "Overview", icon: LayoutDashboard, exact: true },
+    { path: `${base}/products`, label: "Products", icon: Package },
+    { path: `${base}/logos`, label: "Logos", icon: Image },
+    { path: `${base}/fundraising`, label: "Fundraising", icon: Heart },
+    { path: `${base}/orders`, label: "Orders", icon: ShoppingCart },
+    { path: `${base}/settings`, label: "Settings", icon: Settings },
+  ];
+}
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [user, setUser] = useState<User | null>(null);
@@ -89,6 +106,26 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     navigate("/auth");
   };
 
+  // Route detection
+  const isTeamStores = location.pathname.startsWith("/admin/team-stores");
+  const storeIdMatch = location.pathname.match(STORE_ID_REGEX);
+  const activeStoreId = storeIdMatch ? storeIdMatch[1] : null;
+
+  // Fetch store name when inside a specific store
+  const { data: activeStore } = useQuery({
+    queryKey: ["admin-team-store-sidebar", activeStoreId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_stores")
+        .select("id, name, slug, logo_url, active, status")
+        .eq("id", activeStoreId!)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeStoreId,
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -120,11 +157,61 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  const isTeamStores = location.pathname.startsWith("/admin/team-stores");
-  const navItems = isTeamStores ? teamStoresNavItems : globalNavItems;
-  const backLink = isTeamStores
-    ? { to: "/admin", label: "All Admin", icon: ChevronLeft }
-    : { to: "/", label: "Back to Site", icon: ChevronLeft };
+  // Determine which sidebar to show
+  let navItems: { path: string; label: string; icon: any; exact?: boolean }[];
+  let backLink: { to: string; label: string };
+  let sidebarHeader: React.ReactNode = null;
+
+  if (activeStoreId) {
+    // Inside a specific store
+    navItems = getStoreNavItems(activeStoreId);
+    backLink = { to: "/admin/team-stores/stores", label: "All Stores" };
+    sidebarHeader = activeStore ? (
+      <div className="px-3 pb-2">
+        <div className="flex items-center gap-2 mb-1">
+          {activeStore.logo_url ? (
+            <img src={activeStore.logo_url} alt="" className="w-7 h-7 object-contain rounded bg-muted p-0.5" />
+          ) : (
+            <div className="w-7 h-7 rounded bg-muted flex items-center justify-center">
+              <Store className="w-3.5 h-3.5 text-muted-foreground" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{activeStore.name}</p>
+            <div className="flex items-center gap-1.5">
+              <Badge variant={activeStore.active ? "default" : "secondary"} className="text-[9px] px-1 py-0">
+                {activeStore.status ?? (activeStore.active ? "open" : "inactive")}
+              </Badge>
+            </div>
+          </div>
+        </div>
+        <a
+          href={`/team-stores/${activeStore.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground mt-1"
+        >
+          <ExternalLink className="w-3 h-3" />
+          View storefront
+        </a>
+      </div>
+    ) : (
+      <div className="px-3 pb-2">
+        <div className="h-7 w-32 bg-muted rounded animate-pulse" />
+      </div>
+    );
+  } else if (isTeamStores) {
+    navItems = teamStoresNavItems;
+    backLink = { to: "/admin", label: "All Admin" };
+    sidebarHeader = (
+      <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pb-1">
+        Team Stores
+      </h3>
+    );
+  } else {
+    navItems = globalNavItems;
+    backLink = { to: "/", label: "Back to Site" };
+  }
 
   const isItemActive = (item: { path: string; exact?: boolean }) => {
     if (item.exact) return location.pathname === item.path;
@@ -162,16 +249,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               to={backLink.to}
               className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <backLink.icon className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" />
               {backLink.label}
             </Link>
             <div className="border-t border-border my-3" />
 
-            {isTeamStores && (
-              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pb-1">
-                Team Stores
-              </h3>
-            )}
+            {sidebarHeader}
 
             {navItems.map((item) => (
               <Link
