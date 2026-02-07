@@ -1,6 +1,6 @@
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+import { getStyles, getProducts, type SSStyle, type SSProduct } from "@/lib/ss-activewear";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,6 +47,8 @@ interface SelectedProduct {
   baseCategory: string | null;
   partNumber: string | null;
   // Step 2 fields
+  cost: number | null;        // piecePrice from SS API
+  suggestedPrice: string;     // calculated from cost × (1 + margin/100)
   priceOverride: string;
   fundraisingEnabled: boolean;
   fundraisingAmount: string;
@@ -100,6 +102,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [loadingCosts, setLoadingCosts] = useState(false);
 
   // Step 1 – browse state
   const [selectedBrand, setSelectedBrand] = useState("");
@@ -110,7 +113,8 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
   const [selected, setSelected] = useState<Map<number, SelectedProduct>>(new Map());
 
   // Step 2 – bulk actions
-  const [bulkMargin, setBulkMargin] = useState("");
+  const DEFAULT_MARGIN = 50;
+  const [bulkMargin, setBulkMargin] = useState(String(DEFAULT_MARGIN));
   const [bulkFundraisingAmt, setBulkFundraisingAmt] = useState("");
 
   // Step 3 – logos & personalization
@@ -187,6 +191,8 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
           brandImage: s.brandImage || null,
           baseCategory: s.baseCategory || null,
           partNumber: s.partNumber || null,
+          cost: null,
+          suggestedPrice: "",
           priceOverride: "",
           fundraisingEnabled: true,
           fundraisingAmount: "",
@@ -205,14 +211,59 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
     setDebouncedKeyword("");
   };
 
+  /* ── Cost fetching when entering Step 2 ── */
+
+  const fetchCostsForSelected = useCallback(async () => {
+    const needsCost = Array.from(selected.values()).filter((p) => p.cost === null);
+    if (needsCost.length === 0) return;
+    setLoadingCosts(true);
+    try {
+      // Fetch products in batches by style to get piecePrice
+      const updates = new Map<number, { cost: number; suggestedPrice: string; priceOverride: string }>();
+      const margin = parseFloat(bulkMargin) || DEFAULT_MARGIN;
+
+      for (const p of needsCost) {
+        try {
+          const products = await getProducts({ style: p.ssStyleID });
+          // Use the lowest piecePrice as cost
+          const prices = products.map((pr) => pr.piecePrice).filter((v): v is number => v != null && v > 0);
+          const cost = prices.length > 0 ? Math.min(...prices) : 0;
+          const suggested = cost > 0 ? (cost * (1 + margin / 100)).toFixed(2) : "";
+          updates.set(p.ssStyleID, { cost, suggestedPrice: suggested, priceOverride: suggested });
+        } catch {
+          updates.set(p.ssStyleID, { cost: 0, suggestedPrice: "", priceOverride: "" });
+        }
+      }
+
+      setSelected((prev) => {
+        const next = new Map(prev);
+        for (const [id, u] of updates) {
+          const existing = next.get(id);
+          if (existing) next.set(id, { ...existing, ...u });
+        }
+        return next;
+      });
+    } finally {
+      setLoadingCosts(false);
+    }
+  }, [selected, bulkMargin]);
+
   /* ── Step 2 bulk actions ── */
 
   const applyBulkMargin = () => {
     const pct = parseFloat(bulkMargin);
     if (isNaN(pct) || pct <= 0) return;
-    // Simple: we don't have cost data, so just apply as a fixed price placeholder
-    // In real use, margin would apply to wholesale cost. For now we skip auto-calc.
-    toast.info("Margin applied — set sale prices manually or via store pricing rules.");
+    setSelected((prev) => {
+      const next = new Map(prev);
+      for (const [k, v] of next) {
+        if (v.cost && v.cost > 0) {
+          const suggested = (v.cost * (1 + pct / 100)).toFixed(2);
+          next.set(k, { ...v, suggestedPrice: suggested, priceOverride: suggested });
+        }
+      }
+      return next;
+    });
+    toast.success(`Applied ${pct}% margin to all products with cost data`);
   };
 
   const applyBulkFundraising = () => {
@@ -338,7 +389,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
     setStep(0);
     setSelected(new Map());
     setSelectedLogoIds(new Set());
-    setBulkMargin("");
+    setBulkMargin(String(DEFAULT_MARGIN));
     setBulkFundraisingAmt("");
     setBulkPersonalizationPrice("");
     clearFilters();
@@ -420,6 +471,8 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
             bulkFundraisingAmt={bulkFundraisingAmt}
             setBulkFundraisingAmt={setBulkFundraisingAmt}
             applyBulkFundraising={applyBulkFundraising}
+            loadingCosts={loadingCosts}
+            fetchCosts={fetchCostsForSelected}
           />}
 
           {step === 2 && <Step3Logos
@@ -633,6 +686,7 @@ function Step2Pricing({
   products, updateProduct,
   bulkMargin, setBulkMargin, applyBulkMargin,
   bulkFundraisingAmt, setBulkFundraisingAmt, applyBulkFundraising,
+  loadingCosts, fetchCosts,
 }: {
   products: SelectedProduct[];
   updateProduct: (id: number, u: Partial<SelectedProduct>) => void;
@@ -642,17 +696,31 @@ function Step2Pricing({
   bulkFundraisingAmt: string;
   setBulkFundraisingAmt: (v: string) => void;
   applyBulkFundraising: () => void;
+  loadingCosts: boolean;
+  fetchCosts: () => Promise<void>;
 }) {
+  // Fetch costs on mount
+  useEffect(() => {
+    fetchCosts();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <>
+      {loadingCosts && (
+        <div className="flex items-center gap-2 p-3 rounded-md bg-muted/30 border text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> Fetching product costs…
+        </div>
+      )}
+
       {/* Bulk actions */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-md bg-muted/30 border">
         <div className="space-y-1">
-          <Label className="text-xs font-medium">Apply margin % to all</Label>
+          <Label className="text-xs font-medium">Margin % (applied to cost)</Label>
           <div className="flex gap-2">
             <Input type="number" value={bulkMargin} onChange={(e) => setBulkMargin(e.target.value)} placeholder="e.g. 50" className="text-sm" />
-            <Button size="sm" variant="outline" onClick={applyBulkMargin} disabled={!bulkMargin}>Apply</Button>
+            <Button size="sm" variant="outline" onClick={applyBulkMargin} disabled={!bulkMargin || loadingCosts}>Apply</Button>
           </div>
+          <p className="text-[10px] text-muted-foreground">Sale Price = Cost × (1 + margin/100)</p>
         </div>
         <div className="space-y-1">
           <Label className="text-xs font-medium">Fundraising $ per unit for all</Label>
@@ -665,15 +733,17 @@ function Step2Pricing({
 
       {/* Per-product table */}
       <div className="border rounded-md overflow-hidden">
-        <div className="grid grid-cols-[1fr_100px_80px_100px] gap-2 px-3 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[1fr_80px_90px_100px_70px_90px] gap-2 px-3 py-2 bg-muted/30 border-b text-xs font-medium text-muted-foreground">
           <span>Product</span>
+          <span>Cost</span>
+          <span>Suggested</span>
           <span>Sale Price</span>
           <span>Fund?</span>
           <span>$/Unit</span>
         </div>
         <div className="max-h-[40vh] overflow-y-auto divide-y">
           {products.map((p) => (
-            <div key={p.ssStyleID} className="grid grid-cols-[1fr_100px_80px_100px] gap-2 px-3 py-2 items-center">
+            <div key={p.ssStyleID} className="grid grid-cols-[1fr_80px_90px_100px_70px_90px] gap-2 px-3 py-2 items-center">
               <div className="flex items-center gap-2 min-w-0">
                 {p.styleImage && <img src={p.styleImage} alt="" className="w-8 h-8 object-contain rounded shrink-0" />}
                 <div className="min-w-0">
@@ -681,6 +751,12 @@ function Step2Pricing({
                   <p className="text-xs text-muted-foreground">{p.brandName}</p>
                 </div>
               </div>
+              <span className="text-xs text-muted-foreground">
+                {p.cost != null && p.cost > 0 ? `$${p.cost.toFixed(2)}` : loadingCosts ? "…" : "—"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {p.suggestedPrice ? `$${parseFloat(p.suggestedPrice).toFixed(2)}` : "—"}
+              </span>
               <Input
                 type="number"
                 step="0.01"
