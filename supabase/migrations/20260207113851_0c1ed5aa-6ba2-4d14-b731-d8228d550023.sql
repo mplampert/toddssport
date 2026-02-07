@@ -1,0 +1,1 @@
+ALTER TABLE public.store_logos ADD COLUMN placement text DEFAULT 'left_front';

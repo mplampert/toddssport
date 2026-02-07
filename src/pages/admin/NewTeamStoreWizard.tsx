@@ -60,6 +60,7 @@ interface WizardLogo {
   id: string; // local temp id
   name: string;
   method: string;
+  placement: string;
   file: File;
   previewUrl: string;
 }
@@ -202,6 +203,7 @@ export default function NewTeamStoreWizard() {
           team_store_id: storeData.id,
           name: logo.name,
           method: logo.method,
+          placement: logo.placement,
           file_url: getPublicUrl(path),
         });
         if (insertErr) throw insertErr;
@@ -535,6 +537,21 @@ function StepBranding({
   );
 }
 
+const PLACEMENT_OPTIONS = [
+  { value: "left_front", label: "Left Front / Left Chest" },
+  { value: "right_front", label: "Right Front / Right Chest" },
+  { value: "center_front", label: "Center Front" },
+  { value: "full_front", label: "Full Front" },
+  { value: "full_back", label: "Full Back" },
+  { value: "upper_back", label: "Upper Back" },
+  { value: "left_sleeve", label: "Left Sleeve" },
+  { value: "right_sleeve", label: "Right Sleeve" },
+  { value: "hat_front", label: "Hat Front" },
+  { value: "hat_side", label: "Hat Side" },
+  { value: "left_leg", label: "Left Leg" },
+  { value: "right_leg", label: "Right Leg" },
+];
+
 function StepLogos({
   wizardLogos,
   setWizardLogos,
@@ -545,6 +562,7 @@ function StepLogos({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoName, setLogoName] = useState("");
   const [logoMethod, setLogoMethod] = useState("screen_print");
+  const [logoPlacement, setLogoPlacement] = useState("left_front");
 
   const handleAddLogo = (file: File) => {
     if (!logoName.trim()) {
@@ -555,6 +573,7 @@ function StepLogos({
       id: crypto.randomUUID(),
       name: logoName.trim(),
       method: logoMethod,
+      placement: logoPlacement,
       file,
       previewUrl: URL.createObjectURL(file),
     };
@@ -569,20 +588,33 @@ function StepLogos({
   return (
     <>
       <p className="text-sm text-muted-foreground">
-        Upload decoration logos (screen print, embroidery, DTF) that will be used on the products in this store. You can assign them to specific products after the store is created.
+        Upload decoration logos and specify where they go and how they're applied. You can assign them to specific products after the store is created.
       </p>
 
       <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
         <p className="text-sm font-medium">Add a Logo</p>
+        <div className="space-y-1">
+          <Label className="text-xs">Logo Name</Label>
+          <Input
+            value={logoName}
+            onChange={(e) => setLogoName(e.target.value)}
+            placeholder='e.g. "Panthers Left Chest"'
+            className="text-sm"
+          />
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
-            <Label className="text-xs">Logo Name</Label>
-            <Input
-              value={logoName}
-              onChange={(e) => setLogoName(e.target.value)}
-              placeholder='e.g. "Front chest logo"'
-              className="text-sm"
-            />
+            <Label className="text-xs">Placement</Label>
+            <Select value={logoPlacement} onValueChange={setLogoPlacement}>
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PLACEMENT_OPTIONS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Decoration Method</Label>
@@ -632,7 +664,9 @@ function StepLogos({
                 </div>
                 <div>
                   <p className="text-sm font-medium">{logo.name}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{logo.method.replace("_", " ")}</p>
+                  <p className="text-xs text-muted-foreground capitalize">
+                    {PLACEMENT_OPTIONS.find(p => p.value === logo.placement)?.label || logo.placement} · {logo.method.replace("_", " ")}
+                  </p>
                 </div>
               </div>
               <Button variant="ghost" size="icon" onClick={() => removeLogo(logo.id)}>

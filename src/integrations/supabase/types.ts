@@ -1162,6 +1162,7 @@ export type Database = {
           id: string
           method: string
           name: string
+          placement: string | null
           team_store_id: string
           updated_at: string
         }
@@ -1171,6 +1172,7 @@ export type Database = {
           id?: string
           method: string
           name: string
+          placement?: string | null
           team_store_id: string
           updated_at?: string
         }
@@ -1180,6 +1182,7 @@ export type Database = {
           id?: string
           method?: string
           name?: string
+          placement?: string | null
           team_store_id?: string
           updated_at?: string
         }

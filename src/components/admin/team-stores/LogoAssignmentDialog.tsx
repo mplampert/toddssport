@@ -106,7 +106,9 @@ export function LogoAssignmentDialog({ open, onOpenChange, storeId, itemId, assi
                   <img src={logo.file_url} alt="" className="w-8 h-8 object-contain rounded bg-muted" />
                   <div>
                     <p className="text-sm font-medium">{logo.name}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{logo.method.replace("_", " ")}</p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {(logo.placement || "left_front").replace(/_/g, " ")} · {logo.method.replace("_", " ")}
+                    </p>
                   </div>
                 </label>
               ))}
