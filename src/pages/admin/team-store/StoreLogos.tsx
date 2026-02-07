@@ -26,6 +26,7 @@ export default function StoreLogos() {
   // Decoration logo form state
   const [decoName, setDecoName] = useState("");
   const [decoMethod, setDecoMethod] = useState("screen_print");
+  const [decoPlacement, setDecoPlacement] = useState("left_front");
 
   // Primary logo upload
   const uploadPrimaryLogo = async (file: File) => {
@@ -87,6 +88,7 @@ export default function StoreLogos() {
         team_store_id: store.id,
         name: decoName.trim(),
         method: decoMethod,
+        placement: decoPlacement,
         file_url: publicUrl,
       });
       if (error) throw error;
@@ -159,21 +161,43 @@ export default function StoreLogos() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload logos used for screen printing, embroidery, or DTF. These can be assigned to individual products.
+            Upload logos used for screen printing, embroidery, or DTF. Specify placement and method, then assign to products.
           </p>
 
           {/* Add new decoration logo */}
           <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
             <p className="text-sm font-medium">Add New Logo</p>
+            <div className="space-y-1">
+              <Label className="text-xs">Logo Name</Label>
+              <Input
+                value={decoName}
+                onChange={(e) => setDecoName(e.target.value)}
+                placeholder='e.g. "Panthers Left Chest"'
+                className="text-sm"
+              />
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Logo Name</Label>
-                <Input
-                  value={decoName}
-                  onChange={(e) => setDecoName(e.target.value)}
-                  placeholder='e.g. "Front chest logo"'
-                  className="text-sm"
-                />
+                <Label className="text-xs">Placement</Label>
+                <Select value={decoPlacement} onValueChange={setDecoPlacement}>
+                  <SelectTrigger className="text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="left_front">Left Front / Left Chest</SelectItem>
+                    <SelectItem value="right_front">Right Front / Right Chest</SelectItem>
+                    <SelectItem value="center_front">Center Front</SelectItem>
+                    <SelectItem value="full_front">Full Front</SelectItem>
+                    <SelectItem value="full_back">Full Back</SelectItem>
+                    <SelectItem value="upper_back">Upper Back</SelectItem>
+                    <SelectItem value="left_sleeve">Left Sleeve</SelectItem>
+                    <SelectItem value="right_sleeve">Right Sleeve</SelectItem>
+                    <SelectItem value="hat_front">Hat Front</SelectItem>
+                    <SelectItem value="hat_side">Hat Side</SelectItem>
+                    <SelectItem value="left_leg">Left Leg</SelectItem>
+                    <SelectItem value="right_leg">Right Leg</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Decoration Method</Label>
@@ -223,7 +247,9 @@ export default function StoreLogos() {
                     </div>
                     <div>
                       <p className="text-sm font-medium">{logo.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{logo.method.replace("_", " ")}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {(logo.placement || "left_front").replace("_", " ")} · {logo.method.replace("_", " ")}
+                      </p>
                     </div>
                   </div>
                   <Button
