@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { StoreProductDetailDialog } from "@/components/team-stores/StoreProductDetailDialog";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -252,24 +251,22 @@ export default function TeamStoreDetail() {
                 {products.map((item: any) => {
                   const style = item.catalog_styles;
                   return (
-                    <Card
-                      key={item.id}
-                      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => setSelectedProduct(item)}
-                    >
-                      {style?.style_image && (
-                        <div className="aspect-square bg-muted flex items-center justify-center p-4">
-                          <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
-                        </div>
-                      )}
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
-                        <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
-                        {item.price_override != null && (
-                          <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
+                    <Link key={item.id} to={`/team-stores/${slug}/product/${item.id}`}>
+                      <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
+                        {style?.style_image && (
+                          <div className="aspect-square bg-muted flex items-center justify-center p-4">
+                            <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
+                          </div>
                         )}
-                      </CardContent>
-                    </Card>
+                        <CardContent className="p-4">
+                          <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
+                          <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
+                          {item.price_override != null && (
+                            <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
                   );
                 })}
               </div>
@@ -277,11 +274,6 @@ export default function TeamStoreDetail() {
           </div>
         </section>
       </main>
-      <StoreProductDetailDialog
-        open={!!selectedProduct}
-        onOpenChange={(open) => !open && setSelectedProduct(null)}
-        product={selectedProduct}
-      />
       <Footer />
     </div>
   );

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { StoreProductDetailDialog } from "@/components/team-stores/StoreProductDetailDialog";
 import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,7 +16,7 @@ export default function TeamStorePreview() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const token = searchParams.get("token");
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null); // kept for potential future use
 
   // Check if user is a logged-in admin
   const { data: isAdmin } = useQuery({
@@ -198,25 +197,24 @@ export default function TeamStorePreview() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((item: any) => {
                   const style = item.catalog_styles;
+                  const productUrl = `/preview/team-store/${slug}/product/${item.id}${token ? `?token=${token}` : ""}`;
                   return (
-                    <Card
-                      key={item.id}
-                      className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => setSelectedProduct(item)}
-                    >
-                      {style?.style_image && (
-                        <div className="aspect-square bg-muted flex items-center justify-center p-4">
-                          <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
-                        </div>
-                      )}
-                      <CardContent className="p-4">
-                        <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
-                        <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
-                        {item.price_override != null && (
-                          <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
+                    <Link key={item.id} to={productUrl}>
+                      <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
+                        {style?.style_image && (
+                          <div className="aspect-square bg-muted flex items-center justify-center p-4">
+                            <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
+                          </div>
                         )}
-                      </CardContent>
-                    </Card>
+                        <CardContent className="p-4">
+                          <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
+                          <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
+                          {item.price_override != null && (
+                            <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </Link>
                   );
                 })}
               </div>
@@ -224,11 +222,6 @@ export default function TeamStorePreview() {
           </div>
         </section>
       </main>
-      <StoreProductDetailDialog
-        open={!!selectedProduct}
-        onOpenChange={(open) => !open && setSelectedProduct(null)}
-        product={selectedProduct}
-      />
       <Footer />
     </div>
   );
