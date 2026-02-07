@@ -34,12 +34,11 @@ export default function TeamStoreDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_stores")
-        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin")
+        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active")
         .eq("slug", slug!)
-        .eq("active", true)
         .single();
       if (error) throw error;
-      return data as StoreData;
+      return data as StoreData & { status: string; active: boolean };
     },
     enabled: !!slug,
   });
@@ -117,6 +116,35 @@ export default function TeamStoreDetail() {
             <p className="text-muted-foreground mt-2">This team store doesn't exist or is no longer active.</p>
             <Button asChild className="mt-6 btn-cta">
               <Link to="/team-stores">Browse Team Stores</Link>
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  // Store closed
+  if (storePublic.status === "closed" || (!storePublic.active && storePublic.status !== "scheduled")) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center max-w-md">
+            {storePublic.logo_url && (
+              <img src={storePublic.logo_url} alt={storePublic.name} className="w-20 h-20 object-contain mx-auto mb-4 rounded-xl bg-muted p-2" />
+            )}
+            <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-foreground">Store Closed</h1>
+            <p className="text-muted-foreground mt-2">
+              The <span className="font-semibold">{storePublic.name}</span> store is no longer accepting orders.
+            </p>
+            {storePublic.end_date && (
+              <p className="text-sm text-muted-foreground mt-1">
+                This store closed on {new Date(storePublic.end_date).toLocaleDateString()}.
+              </p>
+            )}
+            <Button asChild className="mt-6 btn-cta">
+              <Link to="/team-stores">Browse Other Stores</Link>
             </Button>
           </div>
         </main>

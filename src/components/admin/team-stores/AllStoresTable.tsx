@@ -9,11 +9,14 @@ import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
 import { Search } from "lucide-react";
 
+type StoreStatus = "scheduled" | "open" | "closed";
+
 interface StoreRow {
   id: string;
   name: string;
   slug: string;
   active: boolean;
+  status: StoreStatus;
   start_date: string | null;
   end_date: string | null;
   description: string | null;
@@ -21,7 +24,17 @@ interface StoreRow {
   totalSales: number;
 }
 
-export function AllStoresTable() {
+interface AllStoresTableProps {
+  statusFilter: StoreStatus | "all";
+}
+
+const statusBadge: Record<StoreStatus, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
+  open: { label: "Open", variant: "default" },
+  scheduled: { label: "Scheduled", variant: "outline" },
+  closed: { label: "Closed", variant: "secondary" },
+};
+
+export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
 
@@ -30,17 +43,15 @@ export function AllStoresTable() {
     queryFn: async () => {
       const { data: storeRows, error } = await supabase
         .from("team_stores")
-        .select("id, name, slug, active, start_date, end_date, description")
+        .select("id, name, slug, active, status, start_date, end_date, description")
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch cart items for sales
       const { data: cartItems } = await supabase
         .from("cart_items")
         .select("team_store_id, unit_price, quantity")
         .not("team_store_id", "is", null);
 
-      // Fetch orders for counts
       const { data: orders } = await supabase
         .from("champro_orders")
         .select("id, request_payload");
@@ -73,31 +84,34 @@ export function AllStoresTable() {
   });
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return stores;
-    const q = search.toLowerCase();
-    return stores.filter(
-      (s) =>
-        s.name.toLowerCase().includes(q) ||
-        s.slug.toLowerCase().includes(q) ||
-        (s.description ?? "").toLowerCase().includes(q)
-    );
-  }, [stores, search]);
+    let result = stores;
 
-  function getStatus(s: StoreRow) {
-    const now = new Date();
-    const end = s.end_date ? new Date(s.end_date) : null;
-    const start = s.start_date ? new Date(s.start_date) : null;
-    if (!s.active) return { label: "Inactive", variant: "secondary" as const };
-    if (end && now > end) return { label: "Closed", variant: "destructive" as const };
-    if (start && now < start) return { label: "Scheduled", variant: "outline" as const };
-    return { label: "Live", variant: "default" as const };
-  }
+    // Status filter
+    if (statusFilter !== "all") {
+      result = result.filter((s) => s.status === statusFilter);
+    }
+
+    // Search filter
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.slug.toLowerCase().includes(q) ||
+          (s.description ?? "").toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [stores, search, statusFilter]);
 
   return (
     <Card>
       <CardHeader className="pb-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <CardTitle className="text-lg">All Stores</CardTitle>
+          <CardTitle className="text-lg">
+            {statusFilter === "all" ? "All Stores" : `${statusBadge[statusFilter].label} Stores`}
+          </CardTitle>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -130,7 +144,7 @@ export function AllStoresTable() {
               </TableHeader>
               <TableBody>
                 {filtered.map((s) => {
-                  const status = getStatus(s);
+                  const badge = statusBadge[s.status] ?? statusBadge.scheduled;
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.name}</TableCell>
@@ -141,14 +155,14 @@ export function AllStoresTable() {
                         ${s.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={status.variant}>{status.label}</Badge>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
                           size="sm"
                           onClick={() => navigate(`/admin/team-stores/${s.id}`)}
                         >
-                          Manage
+                          {s.status === "closed" ? "View Report" : "Manage"}
                         </Button>
                       </TableCell>
                     </TableRow>

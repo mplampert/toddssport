@@ -17,9 +17,9 @@ export function TeamStoreKpis() {
       // Active / total stores
       const { data: stores } = await supabase
         .from("team_stores")
-        .select("active");
+        .select("status");
       const totalStores = stores?.length ?? 0;
-      const activeStores = stores?.filter((s) => s.active).length ?? 0;
+      const activeStores = stores?.filter((s) => s.status === "open").length ?? 0;
 
       // Sales from cart_items linked to team stores
       const { data: cartItems } = await supabase
