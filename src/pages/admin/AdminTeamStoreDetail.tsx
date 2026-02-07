@@ -10,25 +10,17 @@ import {
   LayoutDashboard,
   Package,
   Image,
-  Palette,
+  Heart,
   ShoppingCart,
-  BarChart3,
-  Truck,
-  Megaphone,
-  Settings,
   Store,
 } from "lucide-react";
 
 const storeNavItems = [
-  { path: "dashboard", label: "Overview", icon: LayoutDashboard },
+  { path: "", label: "Overview", icon: LayoutDashboard },
   { path: "products", label: "Products", icon: Package },
   { path: "logos", label: "Logos", icon: Image },
-  { path: "branding", label: "Branding", icon: Palette },
+  { path: "fundraising", label: "Fundraising", icon: Heart },
   { path: "orders", label: "Orders", icon: ShoppingCart },
-  { path: "reports", label: "Reports", icon: BarChart3 },
-  { path: "fulfillment", label: "Fulfillment", icon: Truck },
-  { path: "marketing", label: "Marketing", icon: Megaphone },
-  { path: "settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminTeamStoreDetail() {
@@ -75,73 +67,73 @@ export default function AdminTeamStoreDetail() {
   const basePath = `/admin/team-stores/${id}`;
   const currentSub = subPath ?? "";
 
-  const sidebar = (
-    <nav className="space-y-1">
-      {/* Store header */}
-      <div className="pb-3 mb-2 border-b border-border">
-        <Link
-          to="/admin/team-stores"
-          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mb-2"
-        >
-          <ChevronLeft className="w-3 h-3" /> All Stores
-        </Link>
-        <div className="flex items-center gap-2">
-          {store.logo_url ? (
-            <img src={store.logo_url} alt="" className="w-8 h-8 object-contain rounded bg-muted p-0.5" />
-          ) : (
-            <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
-              <Store className="w-4 h-4 text-muted-foreground" />
-            </div>
-          )}
-          <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{store.name}</p>
-            <Badge variant={store.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-              {store.active ? "Active" : "Inactive"}
-            </Badge>
-          </div>
-        </div>
-      </div>
-
-      {/* Nav items */}
-      {storeNavItems.map((item) => {
-        const isActive =
-          item.path === "dashboard"
-            ? currentSub === "" || currentSub === "dashboard"
-            : currentSub === item.path;
-        return (
-          <Link
-            key={item.path}
-            to={`${basePath}/${item.path}`}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-accent text-accent-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            <item.icon className="w-4 h-4" />
-            {item.label}
-          </Link>
-        );
-      })}
-
-      {/* View store link */}
-      <div className="pt-3 mt-3 border-t border-border">
-        <a
-          href={`/team-stores/${store.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-        >
-          <ExternalLink className="w-4 h-4" />
-          View Store
-        </a>
-      </div>
-    </nav>
-  );
-
   return (
-    <AdminLayout sidebarContent={sidebar}>
-      <Outlet context={{ store }} />
+    <AdminLayout>
+      <div className="space-y-6">
+        {/* Store header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Link
+              to="/admin/team-stores"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Link>
+            {store.logo_url ? (
+              <img src={store.logo_url} alt="" className="w-8 h-8 object-contain rounded bg-muted p-0.5" />
+            ) : (
+              <div className="w-8 h-8 rounded bg-muted flex items-center justify-center">
+                <Store className="w-4 h-4 text-muted-foreground" />
+              </div>
+            )}
+            <div>
+              <h1 className="text-xl font-bold text-foreground">{store.name}</h1>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge variant={store.active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                  {store.active ? "Active" : "Inactive"}
+                </Badge>
+                <span className="text-xs text-muted-foreground font-mono">/{store.slug}</span>
+              </div>
+            </div>
+          </div>
+          <a
+            href={`/team-stores/${store.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ExternalLink className="w-4 h-4" />
+            View Store
+          </a>
+        </div>
+
+        {/* Inner tab navigation */}
+        <nav className="flex border-b border-border gap-1 overflow-x-auto">
+          {storeNavItems.map((item) => {
+            const isActive = item.path === ""
+              ? currentSub === "" || currentSub === "dashboard"
+              : currentSub === item.path;
+            const href = item.path === "" ? basePath : `${basePath}/${item.path}`;
+            return (
+              <Link
+                key={item.path}
+                to={href}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                  isActive
+                    ? "border-accent text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+                }`}
+              >
+                <item.icon className="w-4 h-4" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Tab content */}
+        <Outlet context={{ store }} />
+      </div>
     </AdminLayout>
   );
 }

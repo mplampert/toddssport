@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Trash2, Store, ShoppingCart, DollarSign, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 
 export default function AdminTeamStores() {
@@ -30,6 +30,12 @@ export default function AdminTeamStores() {
       return data;
     },
   });
+
+  const activeCount = stores.filter((s: any) => s.active).length;
+  const totalFundraisingGoal = stores.reduce(
+    (sum: number, s: any) => sum + (s.fundraising_goal_amount ?? 0),
+    0
+  );
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -72,42 +78,87 @@ export default function AdminTeamStores() {
             <h1 className="text-3xl font-bold text-foreground">Team Stores</h1>
             <p className="text-muted-foreground mt-1">Create and manage team stores.</p>
           </div>
-          <Button className="btn-cta" onClick={() => navigate("/admin/team-stores/new")}>
-            <Plus className="w-4 h-4 mr-2" /> New Team Store
-          </Button>
-          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Plus className="w-4 h-4 mr-2" /> Quick Create
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-sm">
-              <DialogHeader>
-                <DialogTitle>Create Team Store</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (!newName.trim()) return;
-                  createMutation.mutate(newName.trim());
-                }}
-                className="space-y-4"
-              >
-                <div className="space-y-2">
-                  <Label>Store Name</Label>
-                  <Input
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    placeholder="Lincoln High Baseball"
-                    autoFocus
-                  />
-                </div>
-                <Button type="submit" className="w-full btn-cta" disabled={createMutation.isPending || !newName.trim()}>
-                  {createMutation.isPending ? "Creating…" : "Create & Open"}
+          <div className="flex items-center gap-2">
+            <Button className="btn-cta" onClick={() => navigate("/admin/team-stores/new")}>
+              <Plus className="w-4 h-4 mr-2" /> New Team Store
+            </Button>
+            <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Plus className="w-4 h-4 mr-2" /> Quick Create
                 </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Create Team Store</DialogTitle>
+                </DialogHeader>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newName.trim()) return;
+                    createMutation.mutate(newName.trim());
+                  }}
+                  className="space-y-4"
+                >
+                  <div className="space-y-2">
+                    <Label>Store Name</Label>
+                    <Input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="Lincoln High Baseball"
+                      autoFocus
+                    />
+                  </div>
+                  <Button type="submit" className="w-full btn-cta" disabled={createMutation.isPending || !newName.trim()}>
+                    {createMutation.isPending ? "Creating…" : "Create & Open"}
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* KPI Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <Store className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{activeCount}</p>
+                  <p className="text-xs text-muted-foreground">Active Stores</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <DollarSign className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">${totalFundraisingGoal.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">Total Fundraising Goals</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-5 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <TrendingUp className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stores.length}</p>
+                  <p className="text-xs text-muted-foreground">Total Stores</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Card>
@@ -126,6 +177,7 @@ export default function AdminTeamStores() {
                     <TableHead>Name</TableHead>
                     <TableHead>Slug</TableHead>
                     <TableHead>Active</TableHead>
+                    <TableHead>Fundraising Goal</TableHead>
                     <TableHead>Start / End</TableHead>
                     <TableHead>Last Updated</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -133,11 +185,7 @@ export default function AdminTeamStores() {
                 </TableHeader>
                 <TableBody>
                   {stores.map((s: any) => (
-                    <TableRow
-                      key={s.id}
-                      className="cursor-pointer"
-                      onClick={() => navigate(`/admin/team-stores/${s.id}`)}
-                    >
+                    <TableRow key={s.id}>
                       <TableCell className="font-medium">{s.name}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{s.slug}</TableCell>
                       <TableCell>
@@ -146,15 +194,22 @@ export default function AdminTeamStores() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">
+                        {s.fundraising_goal_amount ? `$${s.fundraising_goal_amount.toLocaleString()}` : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm">
                         {s.start_date || "—"} / {s.end_date || "—"}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {new Date(s.updated_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" onClick={() => navigate(`/admin/team-stores/${s.id}`)}>
-                            <Pencil className="w-4 h-4" />
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={() => navigate(`/admin/team-stores/${s.id}`)}
+                          >
+                            Manage
                           </Button>
                           <Button
                             variant="ghost"

@@ -115,12 +115,8 @@ const App = () => (
             <Route path="dashboard" element={<StoreDashboard />} />
             <Route path="products" element={<StoreProducts />} />
             <Route path="logos" element={<StoreLogos />} />
-            <Route path="branding" element={<StoreBranding />} />
+            <Route path="fundraising" element={<StoreReports />} />
             <Route path="orders" element={<StoreOrders />} />
-            <Route path="reports" element={<StoreReports />} />
-            <Route path="fulfillment" element={<StoreFulfillment />} />
-            <Route path="marketing" element={<StoreMarketing />} />
-            <Route path="settings" element={<StoreSettings />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
