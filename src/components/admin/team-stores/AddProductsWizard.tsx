@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { WizardColorStep, type ColorSelection } from "./WizardColorStep";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getStyles, getProducts, type SSStyle, type SSProduct } from "@/lib/ss-activewear";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,7 +53,9 @@ interface SelectedProduct {
   priceOverride: string;
   fundraisingEnabled: boolean;
   fundraisingAmount: string;
-  // Step 3 fields
+  // Step 3 – Colors
+  allowedColors: { code: string; name: string }[];
+  // Step 4 fields
   personalizationEnabled: boolean;
   personalizationPrice: string;
 }
@@ -107,7 +110,7 @@ const PRODUCT_TYPES = [
   { label: "Bags", value: "Bags" },
 ];
 
-const STEPS = ["Select Products", "Pricing & Fundraising", "Logos & Personalization"] as const;
+const STEPS = ["Select Products", "Pricing & Fundraising", "Colors", "Logos & Personalization"] as const;
 
 /* ──────────────────── component ──────────────────── */
 
@@ -222,6 +225,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
           priceOverride: "",
           fundraisingEnabled: true,
           fundraisingAmount: "",
+          allowedColors: [],
           personalizationEnabled: false,
           personalizationPrice: "",
         });
@@ -380,6 +384,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
         fundraising_amount_per_unit: p.fundraisingAmount ? parseFloat(p.fundraisingAmount) : null,
         personalization_enabled: p.personalizationEnabled,
         personalization_price: p.personalizationPrice ? parseFloat(p.personalizationPrice) : null,
+        allowed_colors: p.allowedColors.length > 0 ? p.allowedColors : null,
       }));
 
       const { data: insertedProducts, error: insertErr } = await supabase
@@ -448,7 +453,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col p-0">
         {/* Header with step indicator */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <DialogTitle className="text-lg">Add Products — Step {step + 1} of 3</DialogTitle>
+          <DialogTitle className="text-lg">Add Products — Step {step + 1} of 4</DialogTitle>
           <div className="flex items-center gap-2 mt-2">
             {STEPS.map((label, i) => (
               <div key={i} className="flex items-center gap-1.5">
@@ -507,7 +512,21 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
             fetchCosts={fetchCostsForSelected}
           />}
 
-          {step === 2 && <Step3Logos
+          {step === 2 && <WizardColorStep
+            products={selectedArr.map(p => ({
+              ssStyleID: p.ssStyleID,
+              styleName: p.styleName,
+              brandName: p.brandName,
+              styleImage: p.styleImage,
+              allowedColors: p.allowedColors,
+            }))}
+            storeId={storeId}
+            onUpdateColors={(ssStyleID: number, colors: ColorSelection[]) => {
+              updateProduct(ssStyleID, { allowedColors: colors });
+            }}
+          />}
+
+          {step === 3 && <Step3Logos
             products={selectedArr}
             updateProduct={updateProduct}
             storeLogos={storeLogos}
@@ -530,7 +549,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
                 <ChevronLeft className="w-4 h-4 mr-1" /> Back
               </Button>
             )}
-            {step < 2 ? (
+            {step < 3 ? (
               <Button
                 size="sm"
                 className="btn-cta"
