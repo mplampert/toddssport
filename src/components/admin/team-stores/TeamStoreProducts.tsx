@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ProductRowCard } from "./ProductRowCard";
+import { StoreCategoryManager, useEffectiveCategories } from "./StoreCategoryManager";
 
 interface Props {
   storeId: string;
@@ -20,26 +21,15 @@ export function TeamStoreProducts({ storeId }: Props) {
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  // Fetch categories for filtering
-  const { data: categories = [] } = useQuery({
-    queryKey: ["team-store-categories"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("team_store_categories")
-        .select("id, name, slug")
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Fetch effective categories (global + overrides merged)
+  const { visible: visibleCategories } = useEffectiveCategories(storeId);
 
   const { data: attached = [], isLoading } = useQuery({
     queryKey: ["team-store-products", storeId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, style_id, sort_order, notes, price_override, active, fundraising_enabled, fundraising_amount_per_unit, personalization_enabled, personalization_price, personalization_config, screen_print_enabled, embroidery_enabled, dtf_enabled, category_id, catalog_styles(style_name, brand_name, style_id, style_image), team_store_categories(id, name)")
+        .select("id, style_id, sort_order, notes, price_override, active, fundraising_enabled, fundraising_amount_per_unit, personalization_enabled, personalization_price, personalization_config, screen_print_enabled, embroidery_enabled, dtf_enabled, category_id, store_category_override_id, catalog_styles(style_name, brand_name, style_id, style_image), team_store_categories(id, name)")
         .eq("team_store_id", storeId)
         .order("sort_order");
       if (error) throw error;
@@ -92,72 +82,84 @@ export function TeamStoreProducts({ storeId }: Props) {
 
   const attachedStyleIds = new Set(attached.map((a: any) => a.style_id));
 
-  // Filter by category
+  // Filter by category (match on category_id or store_category_override_id)
   const filtered = categoryFilter
-    ? attached.filter((a: any) => a.category_id === categoryFilter)
+    ? attached.filter((a: any) => a.category_id === categoryFilter || a.store_category_override_id === categoryFilter)
     : attached;
 
   // Count per category
-  const uncategorizedCount = attached.filter((a: any) => !a.category_id).length;
+  const uncategorizedCount = attached.filter((a: any) => !a.category_id && !a.store_category_override_id).length;
+
+  // Convert effective categories to the format ProductRowCard expects
+  const categoryOptions = visibleCategories.map((c) => ({
+    id: c.globalCategoryId ?? c.id,
+    name: c.name,
+    slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    overrideId: c.overrideId,
+    isCustom: c.isCustom,
+  }));
 
   return (
     <Card>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <CardTitle>Products in This Store ({attached.length})</CardTitle>
-        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="btn-cta">
-              <Plus className="w-4 h-4 mr-1" /> Add Products
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Search Catalog Styles</DialogTitle>
-            </DialogHeader>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by style name, brand, or style ID…"
-                className="pl-9"
-              />
-            </div>
-            {search.length >= 2 && (
-              <div className="border rounded-md max-h-64 overflow-y-auto">
-                {searching ? (
-                  <p className="p-3 text-sm text-muted-foreground">Searching…</p>
-                ) : searchResults.length === 0 ? (
-                  <p className="p-3 text-sm text-muted-foreground">No results</p>
-                ) : (
-                  searchResults.map((style: any) => (
-                    <div key={style.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 border-b last:border-0">
-                      <div className="flex items-center gap-3">
-                        {style.style_image && <img src={style.style_image} alt="" className="w-8 h-8 object-contain rounded" />}
-                        <div>
-                          <p className="text-sm font-medium">{style.style_name}</p>
-                          <p className="text-xs text-muted-foreground">{style.brand_name} · #{style.style_id}</p>
-                        </div>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={attachedStyleIds.has(style.id) || attachMutation.isPending}
-                        onClick={() => attachMutation.mutate(style.id)}
-                      >
-                        {attachedStyleIds.has(style.id) ? "Added" : <><Plus className="w-3 h-3 mr-1" /> Add</>}
-                      </Button>
-                    </div>
-                  ))
-                )}
+        <div className="flex items-center gap-2">
+          <StoreCategoryManager storeId={storeId} />
+          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="btn-cta">
+                <Plus className="w-4 h-4 mr-1" /> Add Products
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[70vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Search Catalog Styles</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by style name, brand, or style ID…"
+                  className="pl-9"
+                />
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+              {search.length >= 2 && (
+                <div className="border rounded-md max-h-64 overflow-y-auto">
+                  {searching ? (
+                    <p className="p-3 text-sm text-muted-foreground">Searching…</p>
+                  ) : searchResults.length === 0 ? (
+                    <p className="p-3 text-sm text-muted-foreground">No results</p>
+                  ) : (
+                    searchResults.map((style: any) => (
+                      <div key={style.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 border-b last:border-0">
+                        <div className="flex items-center gap-3">
+                          {style.style_image && <img src={style.style_image} alt="" className="w-8 h-8 object-contain rounded" />}
+                          <div>
+                            <p className="text-sm font-medium">{style.style_name}</p>
+                            <p className="text-xs text-muted-foreground">{style.brand_name} · #{style.style_id}</p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={attachedStyleIds.has(style.id) || attachMutation.isPending}
+                          onClick={() => attachMutation.mutate(style.id)}
+                        >
+                          {attachedStyleIds.has(style.id) ? "Added" : <><Plus className="w-3 h-3 mr-1" /> Add</>}
+                        </Button>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Category filter chips */}
-        {categories.length > 0 && attached.length > 0 && (
+        {visibleCategories.length > 0 && attached.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             <button
               onClick={() => setCategoryFilter(null)}
@@ -169,14 +171,15 @@ export function TeamStoreProducts({ storeId }: Props) {
             >
               All ({attached.length})
             </button>
-            {categories.map((cat: any) => {
-              const count = attached.filter((a: any) => a.category_id === cat.id).length;
+            {visibleCategories.map((cat) => {
+              const catId = cat.globalCategoryId ?? cat.id;
+              const count = attached.filter((a: any) => a.category_id === catId || a.store_category_override_id === cat.overrideId).length;
               return (
                 <button
                   key={cat.id}
-                  onClick={() => setCategoryFilter(cat.id)}
+                  onClick={() => setCategoryFilter(catId)}
                   className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
-                    categoryFilter === cat.id
+                    categoryFilter === catId
                       ? "bg-accent text-accent-foreground"
                       : "bg-muted text-muted-foreground hover:text-foreground"
                   }`}
@@ -207,7 +210,7 @@ export function TeamStoreProducts({ storeId }: Props) {
         ) : (
           <div className="space-y-3">
             {(categoryFilter === "uncategorized"
-              ? attached.filter((a: any) => !a.category_id)
+              ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
               : filtered
             ).map((item: any) => (
               <ProductRowCard
@@ -215,7 +218,7 @@ export function TeamStoreProducts({ storeId }: Props) {
                 item={item}
                 storeId={storeId}
                 onRemove={() => detachMutation.mutate(item.id)}
-                categories={categories}
+                categories={categoryOptions}
               />
             ))}
           </div>

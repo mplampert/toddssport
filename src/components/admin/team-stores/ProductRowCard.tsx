@@ -22,7 +22,7 @@ interface ProductRowCardProps {
   item: any;
   storeId: string;
   onRemove: () => void;
-  categories?: { id: string; name: string; slug: string }[];
+  categories?: { id: string; name: string; slug: string; overrideId?: string | null; isCustom?: boolean }[];
 }
 
 export function ProductRowCard({ item, storeId, onRemove, categories = [] }: ProductRowCardProps) {
@@ -32,7 +32,7 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
 
   const [notes, setNotes] = useState(item.notes ?? "");
   const [priceOverride, setPriceOverride] = useState(item.price_override != null ? String(item.price_override) : "");
-  const [categoryId, setCategoryId] = useState<string | null>(item.category_id ?? null);
+  const [categoryId, setCategoryId] = useState<string | null>(item.category_id ?? item.store_category_override_id ?? null);
   const [fundraisingEnabled, setFundraisingEnabled] = useState(item.fundraising_enabled ?? true);
   const [fundraisingAmount, setFundraisingAmount] = useState(item.fundraising_amount_per_unit != null ? String(item.fundraising_amount_per_unit) : "");
   const [personalizationEnabled, setPersonalizationEnabled] = useState(item.personalization_enabled ?? false);
@@ -57,12 +57,17 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      // Determine if the selected category is a custom override or a global category
+      const selectedCat = categories.find((c) => c.id === categoryId);
+      const isCustom = selectedCat?.isCustom ?? false;
+
       const { error } = await supabase
         .from("team_store_products")
         .update({
           notes: notes.trim() || null,
           price_override: priceOverride.trim() ? parseFloat(priceOverride) : null,
-          category_id: categoryId || null,
+          category_id: isCustom ? null : (categoryId || null),
+          store_category_override_id: isCustom ? (selectedCat?.overrideId ?? categoryId) : null,
           fundraising_enabled: fundraisingEnabled,
           fundraising_amount_per_unit: fundraisingAmount.trim() ? parseFloat(fundraisingAmount) : null,
           personalization_enabled: personalizationEnabled,
@@ -85,7 +90,7 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
 
   const markDirty = () => setDirty(true);
 
-  const categoryName = item.team_store_categories?.name;
+  const categoryName = categories.find((c) => c.id === categoryId)?.name ?? item.team_store_categories?.name;
 
   return (
     <div className="border rounded-lg p-3 space-y-2">
