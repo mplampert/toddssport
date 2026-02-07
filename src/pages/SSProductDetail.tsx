@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { trackProductView } from "@/lib/ga4";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,16 @@ export default function SSProductDetail() {
     };
     load();
   }, [styleId]);
+
+  // Track product view once data loads
+  useEffect(() => {
+    if (styleInfo && products.length > 0) {
+      trackProductView(
+        styleInfo.title || styleInfo.styleName || `Style ${styleId}`,
+        products[0].brandName
+      );
+    }
+  }, [styleInfo, products]);
 
   const heroProduct = products[0];
 

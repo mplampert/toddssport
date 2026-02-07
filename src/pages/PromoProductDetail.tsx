@@ -1,6 +1,7 @@
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useEffect } from "react";
+import { trackProductView } from "@/lib/ga4";
 import { promoAPI } from "@/lib/promo-api";
 import type { ToddProductFull } from "@/lib/promo-api";
 import { ProductDetailCard } from "@/components/promo/ProductDetailCard";
@@ -51,6 +52,13 @@ export default function PromoProductDetail() {
         }, [] as ToddProductFull['colors']),
     };
   }, [product, mediaItems]);
+
+  // Track product view once data loads
+  useEffect(() => {
+    if (enrichedProduct) {
+      trackProductView(enrichedProduct.name, enrichedProduct.brand ?? "");
+    }
+  }, [enrichedProduct]);
 
   return (
     <div className="min-h-screen flex flex-col">
