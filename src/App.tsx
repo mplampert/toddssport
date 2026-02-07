@@ -13,6 +13,7 @@ import UniformDetail from "./pages/UniformDetail";
 import TeamStores from "./pages/TeamStores";
 import TeamStoresListing from "./pages/TeamStoresListing";
 import TeamStoreDetail from "./pages/TeamStoreDetail";
+import TeamStoreProductDetail from "./pages/TeamStoreProductDetail";
 import Fanwear from "./pages/Fanwear";
 import Corporate from "./pages/Corporate";
 import PromotionalProducts from "./pages/PromotionalProducts";
@@ -84,6 +85,7 @@ const App = () => (
           <Route path="/team-stores" element={<TeamStores />} />
           <Route path="/team-stores/browse" element={<TeamStoresListing />} />
           <Route path="/team-stores/:slug" element={<TeamStoreDetail />} />
+          <Route path="/team-stores/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />
           <Route path="/promotional-products" element={<PromotionalProducts />} />
@@ -103,6 +105,7 @@ const App = () => (
           <Route path="/ss-products/brand/:brandName/:category" element={<SSBrandCategoryProducts />} />
           <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
           <Route path="/preview/team-store/:slug" element={<TeamStorePreview />} />
+          <Route path="/preview/team-store/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
