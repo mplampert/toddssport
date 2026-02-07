@@ -1155,6 +1155,59 @@ export type Database = {
         }
         Relationships: []
       }
+      store_logo_variants: {
+        Row: {
+          background_rule: string
+          colorway: string
+          created_at: string
+          dtf_enabled: boolean
+          embroidery_enabled: boolean
+          file_url: string
+          id: string
+          is_default: boolean
+          name: string
+          screen_print_enabled: boolean
+          store_logo_id: string
+          updated_at: string
+        }
+        Insert: {
+          background_rule?: string
+          colorway?: string
+          created_at?: string
+          dtf_enabled?: boolean
+          embroidery_enabled?: boolean
+          file_url: string
+          id?: string
+          is_default?: boolean
+          name: string
+          screen_print_enabled?: boolean
+          store_logo_id: string
+          updated_at?: string
+        }
+        Update: {
+          background_rule?: string
+          colorway?: string
+          created_at?: string
+          dtf_enabled?: boolean
+          embroidery_enabled?: boolean
+          file_url?: string
+          id?: string
+          is_default?: boolean
+          name?: string
+          screen_print_enabled?: boolean
+          store_logo_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_logo_variants_store_logo_id_fkey"
+            columns: ["store_logo_id"]
+            isOneToOne: false
+            referencedRelation: "store_logos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_logos: {
         Row: {
           created_at: string
@@ -1300,6 +1353,7 @@ export type Database = {
           id: string
           position: string | null
           store_logo_id: string
+          store_logo_variant_id: string | null
           team_store_item_id: string
         }
         Insert: {
@@ -1307,6 +1361,7 @@ export type Database = {
           id?: string
           position?: string | null
           store_logo_id: string
+          store_logo_variant_id?: string | null
           team_store_item_id: string
         }
         Update: {
@@ -1314,6 +1369,7 @@ export type Database = {
           id?: string
           position?: string | null
           store_logo_id?: string
+          store_logo_variant_id?: string | null
           team_store_item_id?: string
         }
         Relationships: [
@@ -1322,6 +1378,13 @@ export type Database = {
             columns: ["store_logo_id"]
             isOneToOne: false
             referencedRelation: "store_logos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_item_logos_store_logo_variant_id_fkey"
+            columns: ["store_logo_variant_id"]
+            isOneToOne: false
+            referencedRelation: "store_logo_variants"
             referencedColumns: ["id"]
           },
           {
