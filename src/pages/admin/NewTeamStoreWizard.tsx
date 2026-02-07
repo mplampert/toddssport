@@ -26,13 +26,23 @@ import {
   Plus,
   Trash2,
   Rocket,
+  Upload,
+  Image as ImageIcon,
+  Store,
 } from "lucide-react";
 import { toast } from "sonner";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+function getPublicUrl(path: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/store-logos/${path}`;
+}
 
 const STEPS = [
   "Store Basics",
   "Branding",
   "Products",
+  "Logos",
   "Pricing",
   "Review & Launch",
 ] as const;
@@ -44,6 +54,14 @@ interface SelectedProduct {
   styleImage: string | null;
   priceOverride: string;
   notes: string;
+}
+
+interface WizardLogo {
+  id: string; // local temp id
+  name: string;
+  method: string;
+  file: File;
+  previewUrl: string;
 }
 
 export default function NewTeamStoreWizard() {
@@ -63,7 +81,8 @@ export default function NewTeamStoreWizard() {
   const [secondaryColor, setSecondaryColor] = useState("#ffffff");
   const [heroTitle, setHeroTitle] = useState("");
   const [heroSubtitle, setHeroSubtitle] = useState("");
-  const [logoUrl, setLogoUrl] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
 
   // Step 3: Products
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
@@ -77,7 +96,10 @@ export default function NewTeamStoreWizard() {
     debounceRef.current = setTimeout(() => setDebouncedSearch(val), 400);
   }, []);
 
-  // Step 4: Pricing
+  // Step 4: Logos
+  const [wizardLogos, setWizardLogos] = useState<WizardLogo[]>([]);
+
+  // Step 5: Pricing
   const [fundraisingPercent, setFundraisingPercent] = useState("20");
 
   // Search S&S Activewear styles
@@ -146,6 +168,20 @@ export default function NewTeamStoreWizard() {
     setCreating(true);
     try {
       const slug = generateSlug(storeName);
+
+      // Upload primary logo if selected
+      let logoUrl: string | null = null;
+      if (logoFile) {
+        const ext = logoFile.name.split(".").pop();
+        const tmpId = crypto.randomUUID();
+        const path = `${tmpId}/primary.${ext}`;
+        const { error: uploadErr } = await supabase.storage
+          .from("store-logos")
+          .upload(path, logoFile, { upsert: true });
+        if (uploadErr) throw uploadErr;
+        logoUrl = getPublicUrl(path);
+      }
+
       const { data: storeData, error: storeError } = await supabase
         .from("team_stores")
         .insert({
@@ -159,7 +195,7 @@ export default function NewTeamStoreWizard() {
           secondary_color: secondaryColor,
           hero_title: heroTitle.trim() || null,
           hero_subtitle: heroSubtitle.trim() || null,
-          logo_url: logoUrl.trim() || null,
+          logo_url: logoUrl,
           fundraising_percent: parseFloat(fundraisingPercent) || 20,
           fundraising_goal: 0,
           active: false,
@@ -169,9 +205,40 @@ export default function NewTeamStoreWizard() {
 
       if (storeError) throw storeError;
 
+      // If we used a temp ID for the logo path, re-upload with real store ID
+      if (logoFile) {
+        const ext = logoFile.name.split(".").pop();
+        const realPath = `${storeData.id}/primary.${ext}`;
+        await supabase.storage
+          .from("store-logos")
+          .upload(realPath, logoFile, { upsert: true });
+        const realUrl = getPublicUrl(realPath);
+        await supabase
+          .from("team_stores")
+          .update({ logo_url: realUrl })
+          .eq("id", storeData.id);
+      }
+
+      // Upload decoration logos
+      for (const logo of wizardLogos) {
+        const ext = logo.file.name.split(".").pop();
+        const path = `${storeData.id}/deco-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("store-logos")
+          .upload(path, logo.file, { upsert: true });
+        if (upErr) throw upErr;
+
+        const { error: insertErr } = await supabase.from("store_logos").insert({
+          team_store_id: storeData.id,
+          name: logo.name,
+          method: logo.method,
+          file_url: getPublicUrl(path),
+        });
+        if (insertErr) throw insertErr;
+      }
+
       // Upsert selected S&S styles into catalog_styles, then create team_store_products
       if (selectedProducts.length > 0) {
-        // Upsert each style into catalog_styles
         const styleRows = selectedProducts.map((p) => ({
           style_id: p.styleId,
           style_name: p.styleName,
@@ -187,7 +254,6 @@ export default function NewTeamStoreWizard() {
 
         if (upsertError) throw upsertError;
 
-        // Map S&S styleID → catalog_styles.id
         const styleIdMap = new Map<number, number>();
         (upserted || []).forEach((row: any) => styleIdMap.set(row.style_id, row.id));
 
@@ -274,7 +340,7 @@ export default function NewTeamStoreWizard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {step === 0 && <StepBasics {...{ storeName, setStoreName, storeType, setStoreType, description, setDescription, openDate, setOpenDate, closeDate, setCloseDate }} />}
-            {step === 1 && <StepBranding {...{ primaryColor, setPrimaryColor, secondaryColor, setSecondaryColor, heroTitle, setHeroTitle, heroSubtitle, setHeroSubtitle, logoUrl, setLogoUrl }} />}
+            {step === 1 && <StepBranding {...{ primaryColor, setPrimaryColor, secondaryColor, setSecondaryColor, heroTitle, setHeroTitle, heroSubtitle, setHeroSubtitle, logoFile, setLogoFile, logoPreview, setLogoPreview }} />}
             {step === 2 && (
               <StepProducts
                 search={productSearch}
@@ -288,8 +354,9 @@ export default function NewTeamStoreWizard() {
                 updateProduct={updateProduct}
               />
             )}
-            {step === 3 && <StepPricing fundraisingPercent={fundraisingPercent} setFundraisingPercent={setFundraisingPercent} selectedProducts={selectedProducts} updateProduct={updateProduct} />}
-            {step === 4 && (
+            {step === 3 && <StepLogos wizardLogos={wizardLogos} setWizardLogos={setWizardLogos} />}
+            {step === 4 && <StepPricing fundraisingPercent={fundraisingPercent} setFundraisingPercent={setFundraisingPercent} selectedProducts={selectedProducts} updateProduct={updateProduct} />}
+            {step === 5 && (
               <StepReview
                 storeName={storeName}
                 storeType={storeType}
@@ -300,9 +367,10 @@ export default function NewTeamStoreWizard() {
                 secondaryColor={secondaryColor}
                 heroTitle={heroTitle}
                 heroSubtitle={heroSubtitle}
-                logoUrl={logoUrl}
+                logoPreview={logoPreview}
                 fundraisingPercent={fundraisingPercent}
                 selectedProducts={selectedProducts}
+                wizardLogos={wizardLogos}
               />
             )}
           </CardContent>
@@ -406,14 +474,23 @@ function StepBasics({
 }
 
 function StepBranding({
-  primaryColor, setPrimaryColor, secondaryColor, setSecondaryColor, heroTitle, setHeroTitle, heroSubtitle, setHeroSubtitle, logoUrl, setLogoUrl,
+  primaryColor, setPrimaryColor, secondaryColor, setSecondaryColor, heroTitle, setHeroTitle, heroSubtitle, setHeroSubtitle, logoFile, setLogoFile, logoPreview, setLogoPreview,
 }: {
   primaryColor: string; setPrimaryColor: (v: string) => void;
   secondaryColor: string; setSecondaryColor: (v: string) => void;
   heroTitle: string; setHeroTitle: (v: string) => void;
   heroSubtitle: string; setHeroSubtitle: (v: string) => void;
-  logoUrl: string; setLogoUrl: (v: string) => void;
+  logoFile: File | null; setLogoFile: (f: File | null) => void;
+  logoPreview: string; setLogoPreview: (v: string) => void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    setLogoFile(file);
+    const url = URL.createObjectURL(file);
+    setLogoPreview(url);
+  };
+
   return (
     <>
       <div className="grid grid-cols-2 gap-4">
@@ -451,15 +528,34 @@ function StepBranding({
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Logo URL</Label>
-        <Input
-          value={logoUrl}
-          onChange={(e) => setLogoUrl(e.target.value)}
-          placeholder="https://… or leave blank"
-        />
-        {logoUrl && (
-          <img src={logoUrl} alt="Logo preview" className="h-16 w-auto object-contain mt-2 rounded bg-muted p-2" />
-        )}
+        <Label>Store Logo</Label>
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center border shrink-0">
+            {logoPreview ? (
+              <img src={logoPreview} alt="Logo preview" className="max-w-full max-h-full object-contain p-1" />
+            ) : (
+              <Store className="w-8 h-8 text-muted-foreground" />
+            )}
+          </div>
+          <div className="space-y-2">
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFile(file);
+                e.target.value = "";
+              }}
+            />
+            <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+              <Upload className="w-4 h-4 mr-1.5" />
+              {logoPreview ? "Replace Logo" : "Upload Logo"}
+            </Button>
+            {logoFile && <p className="text-xs text-muted-foreground">{logoFile.name}</p>}
+          </div>
+        </div>
       </div>
       <div className="space-y-2">
         <Label>Hero Title</Label>
@@ -546,6 +642,117 @@ function StepProducts({
   );
 }
 
+function StepLogos({
+  wizardLogos,
+  setWizardLogos,
+}: {
+  wizardLogos: WizardLogo[];
+  setWizardLogos: React.Dispatch<React.SetStateAction<WizardLogo[]>>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [logoName, setLogoName] = useState("");
+  const [logoMethod, setLogoMethod] = useState("screen_print");
+
+  const handleAddLogo = (file: File) => {
+    if (!logoName.trim()) {
+      toast.error("Enter a logo name first");
+      return;
+    }
+    const newLogo: WizardLogo = {
+      id: crypto.randomUUID(),
+      name: logoName.trim(),
+      method: logoMethod,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    };
+    setWizardLogos((prev) => [...prev, newLogo]);
+    setLogoName("");
+  };
+
+  const removeLogo = (id: string) => {
+    setWizardLogos((prev) => prev.filter((l) => l.id !== id));
+  };
+
+  return (
+    <>
+      <p className="text-sm text-muted-foreground">
+        Upload decoration logos (screen print, embroidery, DTF) that will be used on the products in this store. You can assign them to specific products after the store is created.
+      </p>
+
+      <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+        <p className="text-sm font-medium">Add a Logo</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Logo Name</Label>
+            <Input
+              value={logoName}
+              onChange={(e) => setLogoName(e.target.value)}
+              placeholder='e.g. "Front chest logo"'
+              className="text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Decoration Method</Label>
+            <Select value={logoMethod} onValueChange={setLogoMethod}>
+              <SelectTrigger className="text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="screen_print">Screen Print</SelectItem>
+                <SelectItem value="embroidery">Embroidery</SelectItem>
+                <SelectItem value="dtf">DTF</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) handleAddLogo(file);
+            e.target.value = "";
+          }}
+        />
+        <Button
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={!logoName.trim()}
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Upload & Add Logo
+        </Button>
+      </div>
+
+      {wizardLogos.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-4">No logos added yet. You can also add logos later from the store's Logos tab.</p>
+      ) : (
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold">Added Logos ({wizardLogos.length})</Label>
+          {wizardLogos.map((logo) => (
+            <div key={logo.id} className="flex items-center justify-between border rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded bg-muted flex items-center justify-center border shrink-0">
+                  <img src={logo.previewUrl} alt="" className="max-w-full max-h-full object-contain p-0.5" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{logo.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{logo.method.replace("_", " ")}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => removeLogo(logo.id)}>
+                <Trash2 className="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 function StepPricing({
   fundraisingPercent, setFundraisingPercent, selectedProducts, updateProduct,
 }: {
@@ -608,12 +815,13 @@ function StepPricing({
 }
 
 function StepReview({
-  storeName, storeType, description, openDate, closeDate, primaryColor, secondaryColor, heroTitle, heroSubtitle, logoUrl, fundraisingPercent, selectedProducts,
+  storeName, storeType, description, openDate, closeDate, primaryColor, secondaryColor, heroTitle, heroSubtitle, logoPreview, fundraisingPercent, selectedProducts, wizardLogos,
 }: {
   storeName: string; storeType: string; description: string;
   openDate: string; closeDate: string; primaryColor: string; secondaryColor: string;
-  heroTitle: string; heroSubtitle: string; logoUrl: string;
+  heroTitle: string; heroSubtitle: string; logoPreview: string;
   fundraisingPercent: string; selectedProducts: SelectedProduct[];
+  wizardLogos: WizardLogo[];
 }) {
   const rows: [string, string][] = [
     ["Store Name", storeName],
@@ -625,12 +833,13 @@ function StepReview({
     ["Hero Subtitle", heroSubtitle || "—"],
     ["Fundraising %", `${fundraisingPercent}%`],
     ["Products", `${selectedProducts.length} selected`],
+    ["Decoration Logos", `${wizardLogos.length} uploaded`],
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        {logoUrl && <img src={logoUrl} alt="Logo" className="h-12 w-auto object-contain rounded bg-muted p-1" />}
+        {logoPreview && <img src={logoPreview} alt="Logo" className="h-12 w-auto object-contain rounded bg-muted p-1" />}
         <div className="flex gap-2">
           <div className="w-8 h-8 rounded border" style={{ backgroundColor: primaryColor }} title="Primary" />
           <div className="w-8 h-8 rounded border" style={{ backgroundColor: secondaryColor }} title="Secondary" />
@@ -653,6 +862,18 @@ function StepReview({
               <span>{p.styleName}</span>
               {p.priceOverride && <Badge variant="secondary" className="text-xs">${p.priceOverride}</Badge>}
               {p.notes && <Badge variant="outline" className="text-xs">{p.notes}</Badge>}
+            </div>
+          ))}
+        </div>
+      )}
+      {wizardLogos.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-sm font-semibold">Decoration Logos:</p>
+          {wizardLogos.map((l) => (
+            <div key={l.id} className="flex items-center gap-2 text-sm">
+              <ImageIcon className="w-3 h-3 text-primary" />
+              <span>{l.name}</span>
+              <Badge variant="outline" className="text-xs capitalize">{l.method.replace("_", " ")}</Badge>
             </div>
           ))}
         </div>
