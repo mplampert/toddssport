@@ -20,6 +20,10 @@ export interface TeamStoreContext {
     hero_title: string | null;
     hero_subtitle: string | null;
     store_type: string | null;
+    country: string | null;
+    fulfillment_method: string | null;
+    flat_rate_shipping: number | null;
+    org_tax_exempt: boolean | null;
     created_at: string;
     updated_at: string;
   };

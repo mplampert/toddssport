@@ -1236,6 +1236,64 @@ export type Database = {
         }
         Relationships: []
       }
+      team_store_category_overrides: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          is_custom: boolean
+          is_hidden: boolean
+          sort_order: number
+          team_store_id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_custom?: boolean
+          is_hidden?: boolean
+          sort_order?: number
+          team_store_id: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          is_custom?: boolean
+          is_hidden?: boolean
+          sort_order?: number
+          team_store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_category_overrides_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_category_overrides_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_category_overrides_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_item_logos: {
         Row: {
           created_at: string
@@ -1343,6 +1401,7 @@ export type Database = {
           price_override: number | null
           screen_print_enabled: boolean
           sort_order: number
+          store_category_override_id: string | null
           style_id: number
           team_store_id: string
           updated_at: string
@@ -1363,6 +1422,7 @@ export type Database = {
           price_override?: number | null
           screen_print_enabled?: boolean
           sort_order?: number
+          store_category_override_id?: string | null
           style_id: number
           team_store_id: string
           updated_at?: string
@@ -1383,6 +1443,7 @@ export type Database = {
           price_override?: number | null
           screen_print_enabled?: boolean
           sort_order?: number
+          store_category_override_id?: string | null
           style_id?: number
           team_store_id?: string
           updated_at?: string
@@ -1393,6 +1454,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "team_store_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_products_store_category_override_id_fkey"
+            columns: ["store_category_override_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_category_overrides"
             referencedColumns: ["id"]
           },
           {
@@ -1418,12 +1486,45 @@ export type Database = {
           },
         ]
       }
+      team_store_settings: {
+        Row: {
+          created_at: string
+          default_country: string
+          default_flat_rate_shipping: number
+          default_fulfillment_method: string
+          default_org_tax_exempt: boolean
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_country?: string
+          default_flat_rate_shipping?: number
+          default_fulfillment_method?: string
+          default_org_tax_exempt?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_country?: string
+          default_flat_rate_shipping?: number
+          default_fulfillment_method?: string
+          default_org_tax_exempt?: boolean
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_stores: {
         Row: {
           active: boolean
+          country: string | null
           created_at: string
           description: string | null
           end_date: string | null
+          flat_rate_shipping: number | null
+          fulfillment_method: string | null
           fundraising_goal: number | null
           fundraising_goal_amount: number | null
           fundraising_percent: number | null
@@ -1432,6 +1533,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          org_tax_exempt: boolean | null
           primary_color: string | null
           secondary_color: string | null
           slug: string
@@ -1443,9 +1545,12 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          country?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
+          flat_rate_shipping?: number | null
+          fulfillment_method?: string | null
           fundraising_goal?: number | null
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
@@ -1454,6 +1559,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          org_tax_exempt?: boolean | null
           primary_color?: string | null
           secondary_color?: string | null
           slug: string
@@ -1465,9 +1571,12 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          country?: string | null
           created_at?: string
           description?: string | null
           end_date?: string | null
+          flat_rate_shipping?: number | null
+          fulfillment_method?: string | null
           fundraising_goal?: number | null
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
@@ -1476,6 +1585,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          org_tax_exempt?: boolean | null
           primary_color?: string | null
           secondary_color?: string | null
           slug?: string
