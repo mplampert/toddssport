@@ -60,8 +60,10 @@ export default function TeamStoreProductDetail() {
           _slug: slug,
           _token: previewToken,
         });
-        const rows = data as any[] | null;
-        if (rows && rows.length > 0) storeData = rows[0];
+        // RPC returns a single JSON object, not an array
+        if (data && typeof data === 'object' && (data as any).id) {
+          storeData = data;
+        }
       }
       if (!storeData) {
         const { data } = await supabase
