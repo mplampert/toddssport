@@ -242,36 +242,38 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </header>
 
       <div className="flex">
-        {/* Sidebar — swaps content based on route */}
-        <aside className="w-56 bg-background border-r border-border min-h-[calc(100vh-4rem)] hidden md:block shrink-0">
-          <nav className="p-4 space-y-1">
-            <Link
-              to={backLink.to}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              {backLink.label}
-            </Link>
-            <div className="border-t border-border my-3" />
-
-            {sidebarHeader}
-
-            {navItems.map((item) => (
+        {/* Sidebar — hidden when inside a specific store (store detail has its own) */}
+        {!activeStoreId && (
+          <aside className="w-56 bg-background border-r border-border min-h-[calc(100vh-4rem)] hidden md:block shrink-0">
+            <nav className="p-4 space-y-1">
               <Link
-                key={item.path}
-                to={item.path}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isItemActive(item)
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
+                to={backLink.to}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
-                <item.icon className="w-4 h-4" />
-                {item.label}
+                <ChevronLeft className="w-4 h-4" />
+                {backLink.label}
               </Link>
-            ))}
-          </nav>
-        </aside>
+              <div className="border-t border-border my-3" />
+
+              {sidebarHeader}
+
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isItemActive(item)
+                      ? "bg-accent text-accent-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  }`}
+                >
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+          </aside>
+        )}
 
         {/* Main Content */}
         <main className="flex-1 min-w-0 p-6">{children}</main>
