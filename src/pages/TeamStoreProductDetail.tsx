@@ -40,22 +40,44 @@ export default function TeamStoreProductDetail() {
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
 
-  // Load the team store product row
+  // Load the team store product row (without team_stores join — RLS may block non-active stores)
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
-    queryKey: ["ts-product-detail", itemId],
+    queryKey: ["ts-product-detail", itemId, slug, previewToken],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch product + catalog info
+      const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_stores(id, name, slug, status, primary_color, secondary_color, logo_url, preview_token)")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
         .eq("id", itemId!)
-        .single();
-      if (error) throw error;
-      return data as any;
+        .maybeSingle();
+      if (prodErr) throw prodErr;
+      if (!product) return null;
+
+      // Fetch the store — try preview RPC first if we have a token, else direct query
+      let storeData: any = null;
+      if (previewToken && slug) {
+        const { data } = await supabase.rpc("get_store_for_preview", {
+          _slug: slug,
+          _token: previewToken,
+        });
+        const rows = data as any[] | null;
+        if (rows && rows.length > 0) storeData = rows[0];
+      }
+      if (!storeData) {
+        const { data } = await supabase
+          .from("team_stores")
+          .select("id, name, slug, status, primary_color, secondary_color, logo_url, preview_token")
+          .eq("id", product.team_store_id)
+          .maybeSingle();
+        storeData = data;
+      }
+
+      return { ...product, _store: storeData };
     },
     enabled: !!itemId,
   });
 
-  const store = storeProduct?.team_stores;
+  const store = storeProduct?._store;
   const catalogStyle = storeProduct?.catalog_styles;
   const ssStyleId = catalogStyle?.style_id;
 
