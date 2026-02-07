@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -16,8 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery } from "@tanstack/react-query";
 import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+import { WizardProductBrowser } from "@/components/admin/team-stores/WizardProductBrowser";
 import {
   ChevronLeft,
   ChevronRight,
@@ -86,42 +86,12 @@ export default function NewTeamStoreWizard() {
 
   // Step 3: Products
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
-  const [productSearch, setProductSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
-
-  const handleSearchChange = useCallback((val: string) => {
-    setProductSearch(val);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => setDebouncedSearch(val), 400);
-  }, []);
 
   // Step 4: Logos
   const [wizardLogos, setWizardLogos] = useState<WizardLogo[]>([]);
 
   // Step 5: Pricing
   const [fundraisingPercent, setFundraisingPercent] = useState("20");
-
-  // Search S&S Activewear styles
-  const { data: searchResults = [], isFetching: searching } = useQuery({
-    queryKey: ["wizard-ss-search", debouncedSearch],
-    queryFn: async () => {
-      if (!debouncedSearch || debouncedSearch.length < 2) return [];
-      const allStyles = await getStyles();
-      const q = debouncedSearch.toLowerCase();
-      return allStyles
-        .filter(
-          (s) =>
-            s.styleName?.toLowerCase().includes(q) ||
-            s.brandName?.toLowerCase().includes(q) ||
-            s.title?.toLowerCase().includes(q) ||
-            String(s.styleID) === debouncedSearch
-        )
-        .slice(0, 30);
-    },
-    enabled: debouncedSearch.length >= 2,
-    staleTime: 60_000,
-  });
 
   const selectedStyleIds = new Set(selectedProducts.map((p) => p.styleId));
 
@@ -342,11 +312,7 @@ export default function NewTeamStoreWizard() {
             {step === 0 && <StepBasics {...{ storeName, setStoreName, storeType, setStoreType, description, setDescription, openDate, setOpenDate, closeDate, setCloseDate }} />}
             {step === 1 && <StepBranding {...{ primaryColor, setPrimaryColor, secondaryColor, setSecondaryColor, heroTitle, setHeroTitle, heroSubtitle, setHeroSubtitle, logoFile, setLogoFile, logoPreview, setLogoPreview }} />}
             {step === 2 && (
-              <StepProducts
-                search={productSearch}
-                setSearch={handleSearchChange}
-                searchResults={searchResults}
-                searching={searching}
+              <WizardProductBrowser
                 selectedProducts={selectedProducts}
                 selectedStyleIds={selectedStyleIds}
                 addProduct={addProduct}
@@ -565,79 +531,6 @@ function StepBranding({
         <Label>Hero Subtitle</Label>
         <Input value={heroSubtitle} onChange={(e) => setHeroSubtitle(e.target.value)} placeholder="Get your gear before the deadline" />
       </div>
-    </>
-  );
-}
-
-function StepProducts({
-  search, setSearch, searchResults, searching, selectedProducts, selectedStyleIds, addProduct, removeProduct, updateProduct,
-}: {
-  search: string; setSearch: (v: string) => void;
-  searchResults: any[]; searching: boolean;
-  selectedProducts: SelectedProduct[]; selectedStyleIds: Set<number>;
-  addProduct: (s: any) => void; removeProduct: (id: number) => void;
-  updateProduct: (id: number, field: "priceOverride" | "notes", value: string) => void;
-}) {
-  return (
-    <>
-      <div className="space-y-2">
-        <Label>Search S&S Activewear</Label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, brand, or style ID…"
-            className="pl-9"
-          />
-        </div>
-      </div>
-      {search.length >= 2 && (
-        <div className="border rounded-md max-h-48 overflow-y-auto">
-          {searching ? (
-            <p className="p-3 text-sm text-muted-foreground">Searching…</p>
-          ) : searchResults.length === 0 ? (
-            <p className="p-3 text-sm text-muted-foreground">No results</p>
-          ) : (
-            searchResults.map((s: any) => (
-              <div key={s.styleID} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 border-b last:border-0">
-                <div className="flex items-center gap-3">
-                  {s.styleImage && <img src={s.styleImage} alt="" className="w-8 h-8 object-contain rounded" />}
-                  <div>
-                    <p className="text-sm font-medium">{s.title || s.styleName}</p>
-                    <p className="text-xs text-muted-foreground">{s.brandName} · #{s.styleID}</p>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" disabled={selectedStyleIds.has(s.styleID)} onClick={() => addProduct(s)}>
-                  {selectedStyleIds.has(s.styleID) ? "Added" : <><Plus className="w-3 h-3 mr-1" /> Add</>}
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-      {selectedProducts.length > 0 && (
-        <div className="space-y-2 pt-2">
-          <Label className="text-sm font-semibold">Selected Products ({selectedProducts.length})</Label>
-          {selectedProducts.map((p) => (
-            <div key={p.styleId} className="flex items-center justify-between p-2 border rounded-lg">
-              <div className="flex items-center gap-3">
-                {p.styleImage && <img src={p.styleImage} alt="" className="w-8 h-8 object-contain rounded" />}
-                <div>
-                  <p className="text-sm font-medium">{p.styleName}</p>
-                  <p className="text-xs text-muted-foreground">{p.brandName}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => removeProduct(p.styleId)}>
-                <Trash2 className="w-4 h-4 text-destructive" />
-              </Button>
-            </div>
-          ))}
-        </div>
-      )}
-      {selectedProducts.length === 0 && (
-        <p className="text-sm text-muted-foreground">No products selected yet. Search above to add products.</p>
-      )}
     </>
   );
 }
