@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { ProductRowCard } from "./ProductRowCard";
@@ -17,13 +18,28 @@ export function TeamStoreProducts({ storeId }: Props) {
   const queryClient = useQueryClient();
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+
+  // Fetch categories for filtering
+  const { data: categories = [] } = useQuery({
+    queryKey: ["team-store-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_categories")
+        .select("id, name, slug")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: attached = [], isLoading } = useQuery({
     queryKey: ["team-store-products", storeId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, style_id, sort_order, notes, price_override, active, fundraising_enabled, fundraising_amount_per_unit, personalization_enabled, personalization_price, personalization_config, screen_print_enabled, embroidery_enabled, dtf_enabled, catalog_styles(style_name, brand_name, style_id, style_image)")
+        .select("id, style_id, sort_order, notes, price_override, active, fundraising_enabled, fundraising_amount_per_unit, personalization_enabled, personalization_price, personalization_config, screen_print_enabled, embroidery_enabled, dtf_enabled, category_id, catalog_styles(style_name, brand_name, style_id, style_image), team_store_categories(id, name)")
         .eq("team_store_id", storeId)
         .order("sort_order");
       if (error) throw error;
@@ -76,9 +92,17 @@ export function TeamStoreProducts({ storeId }: Props) {
 
   const attachedStyleIds = new Set(attached.map((a: any) => a.style_id));
 
+  // Filter by category
+  const filtered = categoryFilter
+    ? attached.filter((a: any) => a.category_id === categoryFilter)
+    : attached;
+
+  // Count per category
+  const uncategorizedCount = attached.filter((a: any) => !a.category_id).length;
+
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <CardTitle>Products in This Store ({attached.length})</CardTitle>
         <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
           <DialogTrigger asChild>
@@ -131,19 +155,67 @@ export function TeamStoreProducts({ storeId }: Props) {
           </DialogContent>
         </Dialog>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Category filter chips */}
+        {categories.length > 0 && attached.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setCategoryFilter(null)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                categoryFilter === null
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              All ({attached.length})
+            </button>
+            {categories.map((cat: any) => {
+              const count = attached.filter((a: any) => a.category_id === cat.id).length;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setCategoryFilter(cat.id)}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                    categoryFilter === cat.id
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {cat.name} ({count})
+                </button>
+              );
+            })}
+            {uncategorizedCount > 0 && (
+              <button
+                onClick={() => setCategoryFilter("uncategorized")}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                  categoryFilter === "uncategorized"
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-muted text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                Uncategorized ({uncategorizedCount})
+              </button>
+            )}
+          </div>
+        )}
+
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : attached.length === 0 ? (
           <p className="text-sm text-muted-foreground">No products attached yet. Click "Add Products" to get started.</p>
         ) : (
           <div className="space-y-3">
-            {attached.map((item: any) => (
+            {(categoryFilter === "uncategorized"
+              ? attached.filter((a: any) => !a.category_id)
+              : filtered
+            ).map((item: any) => (
               <ProductRowCard
                 key={item.id}
                 item={item}
                 storeId={storeId}
                 onRemove={() => detachMutation.mutate(item.id)}
+                categories={categories}
               />
             ))}
           </div>

@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Trash2, Save, ChevronDown, ChevronUp, Image } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Trash2, Save, ChevronDown, ChevronUp, Image, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { LogoAssignmentDialog } from "./LogoAssignmentDialog";
 
@@ -21,15 +22,17 @@ interface ProductRowCardProps {
   item: any;
   storeId: string;
   onRemove: () => void;
+  categories?: { id: string; name: string; slug: string }[];
 }
 
-export function ProductRowCard({ item, storeId, onRemove }: ProductRowCardProps) {
+export function ProductRowCard({ item, storeId, onRemove, categories = [] }: ProductRowCardProps) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
 
   const [notes, setNotes] = useState(item.notes ?? "");
   const [priceOverride, setPriceOverride] = useState(item.price_override != null ? String(item.price_override) : "");
+  const [categoryId, setCategoryId] = useState<string | null>(item.category_id ?? null);
   const [fundraisingEnabled, setFundraisingEnabled] = useState(item.fundraising_enabled ?? true);
   const [fundraisingAmount, setFundraisingAmount] = useState(item.fundraising_amount_per_unit != null ? String(item.fundraising_amount_per_unit) : "");
   const [personalizationEnabled, setPersonalizationEnabled] = useState(item.personalization_enabled ?? false);
@@ -59,6 +62,7 @@ export function ProductRowCard({ item, storeId, onRemove }: ProductRowCardProps)
         .update({
           notes: notes.trim() || null,
           price_override: priceOverride.trim() ? parseFloat(priceOverride) : null,
+          category_id: categoryId || null,
           fundraising_enabled: fundraisingEnabled,
           fundraising_amount_per_unit: fundraisingAmount.trim() ? parseFloat(fundraisingAmount) : null,
           personalization_enabled: personalizationEnabled,
@@ -80,6 +84,8 @@ export function ProductRowCard({ item, storeId, onRemove }: ProductRowCardProps)
   });
 
   const markDirty = () => setDirty(true);
+
+  const categoryName = item.team_store_categories?.name;
 
   return (
     <div className="border rounded-lg p-3 space-y-2">
@@ -106,6 +112,11 @@ export function ProductRowCard({ item, storeId, onRemove }: ProductRowCardProps)
 
       {/* Summary badges */}
       <div className="flex flex-wrap gap-1.5 text-[10px]">
+        {categoryName && (
+          <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded flex items-center gap-0.5">
+            <Tags className="w-2.5 h-2.5" /> {categoryName}
+          </span>
+        )}
         {fundraisingEnabled && <span className="bg-accent/20 text-accent-foreground px-1.5 py-0.5 rounded">Fundraising</span>}
         {personalizationEnabled && <span className="bg-accent/20 text-accent-foreground px-1.5 py-0.5 rounded">Personalization</span>}
         {screenPrintEnabled && <span className="bg-muted text-muted-foreground px-1.5 py-0.5 rounded">Screen Print</span>}
@@ -116,8 +127,25 @@ export function ProductRowCard({ item, storeId, onRemove }: ProductRowCardProps)
 
       {expanded && (
         <div className="space-y-4 pt-2 border-t">
-          {/* Notes & Price */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Category & Notes & Price */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">Category</Label>
+              <Select
+                value={categoryId ?? "none"}
+                onValueChange={(v) => { setCategoryId(v === "none" ? null : v); markDirty(); }}
+              >
+                <SelectTrigger className="text-xs h-8">
+                  <SelectValue placeholder="Select category…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No category</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1">
               <Label className="text-xs">Notes (shown to customers)</Label>
               <Textarea value={notes} onChange={(e) => { setNotes(e.target.value); markDirty(); }} placeholder='e.g. "Home jersey"' rows={2} className="text-xs" />
