@@ -22,6 +22,7 @@ export interface TeamStoreContext {
     store_type: string | null;
     country: string | null;
     fulfillment_method: string | null;
+    preview_token: string | null;
     flat_rate_shipping: number | null;
     org_tax_exempt: boolean | null;
     created_at: string;

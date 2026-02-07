@@ -75,7 +75,11 @@ export default function AdminTeamStoreDetail() {
   const activeTab = STORE_TABS.find((t) => currentPath.endsWith(`/${t.path}`))?.path
     ?? (currentPath === basePath || currentPath === `${basePath}/` || currentPath.endsWith("/dashboard") ? "overview" : "overview");
 
-  const storeUrl = `${window.location.origin}/team-stores/${store.slug}`;
+  const isOpen = store.status === "open";
+  const storeUrl = isOpen
+    ? `${window.location.origin}/team-stores/${store.slug}`
+    : `${window.location.origin}/preview/team-store/${store.slug}?token=${(store as any).preview_token ?? ""}`;
+  const viewLabel = isOpen ? "View Store" : "Preview Store";
 
   return (
     <div className="flex gap-6 min-h-[600px]">
@@ -130,7 +134,7 @@ export default function AdminTeamStoreDetail() {
           <Button variant="outline" size="sm" className="w-full" asChild>
             <a href={storeUrl} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
-              View Store
+              {viewLabel}
             </a>
           </Button>
         </div>
