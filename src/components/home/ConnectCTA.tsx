@@ -1,9 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 import heroBgImg from "@/assets/hero-bg.jpg";
+import { trackCTAClick } from "@/lib/ga4";
 
 export function ConnectCTA() {
   const scrollToQuote = () => {
+    trackCTAClick("Connect Today", "connect_cta");
     const quoteSection = document.getElementById("quote-form");
     if (quoteSection) {
       quoteSection.scrollIntoView({ behavior: "smooth" });
