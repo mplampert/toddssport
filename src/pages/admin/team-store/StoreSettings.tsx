@@ -7,12 +7,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Save, TrendingUp } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Save, TrendingUp, Globe, Truck, DollarSign } from "lucide-react";
 import { toast } from "sonner";
+
+const COUNTRIES = [
+  { value: "US", label: "United States" },
+  { value: "CA", label: "Canada" },
+  { value: "MX", label: "Mexico" },
+];
+
+const FULFILLMENT_OPTIONS = [
+  { value: "ship_to_customer", label: "Ship to Customer" },
+  { value: "organization_pickup", label: "Organization Pickup" },
+  { value: "deliver_to_organization", label: "Deliver to Organization" },
+];
 
 export default function StoreSettings() {
   const { store } = useTeamStoreContext();
   const queryClient = useQueryClient();
+
+  // Load global defaults for "use default" display
+  const { data: globalDefaults } = useQuery({
+    queryKey: ["team-store-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const [form, setForm] = useState({
     start_date: store.start_date ?? "",
@@ -20,6 +48,10 @@ export default function StoreSettings() {
     active: store.active,
     store_pin: store.store_pin ?? "",
     fundraising_goal_amount: store.fundraising_goal_amount != null ? String(store.fundraising_goal_amount) : "",
+    country: (store as any).country ?? "",
+    fulfillment_method: (store as any).fulfillment_method ?? "",
+    flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
+    org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
   });
 
   useEffect(() => {
@@ -29,21 +61,23 @@ export default function StoreSettings() {
       active: store.active,
       store_pin: store.store_pin ?? "",
       fundraising_goal_amount: store.fundraising_goal_amount != null ? String(store.fundraising_goal_amount) : "",
+      country: (store as any).country ?? "",
+      fulfillment_method: (store as any).fulfillment_method ?? "",
+      flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
+      org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
     });
   }, [store]);
 
-  // Calculate funds raised from orders
+  // Fundraising calculation
   const { data: fundsRaised = 0 } = useQuery({
     queryKey: ["funds-raised", store.id],
     queryFn: async () => {
-      // Get all cart items for this store's orders that have been completed
       const { data: cartItems, error } = await supabase
         .from("cart_items")
         .select("quantity, team_store_id")
         .eq("team_store_id", store.id);
       if (error) throw error;
 
-      // Get fundraising amounts from team_store_products
       const { data: products, error: pErr } = await supabase
         .from("team_store_products")
         .select("style_id, fundraising_enabled, fundraising_amount_per_unit")
@@ -59,8 +93,6 @@ export default function StoreSettings() {
 
       let total = 0;
       for (const item of cartItems ?? []) {
-        // Simplified: sum qty × fundraising_amount for all items
-        // In production you'd join on the specific product
         const amounts = Array.from(amountMap.values());
         if (amounts.length > 0) {
           total += item.quantity * (amounts[0] as number);
@@ -80,6 +112,10 @@ export default function StoreSettings() {
           active: form.active,
           store_pin: form.store_pin || null,
           fundraising_goal_amount: form.fundraising_goal_amount ? parseFloat(form.fundraising_goal_amount) : null,
+          country: form.country || null,
+          fulfillment_method: form.fulfillment_method || null,
+          flat_rate_shipping: form.flat_rate_shipping !== "" ? parseFloat(form.flat_rate_shipping) : null,
+          org_tax_exempt: form.org_tax_exempt,
         })
         .eq("id", store.id);
       if (error) throw error;
@@ -93,6 +129,11 @@ export default function StoreSettings() {
 
   const goalAmount = form.fundraising_goal_amount ? parseFloat(form.fundraising_goal_amount) : 0;
   const progressPercent = goalAmount > 0 ? Math.min(100, (fundsRaised / goalAmount) * 100) : 0;
+
+  const effectiveCountry = form.country || globalDefaults?.default_country || "US";
+  const effectiveFulfillment = form.fulfillment_method || globalDefaults?.default_fulfillment_method || "ship_to_customer";
+  const effectiveShipping = form.flat_rate_shipping !== "" ? form.flat_rate_shipping : String(globalDefaults?.default_flat_rate_shipping ?? 0);
+  const effectiveTaxExempt = form.org_tax_exempt !== null ? form.org_tax_exempt : (globalDefaults?.default_org_tax_exempt ?? false);
 
   return (
     <div className="space-y-6">
@@ -135,12 +176,111 @@ export default function StoreSettings() {
         </CardContent>
       </Card>
 
+      {/* Store-specific overrides */}
       <Card>
         <CardHeader>
-          <CardTitle>Store Availability</CardTitle>
+          <CardTitle>Store Configuration</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Leave fields empty to use global defaults.
+          </p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-4">
+          <form onSubmit={(e) => { e.preventDefault(); mutation.mutate(); }} className="space-y-6">
+            {/* Country */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Globe className="w-4 h-4" /> Country / Region
+              </Label>
+              <Select
+                value={form.country || "__default__"}
+                onValueChange={(v) => setForm((f) => ({ ...f, country: v === "__default__" ? "" : v }))}
+              >
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__default__">
+                    Use global default ({COUNTRIES.find((c) => c.value === (globalDefaults?.default_country ?? "US"))?.label ?? "US"})
+                  </SelectItem>
+                  {COUNTRIES.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Fulfillment Method */}
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <Truck className="w-4 h-4" /> Fulfillment Method
+              </Label>
+              <RadioGroup
+                value={form.fulfillment_method || "__default__"}
+                onValueChange={(v) => setForm((f) => ({ ...f, fulfillment_method: v === "__default__" ? "" : v }))}
+                className="space-y-2"
+              >
+                <div className="flex items-center gap-2">
+                  <RadioGroupItem value="__default__" id="store-default-fulfillment" />
+                  <Label htmlFor="store-default-fulfillment" className="font-normal cursor-pointer text-muted-foreground">
+                    Use global default ({FULFILLMENT_OPTIONS.find((o) => o.value === (globalDefaults?.default_fulfillment_method ?? "ship_to_customer"))?.label})
+                  </Label>
+                </div>
+                {FULFILLMENT_OPTIONS.map((opt) => (
+                  <div key={opt.value} className="flex items-center gap-2">
+                    <RadioGroupItem value={opt.value} id={`store-${opt.value}`} />
+                    <Label htmlFor={`store-${opt.value}`} className="font-normal cursor-pointer">
+                      {opt.label}
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+            </div>
+
+            {/* Flat Rate Shipping */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <DollarSign className="w-4 h-4" /> Flat-Rate Shipping
+              </Label>
+              <div className="relative max-w-xs">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.flat_rate_shipping}
+                  onChange={(e) => setForm((f) => ({ ...f, flat_rate_shipping: e.target.value }))}
+                  placeholder={`Global default: $${globalDefaults?.default_flat_rate_shipping ?? 0}`}
+                  className="pl-7 max-w-xs"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">Leave blank to use global default (${globalDefaults?.default_flat_rate_shipping ?? 0})</p>
+            </div>
+
+            {/* Tax Exempt */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={effectiveTaxExempt}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, org_tax_exempt: v }))}
+                />
+                <Label>Organization is tax-exempt</Label>
+              </div>
+              {form.org_tax_exempt !== null && (
+                <button
+                  type="button"
+                  className="text-xs text-primary hover:underline"
+                  onClick={() => setForm((f) => ({ ...f, org_tax_exempt: null }))}
+                >
+                  Reset to global default ({globalDefaults?.default_org_tax_exempt ? "Yes" : "No"})
+                </button>
+              )}
+            </div>
+
+            <hr className="border-border" />
+
+            {/* Store Availability */}
             <div className="flex items-center gap-3">
               <Switch checked={form.active} onCheckedChange={(v) => setForm((f) => ({ ...f, active: v }))} />
               <Label>Store is Active</Label>

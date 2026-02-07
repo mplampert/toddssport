@@ -1,5 +1,6 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 import { Button } from "@/components/ui/button";
@@ -69,6 +70,20 @@ export default function NewTeamStoreWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [creating, setCreating] = useState(false);
+
+  // Load global defaults
+  const { data: globalDefaults } = useQuery({
+    queryKey: ["team-store-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   // Step 1: Basics
   const [storeName, setStoreName] = useState("");
@@ -170,6 +185,11 @@ export default function NewTeamStoreWizard() {
           fundraising_percent: parseFloat(fundraisingPercent) || 20,
           fundraising_goal: 0,
           active: false,
+          // Prefill from global defaults
+          country: globalDefaults?.default_country ?? "US",
+          fulfillment_method: globalDefaults?.default_fulfillment_method ?? "ship_to_customer",
+          flat_rate_shipping: globalDefaults?.default_flat_rate_shipping ?? 0,
+          org_tax_exempt: globalDefaults?.default_org_tax_exempt ?? false,
         } as any)
         .select("id")
         .single();
