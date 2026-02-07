@@ -11,6 +11,7 @@ export interface TeamStoreContext {
     primary_color: string | null;
     secondary_color: string | null;
     active: boolean;
+    status: string | null;
     store_pin: string | null;
     fundraising_goal_amount: number | null;
     fundraising_goal: number | null;

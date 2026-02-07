@@ -13,11 +13,21 @@ import { TeamStoreKpis } from "@/components/admin/team-stores/TeamStoreKpis";
 import { AllStoresTable } from "@/components/admin/team-stores/AllStoresTable";
 import { AllOrdersTable } from "@/components/admin/team-stores/AllOrdersTable";
 
+type StatusTab = "all" | "scheduled" | "open" | "closed";
+
+const tabs: { value: StatusTab; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Open" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "closed", label: "Closed" },
+];
+
 export default function AdminTeamStores() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
+  const [statusTab, setStatusTab] = useState<StatusTab>("all");
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -33,6 +43,7 @@ export default function AdminTeamStores() {
     onSuccess: (id: string) => {
       queryClient.invalidateQueries({ queryKey: ["admin-team-stores"] });
       queryClient.invalidateQueries({ queryKey: ["team-store-kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-all-stores-table"] });
       toast.success("Store created");
       setCreateOpen(false);
       setNewName("");
@@ -99,8 +110,25 @@ export default function AdminTeamStores() {
         {/* KPI Cards */}
         <TeamStoreKpis />
 
+        {/* Status Tabs */}
+        <nav className="flex border-b border-border gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.value}
+              onClick={() => setStatusTab(tab.value)}
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                statusTab === tab.value
+                  ? "border-accent text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+
         {/* All Stores Table */}
-        <AllStoresTable />
+        <AllStoresTable statusFilter={statusTab} />
 
         {/* All Orders Table */}
         <AllOrdersTable />

@@ -86,14 +86,18 @@ export default function StoreDashboard() {
   // --- Launch / Close ---
   const toggleActive = useMutation({
     mutationFn: async () => {
+      const newActive = !store.active;
+      const newStatus = newActive ? "open" : "closed";
       const { error } = await supabase
         .from("team_stores")
-        .update({ active: !store.active })
+        .update({ active: newActive, status: newStatus })
         .eq("id", store.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-team-store", store.id] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-all-stores-table"] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-kpis"] });
       toast.success(store.active ? "Store closed" : "Store launched!");
     },
     onError: (e: Error) => toast.error(e.message),

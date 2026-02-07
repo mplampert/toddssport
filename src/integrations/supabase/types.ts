@@ -1393,6 +1393,7 @@ export type Database = {
           secondary_color: string | null
           slug: string
           start_date: string | null
+          status: string
           store_pin: string | null
           store_type: string | null
           updated_at: string
@@ -1414,6 +1415,7 @@ export type Database = {
           secondary_color?: string | null
           slug: string
           start_date?: string | null
+          status?: string
           store_pin?: string | null
           store_type?: string | null
           updated_at?: string
@@ -1435,6 +1437,7 @@ export type Database = {
           secondary_color?: string | null
           slug?: string
           start_date?: string | null
+          status?: string
           store_pin?: string | null
           store_type?: string | null
           updated_at?: string
@@ -1590,6 +1593,7 @@ export type Database = {
           secondary_color: string | null
           slug: string | null
           start_date: string | null
+          status: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1603,6 +1607,7 @@ export type Database = {
           secondary_color?: string | null
           slug?: string | null
           start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1616,6 +1621,7 @@ export type Database = {
           secondary_color?: string | null
           slug?: string | null
           start_date?: string | null
+          status?: string | null
           updated_at?: string | null
         }
         Relationships: []
