@@ -57,12 +57,26 @@ interface SelectedProduct {
   personalizationPrice: string;
 }
 
+interface LogoVariant {
+  id: string;
+  store_logo_id: string;
+  name: string;
+  colorway: string;
+  file_url: string;
+  screen_print_enabled: boolean;
+  embroidery_enabled: boolean;
+  dtf_enabled: boolean;
+  background_rule: string;
+  is_default: boolean;
+}
+
 interface StoreLogo {
   id: string;
   name: string;
   file_url: string;
   method: string;
   placement: string | null;
+  variants: LogoVariant[];
 }
 
 interface Props {
@@ -118,19 +132,31 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
   const [bulkFundraisingAmt, setBulkFundraisingAmt] = useState("");
 
   // Step 3 – logos & personalization
-  const [selectedLogoIds, setSelectedLogoIds] = useState<Set<string>>(new Set());
+  const [selectedVariantIds, setSelectedVariantIds] = useState<Set<string>>(new Set());
   const [bulkPersonalizationPrice, setBulkPersonalizationPrice] = useState("");
 
-  // Fetch store logos
+  // Fetch store logos with variants
   const { data: storeLogos = [] } = useQuery<StoreLogo[]>({
-    queryKey: ["store-logos", storeId],
+    queryKey: ["store-logos-with-variants", storeId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: logos, error } = await supabase
         .from("store_logos")
         .select("id, name, file_url, method, placement")
         .eq("team_store_id", storeId);
       if (error) throw error;
-      return data as StoreLogo[];
+
+      const { data: variants, error: vErr } = await supabase
+        .from("store_logo_variants")
+        .select("*")
+        .in("store_logo_id", (logos || []).map((l: any) => l.id));
+      if (vErr) throw vErr;
+
+      return (logos || []).map((logo: any) => ({
+        ...logo,
+        variants: (variants || [])
+          .filter((v: any) => v.store_logo_id === logo.id)
+          .sort((a: any, b: any) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0)),
+      }));
     },
     enabled: open,
   });
@@ -294,8 +320,8 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
     toast.success(`Personalization enabled at $${price} for all products`);
   };
 
-  const toggleLogo = (id: string) => {
-    setSelectedLogoIds((prev) => {
+  const toggleVariant = (id: string) => {
+    setSelectedVariantIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -362,13 +388,19 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
         .select("id, style_id");
       if (insertErr) throw insertErr;
 
-      // 3. Bulk insert logo assignments
-      if (selectedLogoIds.size > 0 && insertedProducts) {
+      // 3. Bulk insert logo variant assignments
+      if (selectedVariantIds.size > 0 && insertedProducts) {
+        // Look up which master logo each variant belongs to
+        const allVariants = storeLogos.flatMap((l) => l.variants);
         const logoRows = insertedProducts.flatMap((item) =>
-          Array.from(selectedLogoIds).map((logoId) => ({
-            team_store_item_id: item.id,
-            store_logo_id: logoId,
-          }))
+          Array.from(selectedVariantIds).map((variantId) => {
+            const variant = allVariants.find((v) => v.id === variantId);
+            return {
+              team_store_item_id: item.id,
+              store_logo_id: variant?.store_logo_id || "",
+              store_logo_variant_id: variantId,
+            };
+          })
         );
         const { error: logoErr } = await supabase.from("team_store_item_logos").insert(logoRows);
         if (logoErr) throw logoErr;
@@ -388,7 +420,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
     setOpen(false);
     setStep(0);
     setSelected(new Map());
-    setSelectedLogoIds(new Set());
+    setSelectedVariantIds(new Set());
     setBulkMargin(String(DEFAULT_MARGIN));
     setBulkFundraisingAmt("");
     setBulkPersonalizationPrice("");
@@ -479,8 +511,8 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
             products={selectedArr}
             updateProduct={updateProduct}
             storeLogos={storeLogos}
-            selectedLogoIds={selectedLogoIds}
-            toggleLogo={toggleLogo}
+            selectedVariantIds={selectedVariantIds}
+            toggleVariant={toggleVariant}
             bulkPersonalizationPrice={bulkPersonalizationPrice}
             setBulkPersonalizationPrice={setBulkPersonalizationPrice}
             applyBulkPersonalization={applyBulkPersonalization}
@@ -791,46 +823,74 @@ function Step2Pricing({
 /* ═══════════════════ Step 3 ═══════════════════ */
 
 function Step3Logos({
-  products, updateProduct, storeLogos, selectedLogoIds, toggleLogo,
+  products, updateProduct, storeLogos, selectedVariantIds, toggleVariant,
   bulkPersonalizationPrice, setBulkPersonalizationPrice, applyBulkPersonalization,
 }: {
   products: SelectedProduct[];
   updateProduct: (id: number, u: Partial<SelectedProduct>) => void;
   storeLogos: StoreLogo[];
-  selectedLogoIds: Set<string>;
-  toggleLogo: (id: string) => void;
+  selectedVariantIds: Set<string>;
+  toggleVariant: (id: string) => void;
   bulkPersonalizationPrice: string;
   setBulkPersonalizationPrice: (v: string) => void;
   applyBulkPersonalization: () => void;
 }) {
   return (
     <>
-      {/* Logo selection */}
-      <div className="space-y-2">
-        <Label className="text-sm font-semibold">Logos to apply to all products</Label>
+      {/* Logo + Variant selection */}
+      <div className="space-y-3">
+        <Label className="text-sm font-semibold">Logo variants to apply to all products</Label>
+        <p className="text-xs text-muted-foreground">Select one or more colorway variants. Each variant carries its own decoration methods and background rules.</p>
         {storeLogos.length === 0 ? (
           <p className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/20">
             No logos uploaded for this store yet. You can add logos from the Logos tab.
           </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="space-y-3">
             {storeLogos.map((logo) => (
-              <label
-                key={logo.id}
-                className={`flex items-center gap-3 p-3 border rounded-md cursor-pointer transition-colors ${
-                  selectedLogoIds.has(logo.id) ? "border-accent bg-accent/5" : "hover:bg-muted/50"
-                }`}
-              >
-                <Checkbox
-                  checked={selectedLogoIds.has(logo.id)}
-                  onCheckedChange={() => toggleLogo(logo.id)}
-                />
-                <img src={logo.file_url} alt={logo.name} className="w-10 h-10 object-contain rounded bg-white border" />
-                <div className="min-w-0">
-                  <p className="text-sm font-medium truncate">{logo.name}</p>
-                  <p className="text-xs text-muted-foreground">{logo.method} · {logo.placement || "default"}</p>
+              <div key={logo.id} className="border rounded-md overflow-hidden">
+                <div className="flex items-center gap-3 px-3 py-2 bg-muted/30 border-b">
+                  <img src={logo.file_url} alt={logo.name} className="w-8 h-8 object-contain rounded bg-white border shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">{logo.name}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{(logo.placement || "left_front").replace(/_/g, " ")}</p>
+                  </div>
                 </div>
-              </label>
+                {logo.variants.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3">No variants. Add variants from the Logos tab first.</p>
+                ) : (
+                  <div className="divide-y">
+                    {logo.variants.map((v) => {
+                      const methods: string[] = [];
+                      if (v.screen_print_enabled) methods.push("SP");
+                      if (v.embroidery_enabled) methods.push("EMB");
+                      if (v.dtf_enabled) methods.push("DTF");
+                      const bgLabel = v.background_rule === "light_only" ? "Light only" : v.background_rule === "dark_only" ? "Dark only" : "Any";
+                      return (
+                        <label
+                          key={v.id}
+                          className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
+                            selectedVariantIds.has(v.id) ? "bg-accent/10" : "hover:bg-muted/30"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={selectedVariantIds.has(v.id)}
+                            onCheckedChange={() => toggleVariant(v.id)}
+                          />
+                          <img src={v.file_url} alt="" className="w-7 h-7 object-contain rounded bg-white border shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium">{v.name}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {v.colorway} · {methods.join(", ") || "No methods"} · {bgLabel}
+                              {v.is_default && " · ★ Default"}
+                            </p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
