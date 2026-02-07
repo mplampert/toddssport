@@ -78,7 +78,7 @@ export default function AdminTeamStoreDetail() {
   const isOpen = store.status === "open";
   const storeUrl = isOpen
     ? `${window.location.origin}/team-stores/${store.slug}`
-    : `${window.location.origin}/preview/team-store/${store.slug}?token=${(store as any).preview_token ?? ""}`;
+    : `${window.location.origin}/preview/team-store/${store.slug}?token=${store.preview_token ?? ""}`;
   const viewLabel = isOpen ? "View Store" : "Preview Store";
 
   return (
