@@ -148,12 +148,12 @@ export function WizardProductBrowser({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1">
             <Label className="text-xs font-medium">Brand</Label>
-            <Select value={selectedBrand} onValueChange={setSelectedBrand}>
+            <Select value={selectedBrand || "__all__"} onValueChange={(v) => setSelectedBrand(v === "__all__" ? "" : v)}>
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="All brands" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Brands</SelectItem>
+                <SelectItem value="__all__">All Brands</SelectItem>
                 {POPULAR_BRANDS.map((b) => (
                   <SelectItem key={b} value={b}>{b}</SelectItem>
                 ))}
@@ -162,12 +162,12 @@ export function WizardProductBrowser({
           </div>
           <div className="space-y-1">
             <Label className="text-xs font-medium">Product Type</Label>
-            <Select value={selectedType} onValueChange={setSelectedType}>
+            <Select value={selectedType || "__all__"} onValueChange={(v) => setSelectedType(v === "__all__" ? "" : v)}>
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="All types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Types</SelectItem>
+                <SelectItem value="__all__">All Types</SelectItem>
                 {PRODUCT_TYPES.map((t) => (
                   <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
                 ))}
