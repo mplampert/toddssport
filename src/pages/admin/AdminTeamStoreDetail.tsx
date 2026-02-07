@@ -12,6 +12,7 @@ import {
   Heart,
   ShoppingCart,
   Store,
+  Settings,
 } from "lucide-react";
 
 const storeNavItems = [
@@ -20,6 +21,7 @@ const storeNavItems = [
   { path: "logos", label: "Logos", icon: Image },
   { path: "fundraising", label: "Fundraising", icon: Heart },
   { path: "orders", label: "Orders", icon: ShoppingCart },
+  { path: "settings", label: "Settings", icon: Settings },
 ];
 
 export default function AdminTeamStoreDetail() {

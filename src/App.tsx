@@ -46,6 +46,7 @@ import StoreProducts from "./pages/admin/team-store/StoreProducts";
 import StoreLogos from "./pages/admin/team-store/StoreLogos";
 import StoreReports from "./pages/admin/team-store/StoreReports";
 import StoreOrders from "./pages/admin/team-store/StoreOrders";
+import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
 import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
@@ -124,6 +125,7 @@ const App = () => (
               <Route path="logos" element={<StoreLogos />} />
               <Route path="fundraising" element={<StoreReports />} />
               <Route path="orders" element={<StoreOrders />} />
+              <Route path="settings" element={<StoreSettings />} />
             </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
