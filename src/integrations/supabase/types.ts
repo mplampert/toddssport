@@ -1597,6 +1597,7 @@ export type Database = {
           logo_url: string | null
           name: string
           org_tax_exempt: boolean | null
+          preview_token: string
           primary_color: string | null
           secondary_color: string | null
           slug: string
@@ -1623,6 +1624,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           org_tax_exempt?: boolean | null
+          preview_token?: string
           primary_color?: string | null
           secondary_color?: string | null
           slug: string
@@ -1649,6 +1651,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           org_tax_exempt?: boolean | null
+          preview_token?: string
           primary_color?: string | null
           secondary_color?: string | null
           slug?: string
@@ -1844,6 +1847,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_store_for_preview: {
+        Args: { _slug: string; _token: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

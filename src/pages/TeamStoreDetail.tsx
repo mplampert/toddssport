@@ -124,7 +124,8 @@ export default function TeamStoreDetail() {
     );
   }
   // Store closed
-  if (storePublic.status === "closed" || (!storePublic.active && storePublic.status !== "scheduled")) {
+  // Store closed or draft (draft stores should use preview route)
+  if (storePublic.status === "closed" || storePublic.status === "draft" || (!storePublic.active && storePublic.status !== "scheduled")) {
     return (
       <div className="min-h-screen flex flex-col">
         <Header />
