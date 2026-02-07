@@ -1,11 +1,39 @@
-import { useParams, useNavigate, Outlet } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import {
+  ChevronLeft,
+  ExternalLink,
+  LayoutDashboard,
+  Package,
+  Image,
+  Palette,
+  ShoppingCart,
+  BarChart3,
+  Truck,
+  Megaphone,
+  Settings,
+} from "lucide-react";
+
+const STORE_TABS = [
+  { label: "Overview", path: "overview", icon: LayoutDashboard },
+  { label: "Products", path: "products", icon: Package },
+  { label: "Logos", path: "logos", icon: Image },
+  { label: "Branding", path: "branding", icon: Palette },
+  { label: "Orders", path: "orders", icon: ShoppingCart },
+  { label: "Reports", path: "reports", icon: BarChart3 },
+  { label: "Fulfillment", path: "fulfillment", icon: Truck },
+  { label: "Marketing", path: "marketing", icon: Megaphone },
+  { label: "Settings", path: "settings", icon: Settings },
+] as const;
 
 export default function AdminTeamStoreDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const { data: store, isLoading } = useQuery({
     queryKey: ["admin-team-store", id],
@@ -40,5 +68,78 @@ export default function AdminTeamStoreDetail() {
     );
   }
 
-  return <Outlet context={{ store }} />;
+  const basePath = `/admin/team-stores/${id}`;
+  const currentPath = location.pathname;
+
+  // Determine active tab from the URL
+  const activeTab = STORE_TABS.find((t) => currentPath.endsWith(`/${t.path}`))?.path
+    ?? (currentPath === basePath || currentPath === `${basePath}/` || currentPath.endsWith("/dashboard") ? "overview" : "overview");
+
+  const storeUrl = `${window.location.origin}/team-stores/${store.slug}`;
+
+  return (
+    <div className="flex gap-6 min-h-[600px]">
+      {/* Sidebar */}
+      <aside className="w-56 shrink-0 space-y-4">
+        {/* Back link */}
+        <button
+          onClick={() => navigate("/admin/team-stores/stores")}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" /> All Stores
+        </button>
+
+        {/* Store header */}
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            {store.logo_url && (
+              <img src={store.logo_url} alt="" className="w-8 h-8 rounded object-contain" />
+            )}
+            <h2 className="text-sm font-semibold text-foreground truncate">{store.name}</h2>
+          </div>
+          <Badge variant={store.active ? "default" : "secondary"} className="text-xs">
+            {store.active ? "Active" : "Inactive"}
+          </Badge>
+        </div>
+
+        {/* Nav tabs */}
+        <nav className="flex flex-col gap-0.5">
+          {STORE_TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.path;
+            return (
+              <button
+                key={tab.path}
+                onClick={() => navigate(`${basePath}/${tab.path}`)}
+                className={cn(
+                  "flex items-center gap-2.5 px-3 py-2 rounded-md text-sm transition-colors text-left",
+                  isActive
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* View store button */}
+        <div className="pt-2 border-t border-border">
+          <Button variant="outline" size="sm" className="w-full" asChild>
+            <a href={storeUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="w-3.5 h-3.5 mr-1.5" />
+              View Store
+            </a>
+          </Button>
+        </div>
+      </aside>
+
+      {/* Content */}
+      <main className="flex-1 min-w-0">
+        <Outlet context={{ store }} />
+      </main>
+    </div>
+  );
 }

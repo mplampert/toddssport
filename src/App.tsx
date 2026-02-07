@@ -42,10 +42,14 @@ import AdminTeamStores from "./pages/admin/AdminTeamStores";
 import NewTeamStoreWizard from "./pages/admin/NewTeamStoreWizard";
 import AdminTeamStoreDetail from "./pages/admin/AdminTeamStoreDetail";
 import StoreDashboard from "./pages/admin/team-store/StoreDashboard";
+import StoreOverview from "./pages/admin/team-store/StoreOverview";
 import StoreProducts from "./pages/admin/team-store/StoreProducts";
 import StoreLogos from "./pages/admin/team-store/StoreLogos";
+import StoreBranding from "./pages/admin/team-store/StoreBranding";
 import StoreReports from "./pages/admin/team-store/StoreReports";
 import StoreOrders from "./pages/admin/team-store/StoreOrders";
+import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
+import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
@@ -119,12 +123,16 @@ const App = () => (
             <Route path="settings" element={<TeamStoresSettings />} />
             <Route path="new" element={<NewTeamStoreWizard />} />
             <Route path=":id/*" element={<AdminTeamStoreDetail />}>
-              <Route index element={<StoreDashboard />} />
+              <Route index element={<StoreOverview />} />
+              <Route path="overview" element={<StoreOverview />} />
               <Route path="dashboard" element={<StoreDashboard />} />
               <Route path="products" element={<StoreProducts />} />
               <Route path="logos" element={<StoreLogos />} />
-              <Route path="fundraising" element={<StoreReports />} />
+              <Route path="branding" element={<StoreBranding />} />
               <Route path="orders" element={<StoreOrders />} />
+              <Route path="reports" element={<StoreReports />} />
+              <Route path="fulfillment" element={<StoreFulfillment />} />
+              <Route path="marketing" element={<StoreMarketing />} />
               <Route path="settings" element={<StoreSettings />} />
             </Route>
           </Route>
