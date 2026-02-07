@@ -1203,6 +1203,39 @@ export type Database = {
           },
         ]
       }
+      team_store_categories: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       team_store_item_logos: {
         Row: {
           created_at: string
@@ -1296,6 +1329,7 @@ export type Database = {
       team_store_products: {
         Row: {
           active: boolean
+          category_id: string | null
           created_at: string
           dtf_enabled: boolean
           embroidery_enabled: boolean
@@ -1315,6 +1349,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          category_id?: string | null
           created_at?: string
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
@@ -1334,6 +1369,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          category_id?: string | null
           created_at?: string
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
@@ -1352,6 +1388,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_store_products_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_store_products_style_id_fkey"
             columns: ["style_id"]
