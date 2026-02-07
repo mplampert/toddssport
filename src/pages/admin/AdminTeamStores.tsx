@@ -3,7 +3,7 @@ import { TeamStoresLayout } from "@/components/admin/team-stores/TeamStoresLayou
 
 export default function AdminTeamStores() {
   return (
-    <AdminLayout noPadding>
+    <AdminLayout>
       <TeamStoresLayout />
     </AdminLayout>
   );

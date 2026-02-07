@@ -2,16 +2,43 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign, LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag, Gift, Store, Layers } from "lucide-react";
+import {
+  LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
+  LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
+  Gift, Store, Layers, ShoppingCart, Heart, Image,
+} from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  noPadding?: boolean;
 }
 
-export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
+const globalNavItems = [
+  { path: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { path: "/admin/catalogs", label: "Catalogs", icon: BookOpen },
+  { path: "/admin/reps", label: "Sales Reps", icon: Users },
+  { path: "/admin/uniforms", label: "Uniform Cards", icon: Shirt },
+  { path: "/admin/champro-orders", label: "Champro Orders", icon: Package },
+  { path: "/admin/champro-pricing", label: "Champro Pricing", icon: DollarSign },
+  { path: "/admin/message-generator", label: "AI Message Generator", icon: Sparkles },
+  { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
+  { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
+  { path: "/admin/team-stores", label: "Team Stores", icon: Store },
+  { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
+  { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
+];
+
+const teamStoresNavItems = [
+  { path: "/admin/team-stores", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { path: "/admin/team-stores/stores", label: "Stores", icon: Store },
+  { path: "/admin/team-stores/orders", label: "Orders", icon: ShoppingCart },
+  { path: "/admin/team-stores/fundraising", label: "Fundraising", icon: Heart },
+  { path: "/admin/team-stores/logos", label: "Logos", icon: Image },
+  { path: "/admin/team-stores/settings", label: "Settings", icon: Settings },
+];
+
+export function AdminLayout({ children }: AdminLayoutProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -20,17 +47,12 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
   const location = useLocation();
 
   useEffect(() => {
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
-        // Defer role check with setTimeout to prevent deadlock
         if (session?.user) {
-          setTimeout(() => {
-            checkAdminRole(session.user.id);
-          }, 0);
+          setTimeout(() => checkAdminRole(session.user.id), 0);
         } else {
           setIsAdmin(false);
           setLoading(false);
@@ -38,11 +60,9 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
       }
     );
 
-    // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
       if (session?.user) {
         checkAdminRole(session.user.id);
       } else {
@@ -54,18 +74,13 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
   }, []);
 
   const checkAdminRole = async (userId: string) => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", userId)
       .eq("role", "admin")
       .single();
-
-    if (data) {
-      setIsAdmin(true);
-    } else {
-      setIsAdmin(false);
-    }
+    setIsAdmin(!!data);
     setLoading(false);
   };
 
@@ -97,32 +112,24 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
             You don't have admin privileges. Please contact an administrator to request access.
           </p>
           <div className="flex gap-4 justify-center">
-            <Button variant="outline" onClick={handleLogout}>
-              Logout
-            </Button>
-            <Button asChild className="btn-cta">
-              <Link to="/">Go Home</Link>
-            </Button>
+            <Button variant="outline" onClick={handleLogout}>Logout</Button>
+            <Button asChild className="btn-cta"><Link to="/">Go Home</Link></Button>
           </div>
         </div>
       </div>
     );
   }
 
-  const navItems = [
-    { path: "/admin", label: "Dashboard", icon: LayoutDashboard },
-    { path: "/admin/catalogs", label: "Catalogs", icon: BookOpen },
-    { path: "/admin/reps", label: "Sales Reps", icon: Users },
-    { path: "/admin/uniforms", label: "Uniform Cards", icon: Shirt },
-    { path: "/admin/champro-orders", label: "Champro Orders", icon: Package },
-    { path: "/admin/champro-pricing", label: "Champro Pricing", icon: DollarSign },
-    { path: "/admin/message-generator", label: "AI Message Generator", icon: Sparkles },
-    { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
-    { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
-    { path: "/admin/team-stores", label: "Team Stores", icon: Store },
-    { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
-    { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
-  ];
+  const isTeamStores = location.pathname.startsWith("/admin/team-stores");
+  const navItems = isTeamStores ? teamStoresNavItems : globalNavItems;
+  const backLink = isTeamStores
+    ? { to: "/admin", label: "All Admin", icon: ChevronLeft }
+    : { to: "/", label: "Back to Site", icon: ChevronLeft };
+
+  const isItemActive = (item: { path: string; exact?: boolean }) => {
+    if (item.exact) return location.pathname === item.path;
+    return location.pathname.startsWith(item.path + "/") || location.pathname === item.path;
+  };
 
   return (
     <div className="min-h-screen bg-secondary">
@@ -138,9 +145,7 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground hidden sm:block">
-              {user.email}
-            </span>
+            <span className="text-sm text-muted-foreground hidden sm:block">{user.email}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
               Logout
@@ -150,23 +155,30 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
       </header>
 
       <div className="flex">
-      {/* Sidebar */}
+        {/* Sidebar — swaps content based on route */}
         <aside className="w-56 bg-background border-r border-border min-h-[calc(100vh-4rem)] hidden md:block shrink-0">
-          <nav className="p-4 space-y-2">
+          <nav className="p-4 space-y-1">
             <Link
-              to="/"
+              to={backLink.to}
               className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
-              <ChevronLeft className="w-4 h-4" />
-              Back to Site
+              <backLink.icon className="w-4 h-4" />
+              {backLink.label}
             </Link>
             <div className="border-t border-border my-3" />
+
+            {isTeamStores && (
+              <h3 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider px-3 pb-1">
+                Team Stores
+              </h3>
+            )}
+
             {navItems.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  location.pathname === item.path || (item.path !== "/admin" && location.pathname.startsWith(item.path))
+                  isItemActive(item)
                     ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 }`}
@@ -179,7 +191,7 @@ export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content */}
-        <main className={`flex-1 min-w-0 ${noPadding ? "" : "p-6"}`}>{children}</main>
+        <main className="flex-1 min-w-0 p-6">{children}</main>
       </div>
     </div>
   );
