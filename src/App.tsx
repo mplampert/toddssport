@@ -42,15 +42,16 @@ import AdminTeamStores from "./pages/admin/AdminTeamStores";
 import NewTeamStoreWizard from "./pages/admin/NewTeamStoreWizard";
 import AdminTeamStoreDetail from "./pages/admin/AdminTeamStoreDetail";
 import StoreDashboard from "./pages/admin/team-store/StoreDashboard";
-import StoreOverview from "./pages/admin/team-store/StoreOverview";
 import StoreProducts from "./pages/admin/team-store/StoreProducts";
 import StoreLogos from "./pages/admin/team-store/StoreLogos";
-import StoreBranding from "./pages/admin/team-store/StoreBranding";
-import StoreOrders from "./pages/admin/team-store/StoreOrders";
 import StoreReports from "./pages/admin/team-store/StoreReports";
-import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
-import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
-import StoreSettings from "./pages/admin/team-store/StoreSettings";
+import StoreOrders from "./pages/admin/team-store/StoreOrders";
+import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
+import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
+import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
+import TeamStoresFundraising from "./pages/admin/team-stores/TeamStoresFundraising";
+import TeamStoresLogos from "./pages/admin/team-stores/TeamStoresLogos";
+import TeamStoresSettings from "./pages/admin/team-stores/TeamStoresSettings";
 import PromoProductDetail from "./pages/PromoProductDetail";
 import SSProducts from "./pages/SSProducts";
 import SSBrandProducts from "./pages/SSBrandProducts";
@@ -108,15 +109,22 @@ const App = () => (
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
-          <Route path="/admin/team-stores" element={<AdminTeamStores />} />
-          <Route path="/admin/team-stores/new" element={<NewTeamStoreWizard />} />
-          <Route path="/admin/team-stores/:id/*" element={<AdminTeamStoreDetail />}>
-            <Route index element={<StoreDashboard />} />
-            <Route path="dashboard" element={<StoreDashboard />} />
-            <Route path="products" element={<StoreProducts />} />
-            <Route path="logos" element={<StoreLogos />} />
-            <Route path="fundraising" element={<StoreReports />} />
-            <Route path="orders" element={<StoreOrders />} />
+          <Route path="/admin/team-stores" element={<AdminTeamStores />}>
+            <Route index element={<TeamStoresDashboard />} />
+            <Route path="stores" element={<TeamStoresStores />} />
+            <Route path="orders" element={<TeamStoresOrders />} />
+            <Route path="fundraising" element={<TeamStoresFundraising />} />
+            <Route path="logos" element={<TeamStoresLogos />} />
+            <Route path="settings" element={<TeamStoresSettings />} />
+            <Route path="new" element={<NewTeamStoreWizard />} />
+            <Route path=":id/*" element={<AdminTeamStoreDetail />}>
+              <Route index element={<StoreDashboard />} />
+              <Route path="dashboard" element={<StoreDashboard />} />
+              <Route path="products" element={<StoreProducts />} />
+              <Route path="logos" element={<StoreLogos />} />
+              <Route path="fundraising" element={<StoreReports />} />
+              <Route path="orders" element={<StoreOrders />} />
+            </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
