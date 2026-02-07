@@ -8,10 +8,10 @@ import toddsLogo from "@/assets/todds-logo.png";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
-  sidebarContent?: React.ReactNode;
+  noPadding?: boolean;
 }
 
-export function AdminLayout({ children, sidebarContent }: AdminLayoutProps) {
+export function AdminLayout({ children, noPadding }: AdminLayoutProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -150,40 +150,36 @@ export function AdminLayout({ children, sidebarContent }: AdminLayoutProps) {
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-background border-r border-border min-h-[calc(100vh-4rem)] hidden md:block">
-          {sidebarContent ? (
-            <div className="p-4">{sidebarContent}</div>
-          ) : (
-            <nav className="p-4 space-y-2">
+      {/* Sidebar */}
+        <aside className="w-56 bg-background border-r border-border min-h-[calc(100vh-4rem)] hidden md:block shrink-0">
+          <nav className="p-4 space-y-2">
+            <Link
+              to="/"
+              className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back to Site
+            </Link>
+            <div className="border-t border-border my-3" />
+            {navItems.map((item) => (
               <Link
-                to="/"
-                className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                key={item.path}
+                to={item.path}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname === item.path || (item.path !== "/admin" && location.pathname.startsWith(item.path))
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
               >
-                <ChevronLeft className="w-4 h-4" />
-                Back to Site
+                <item.icon className="w-4 h-4" />
+                {item.label}
               </Link>
-              <div className="border-t border-border my-3" />
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    location.pathname === item.path || (item.path !== "/admin" && location.pathname.startsWith(item.path + "/"))
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  }`}
-                >
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-          )}
+            ))}
+          </nav>
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">{children}</main>
+        <main className={`flex-1 min-w-0 ${noPadding ? "" : "p-6"}`}>{children}</main>
       </div>
     </div>
   );
