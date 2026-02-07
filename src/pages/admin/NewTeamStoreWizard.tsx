@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import {
   ChevronLeft,
   ChevronRight,
@@ -67,41 +68,50 @@ export default function NewTeamStoreWizard() {
   // Step 3: Products
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleSearchChange = useCallback((val: string) => {
+    setProductSearch(val);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(val), 400);
+  }, []);
 
   // Step 4: Pricing
   const [fundraisingPercent, setFundraisingPercent] = useState("20");
 
-  // Product search
+  // Search S&S Activewear styles
   const { data: searchResults = [], isFetching: searching } = useQuery({
-    queryKey: ["wizard-product-search", productSearch],
+    queryKey: ["wizard-ss-search", debouncedSearch],
     queryFn: async () => {
-      if (!productSearch || productSearch.length < 2) return [];
-      const { data, error } = await supabase
-        .from("catalog_styles")
-        .select("id, style_id, style_name, brand_name, style_image")
-        .or(
-          `style_name.ilike.%${productSearch}%,brand_name.ilike.%${productSearch}%,style_id.eq.${
-            isNaN(Number(productSearch)) ? 0 : Number(productSearch)
-          }`
+      if (!debouncedSearch || debouncedSearch.length < 2) return [];
+      const allStyles = await getStyles();
+      const q = debouncedSearch.toLowerCase();
+      return allStyles
+        .filter(
+          (s) =>
+            s.styleName?.toLowerCase().includes(q) ||
+            s.brandName?.toLowerCase().includes(q) ||
+            s.title?.toLowerCase().includes(q) ||
+            String(s.styleID) === debouncedSearch
         )
-        .limit(20);
-      if (error) throw error;
-      return data;
+        .slice(0, 30);
     },
-    enabled: productSearch.length >= 2,
+    enabled: debouncedSearch.length >= 2,
+    staleTime: 60_000,
   });
 
   const selectedStyleIds = new Set(selectedProducts.map((p) => p.styleId));
 
-  const addProduct = (style: any) => {
-    if (selectedStyleIds.has(style.id)) return;
+  const addProduct = (style: SSStyle) => {
+    if (selectedStyleIds.has(style.styleID)) return;
     setSelectedProducts((prev) => [
       ...prev,
       {
-        styleId: style.id,
-        styleName: style.style_name,
-        brandName: style.brand_name,
-        styleImage: style.style_image,
+        styleId: style.styleID,
+        styleName: style.title || style.styleName,
+        brandName: style.brandName,
+        styleImage: style.styleImage || null,
         priceOverride: "",
         notes: "",
       },
@@ -159,14 +169,34 @@ export default function NewTeamStoreWizard() {
 
       if (storeError) throw storeError;
 
-      // Insert products
+      // Upsert selected S&S styles into catalog_styles, then create team_store_products
       if (selectedProducts.length > 0) {
+        // Upsert each style into catalog_styles
+        const styleRows = selectedProducts.map((p) => ({
+          style_id: p.styleId,
+          style_name: p.styleName,
+          brand_name: p.brandName,
+          style_image: p.styleImage,
+          is_active: true,
+        }));
+
+        const { data: upserted, error: upsertError } = await supabase
+          .from("catalog_styles")
+          .upsert(styleRows, { onConflict: "style_id" })
+          .select("id, style_id");
+
+        if (upsertError) throw upsertError;
+
+        // Map S&S styleID → catalog_styles.id
+        const styleIdMap = new Map<number, number>();
+        (upserted || []).forEach((row: any) => styleIdMap.set(row.style_id, row.id));
+
         const { error: productsError } = await supabase
           .from("team_store_products")
           .insert(
             selectedProducts.map((p, i) => ({
               team_store_id: storeData.id,
-              style_id: p.styleId,
+              style_id: styleIdMap.get(p.styleId) ?? p.styleId,
               price_override: p.priceOverride
                 ? parseFloat(p.priceOverride)
                 : null,
@@ -248,7 +278,7 @@ export default function NewTeamStoreWizard() {
             {step === 2 && (
               <StepProducts
                 search={productSearch}
-                setSearch={setProductSearch}
+                setSearch={handleSearchChange}
                 searchResults={searchResults}
                 searching={searching}
                 selectedProducts={selectedProducts}
@@ -455,7 +485,7 @@ function StepProducts({
   return (
     <>
       <div className="space-y-2">
-        <Label>Search Catalog</Label>
+        <Label>Search S&S Activewear</Label>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
@@ -474,16 +504,16 @@ function StepProducts({
             <p className="p-3 text-sm text-muted-foreground">No results</p>
           ) : (
             searchResults.map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 border-b last:border-0">
+              <div key={s.styleID} className="flex items-center justify-between px-3 py-2 hover:bg-muted/50 border-b last:border-0">
                 <div className="flex items-center gap-3">
-                  {s.style_image && <img src={s.style_image} alt="" className="w-8 h-8 object-contain rounded" />}
+                  {s.styleImage && <img src={s.styleImage} alt="" className="w-8 h-8 object-contain rounded" />}
                   <div>
-                    <p className="text-sm font-medium">{s.style_name}</p>
-                    <p className="text-xs text-muted-foreground">{s.brand_name} · #{s.style_id}</p>
+                    <p className="text-sm font-medium">{s.title || s.styleName}</p>
+                    <p className="text-xs text-muted-foreground">{s.brandName} · #{s.styleID}</p>
                   </div>
                 </div>
-                <Button size="sm" variant="outline" disabled={selectedStyleIds.has(s.id)} onClick={() => addProduct(s)}>
-                  {selectedStyleIds.has(s.id) ? "Added" : <><Plus className="w-3 h-3 mr-1" /> Add</>}
+                <Button size="sm" variant="outline" disabled={selectedStyleIds.has(s.styleID)} onClick={() => addProduct(s)}>
+                  {selectedStyleIds.has(s.styleID) ? "Added" : <><Plus className="w-3 h-3 mr-1" /> Add</>}
                 </Button>
               </div>
             ))
