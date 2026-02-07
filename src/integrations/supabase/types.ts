@@ -1155,6 +1155,90 @@ export type Database = {
         }
         Relationships: []
       }
+      store_logos: {
+        Row: {
+          created_at: string
+          file_url: string
+          id: string
+          method: string
+          name: string
+          team_store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_url: string
+          id?: string
+          method: string
+          name: string
+          team_store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_url?: string
+          id?: string
+          method?: string
+          name?: string
+          team_store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_logos_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_logos_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_store_item_logos: {
+        Row: {
+          created_at: string
+          id: string
+          position: string | null
+          store_logo_id: string
+          team_store_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: string | null
+          store_logo_id: string
+          team_store_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: string | null
+          store_logo_id?: string
+          team_store_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_item_logos_store_logo_id_fkey"
+            columns: ["store_logo_id"]
+            isOneToOne: false
+            referencedRelation: "store_logos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_item_logos_team_store_item_id_fkey"
+            columns: ["team_store_item_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_leads: {
         Row: {
           additional_info: string | null
@@ -1210,9 +1294,17 @@ export type Database = {
         Row: {
           active: boolean
           created_at: string
+          dtf_enabled: boolean
+          embroidery_enabled: boolean
+          fundraising_amount_per_unit: number | null
+          fundraising_enabled: boolean
           id: string
           notes: string | null
+          personalization_config: Json | null
+          personalization_enabled: boolean
+          personalization_price: number | null
           price_override: number | null
+          screen_print_enabled: boolean
           sort_order: number
           style_id: number
           team_store_id: string
@@ -1221,9 +1313,17 @@ export type Database = {
         Insert: {
           active?: boolean
           created_at?: string
+          dtf_enabled?: boolean
+          embroidery_enabled?: boolean
+          fundraising_amount_per_unit?: number | null
+          fundraising_enabled?: boolean
           id?: string
           notes?: string | null
+          personalization_config?: Json | null
+          personalization_enabled?: boolean
+          personalization_price?: number | null
           price_override?: number | null
+          screen_print_enabled?: boolean
           sort_order?: number
           style_id: number
           team_store_id: string
@@ -1232,9 +1332,17 @@ export type Database = {
         Update: {
           active?: boolean
           created_at?: string
+          dtf_enabled?: boolean
+          embroidery_enabled?: boolean
+          fundraising_amount_per_unit?: number | null
+          fundraising_enabled?: boolean
           id?: string
           notes?: string | null
+          personalization_config?: Json | null
+          personalization_enabled?: boolean
+          personalization_price?: number | null
           price_override?: number | null
+          screen_print_enabled?: boolean
           sort_order?: number
           style_id?: number
           team_store_id?: string
@@ -1271,6 +1379,7 @@ export type Database = {
           description: string | null
           end_date: string | null
           fundraising_goal: number | null
+          fundraising_goal_amount: number | null
           fundraising_percent: number | null
           hero_subtitle: string | null
           hero_title: string | null
@@ -1291,6 +1400,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           fundraising_goal?: number | null
+          fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
           hero_subtitle?: string | null
           hero_title?: string | null
@@ -1311,6 +1421,7 @@ export type Database = {
           description?: string | null
           end_date?: string | null
           fundraising_goal?: number | null
+          fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
           hero_subtitle?: string | null
           hero_title?: string | null
