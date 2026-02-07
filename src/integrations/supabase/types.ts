@@ -1450,6 +1450,7 @@ export type Database = {
       team_store_products: {
         Row: {
           active: boolean
+          allowed_colors: Json | null
           category_id: string | null
           created_at: string
           dtf_enabled: boolean
@@ -1471,6 +1472,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
           dtf_enabled?: boolean
@@ -1492,6 +1494,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
           dtf_enabled?: boolean

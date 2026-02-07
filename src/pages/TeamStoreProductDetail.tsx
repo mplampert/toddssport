@@ -112,10 +112,19 @@ export default function TeamStoreProductDetail() {
   }, [ssStyleId]);
 
   /* ── derived data ── */
+  // Parse allowed_colors from the store product (if set, filter to only those)
+  const allowedColorCodes = useMemo(() => {
+    const raw = storeProduct?.allowed_colors;
+    if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
+    return new Set((raw as { code: string; name: string }[]).map((c) => c.code));
+  }, [storeProduct?.allowed_colors]);
+
   const colorOptions = useMemo<ColorOption[]>(() => {
     const map = new Map<string, ColorOption>();
     products.forEach((p) => {
       if (p.colorName && !map.has(p.colorName)) {
+        // If allowed_colors is set, filter to only those color codes
+        if (allowedColorCodes && !allowedColorCodes.has(p.colorCode)) return;
         map.set(p.colorName, {
           name: p.colorName,
           code: p.colorCode,
@@ -129,7 +138,7 @@ export default function TeamStoreProductDetail() {
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products]);
+  }, [products, allowedColorCodes]);
 
   const activeColor = useMemo(
     () => colorOptions.find((c) => c.name === selectedColor) || colorOptions[0],
