@@ -50,7 +50,7 @@ export default function TeamStorePreview() {
         .from("team_stores")
         .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active, description, hero_title, hero_subtitle, fundraising_percent, store_type")
         .eq("slug", slug!)
-        .in("status", ["draft", "open"])
+        .in("status", ["draft", "open", "scheduled"])
         .single();
       if (error) throw error;
       return data;
@@ -127,7 +127,7 @@ export default function TeamStorePreview() {
     );
   }
 
-  const isDraft = store.status === "draft";
+  const isDraft = store.status !== "open";
   const dateRange = store.start_date || store.end_date
     ? `${store.start_date ?? "—"} to ${store.end_date ?? "—"}`
     : null;
