@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { ProductRowCard } from "./ProductRowCard";
 import { StoreCategoryManager, useEffectiveCategories } from "./StoreCategoryManager";
-import { AddProductBrowser } from "./AddProductBrowser";
 import { AddProductsWizard } from "./AddProductsWizard";
 
 interface Props {
@@ -70,7 +69,6 @@ export function TeamStoreProducts({ storeId }: Props) {
         <div className="flex items-center gap-2">
           <StoreCategoryManager storeId={storeId} />
           <AddProductsWizard storeId={storeId} attachedStyleIds={attachedStyleIds} />
-          <AddProductBrowser storeId={storeId} attachedStyleIds={attachedStyleIds} />
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
