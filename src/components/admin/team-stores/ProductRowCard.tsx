@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Trash2, Save, ChevronDown, ChevronUp, Image, Tags } from "lucide-react";
 import { toast } from "sonner";
 import { LogoAssignmentDialog } from "./LogoAssignmentDialog";
+import { ProductMessagesPanel } from "./ProductMessagesPanel";
 
 interface PersonalizationConfig {
   allow_name?: boolean;
@@ -244,6 +245,9 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
               </div>
             )}
           </div>
+
+          {/* Product Messages */}
+          <ProductMessagesPanel storeId={storeId} productId={item.id} />
 
           {/* Save */}
           {dirty && (
