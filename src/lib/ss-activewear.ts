@@ -82,12 +82,11 @@ export async function getStyles(params?: {
   brand?: string;
   category?: string;
 }): Promise<SSStyle[]> {
-  // S&S API v2 uses path-based filtering, not query params
-  const pathParts: string[] = ["styles"];
-  if (params?.style) pathParts.push(params.style);
-  if (params?.brand) pathParts.push("brand", params.brand);
-  if (params?.category) pathParts.push("category", params.category);
-  return callSSApi<SSStyle[]>(pathParts.join("/"));
+  const queryParams: Record<string, string | number> = {};
+  if (params?.style) queryParams.style = params.style;
+  if (params?.brand) queryParams.brand = params.brand;
+  if (params?.category) queryParams.category = params.category;
+  return callSSApi<SSStyle[]>("styles", queryParams);
 }
 
 export async function getProducts(params?: {
@@ -95,12 +94,11 @@ export async function getProducts(params?: {
   brand?: string;
   category?: string;
 }): Promise<SSProduct[]> {
-  // S&S API v2 uses path-based filtering
-  const pathParts: string[] = ["products"];
-  if (params?.style) pathParts.push(String(params.style));
-  if (params?.brand) pathParts.push("brand", params.brand);
-  if (params?.category) pathParts.push("category", params.category);
-  return callSSApi<SSProduct[]>(pathParts.join("/"));
+  const queryParams: Record<string, string | number> = {};
+  if (params?.style) queryParams.style = String(params.style);
+  if (params?.brand) queryParams.brand = params.brand;
+  if (params?.category) queryParams.category = params.category;
+  return callSSApi<SSProduct[]>("products", queryParams);
 }
 
 export async function getInventory(styleId: number): Promise<SSProduct[]> {
