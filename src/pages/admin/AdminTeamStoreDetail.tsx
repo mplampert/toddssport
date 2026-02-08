@@ -16,10 +16,12 @@ import {
   Truck,
   Megaphone,
   Settings,
+  FileText,
 } from "lucide-react";
 
 const STORE_TABS = [
   { label: "Overview", path: "overview", icon: LayoutDashboard },
+  { label: "Details", path: "details", icon: FileText },
   { label: "Products", path: "products", icon: Package },
   { label: "Logos", path: "logos", icon: Image },
   { label: "Branding", path: "branding", icon: Palette },
