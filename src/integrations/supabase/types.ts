@@ -1533,7 +1533,9 @@ export type Database = {
           extra_image_urls: Json | null
           fundraising_amount_per_unit: number | null
           fundraising_enabled: boolean
+          fundraising_percentage: number | null
           id: string
+          internal_notes: string | null
           notes: string | null
           personalization_config: Json | null
           personalization_enabled: boolean
@@ -1559,7 +1561,9 @@ export type Database = {
           extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
+          fundraising_percentage?: number | null
           id?: string
+          internal_notes?: string | null
           notes?: string | null
           personalization_config?: Json | null
           personalization_enabled?: boolean
@@ -1585,7 +1589,9 @@ export type Database = {
           extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
+          fundraising_percentage?: number | null
           id?: string
+          internal_notes?: string | null
           notes?: string | null
           personalization_config?: Json | null
           personalization_enabled?: boolean
