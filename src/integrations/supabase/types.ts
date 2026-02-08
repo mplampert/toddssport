@@ -1354,26 +1354,38 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          is_primary: boolean
           position: string | null
+          scale: number
           store_logo_id: string
           store_logo_variant_id: string | null
           team_store_item_id: string
+          x: number
+          y: number
         }
         Insert: {
           created_at?: string
           id?: string
+          is_primary?: boolean
           position?: string | null
+          scale?: number
           store_logo_id: string
           store_logo_variant_id?: string | null
           team_store_item_id: string
+          x?: number
+          y?: number
         }
         Update: {
           created_at?: string
           id?: string
+          is_primary?: boolean
           position?: string | null
+          scale?: number
           store_logo_id?: string
           store_logo_variant_id?: string | null
           team_store_item_id?: string
+          x?: number
+          y?: number
         }
         Relationships: [
           {
