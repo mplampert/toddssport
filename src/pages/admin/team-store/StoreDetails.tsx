@@ -600,7 +600,7 @@ export default function StoreDetails() {
                 <div className="space-y-2 pl-4">
                   <Label>Day of Month</Label>
                   <div className="grid grid-cols-7 gap-1.5 max-w-xs">
-                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => {
+                    {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
                       const isSelected = form.recurring_batch_day_of_month === String(d);
                       return (
                         <button
