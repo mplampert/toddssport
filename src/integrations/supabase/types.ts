@@ -1450,6 +1450,60 @@ export type Database = {
         }
         Relationships: []
       }
+      team_store_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_active: boolean
+          location: string
+          sort_order: number
+          style_variant: string
+          team_store_id: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string
+          sort_order?: number
+          style_variant?: string
+          team_store_id: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          location?: string
+          sort_order?: number
+          style_variant?: string
+          team_store_id?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_messages_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_messages_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_products: {
         Row: {
           active: boolean

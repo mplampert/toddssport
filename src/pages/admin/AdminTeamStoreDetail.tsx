@@ -17,6 +17,7 @@ import {
   Megaphone,
   Settings,
   FileText,
+  MessageSquare,
 } from "lucide-react";
 
 const STORE_TABS = [
@@ -25,6 +26,7 @@ const STORE_TABS = [
   { label: "Products", path: "products", icon: Package },
   { label: "Logos", path: "logos", icon: Image },
   { label: "Branding", path: "branding", icon: Palette },
+  { label: "Messages", path: "messages", icon: MessageSquare },
   { label: "Orders", path: "orders", icon: ShoppingCart },
   { label: "Reports", path: "reports", icon: BarChart3 },
   { label: "Fulfillment", path: "fulfillment", icon: Truck },

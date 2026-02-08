@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Lock, ShoppingBag, Calendar, ArrowLeft } from "lucide-react";
 import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
+import { StoreMessages } from "@/components/team-stores/StoreMessages";
 
 interface StoreData {
   id: string;
@@ -236,6 +237,13 @@ export default function TeamStoreDetail() {
                 <span className="text-sm">{dateRange}</span>
               </div>
             )}
+          </div>
+        </section>
+
+        {/* Store Messages */}
+        <section className="pt-8 px-4">
+          <div className="container mx-auto">
+            <StoreMessages storeId={store!.id} location="home" />
           </div>
         </section>
 
