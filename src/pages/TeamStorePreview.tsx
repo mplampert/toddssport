@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShoppingBag, Calendar, ArrowLeft, Eye, Rocket } from "lucide-react";
 import { toast } from "sonner";
+import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
 
 export default function TeamStorePreview() {
   const { slug } = useParams<{ slug: string }>();
@@ -66,7 +67,7 @@ export default function TeamStorePreview() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, sort_order, notes, price_override, active, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
+        .select("id, sort_order, notes, price_override, active, category_id, store_category_override_id, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
         .eq("team_store_id", store!.id)
         .eq("active", true)
         .order("sort_order");
@@ -188,37 +189,13 @@ export default function TeamStorePreview() {
         {/* Products */}
         <section className="py-12 px-4">
           <div className="container mx-auto">
-            {products.length === 0 ? (
-              <div className="text-center py-16">
-                <ShoppingBag className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">No products have been added to this store yet.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {products.map((item: any) => {
-                  const style = item.catalog_styles;
-                  const productUrl = `/preview/team-store/${slug}/product/${item.id}${token ? `?token=${token}` : ""}`;
-                  return (
-                    <Link key={item.id} to={productUrl}>
-                      <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                        {style?.style_image && (
-                          <div className="aspect-square bg-muted flex items-center justify-center p-4">
-                            <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
-                          </div>
-                        )}
-                        <CardContent className="p-4">
-                          <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
-                          <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
-                          {item.price_override != null && (
-                            <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
+            <StorefrontProductGrid
+              storeId={store!.id}
+              slug={slug!}
+              products={products as any}
+              basePath={`/preview/team-store/${slug}`}
+              urlSuffix={token ? `?token=${token}` : ""}
+            />
           </div>
         </section>
       </main>
