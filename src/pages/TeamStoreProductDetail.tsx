@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
+import { StoreMessages } from "@/components/team-stores/StoreMessages";
 
 interface ColorOption {
   name: string;
@@ -443,6 +444,13 @@ export default function TeamStoreProductDetail() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* Store Messages for product page */}
+                {store?.id && (
+                  <div className="mb-4">
+                    <StoreMessages storeId={store.id} location="product" />
                   </div>
                 )}
 

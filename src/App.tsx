@@ -53,6 +53,7 @@ import StoreOrders from "./pages/admin/team-store/StoreOrders";
 import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
 import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
+import StoreMessagesPage from "./pages/admin/team-store/StoreMessagesPage";
 import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
 import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
@@ -136,6 +137,7 @@ const App = () => (
               <Route path="products" element={<StoreProducts />} />
               <Route path="logos" element={<StoreLogos />} />
               <Route path="branding" element={<StoreBranding />} />
+              <Route path="messages" element={<StoreMessagesPage />} />
               <Route path="orders" element={<StoreOrders />} />
               <Route path="reports" element={<StoreReports />} />
               <Route path="fulfillment" element={<StoreFulfillment />} />
