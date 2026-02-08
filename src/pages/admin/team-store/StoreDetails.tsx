@@ -569,49 +569,106 @@ export default function StoreDetails() {
               {(form.recurring_batch_frequency === "weekly" || form.recurring_batch_frequency === "biweekly") && (
                 <div className="space-y-2 pl-4">
                   <Label>Day of Week</Label>
-                  <Select
-                    value={form.recurring_batch_day_of_week || "1"}
-                    onValueChange={(v) => update("recurring_batch_day_of_week", v)}
-                  >
-                    <SelectTrigger className="w-full max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {DAYS_OF_WEEK.map((d) => (
-                        <SelectItem key={d.value} value={String(d.value)}>{d.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-wrap gap-2">
+                    {DAYS_OF_WEEK.map((d) => {
+                      const isSelected = form.recurring_batch_day_of_week === String(d.value);
+                      return (
+                        <button
+                          key={d.value}
+                          type="button"
+                          onClick={() => update("recurring_batch_day_of_week", String(d.value))}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground"
+                          }`}
+                        >
+                          {d.label.slice(0, 3)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {form.recurring_batch_day_of_week && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {DAYS_OF_WEEK.find((d) => String(d.value) === form.recurring_batch_day_of_week)?.label}
+                    </p>
+                  )}
                 </div>
               )}
 
               {form.recurring_batch_frequency === "monthly" && (
                 <div className="space-y-2 pl-4">
                   <Label>Day of Month</Label>
-                  <Select
-                    value={form.recurring_batch_day_of_month || "1"}
-                    onValueChange={(v) => update("recurring_batch_day_of_month", v)}
-                  >
-                    <SelectTrigger className="w-full max-w-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="grid grid-cols-7 gap-1.5 max-w-xs">
+                    {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => {
+                      const isSelected = form.recurring_batch_day_of_month === String(d);
+                      return (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => update("recurring_batch_day_of_month", String(d))}
+                          className={`w-9 h-9 rounded-md text-sm font-medium border transition-colors ${
+                            isSelected
+                              ? "bg-primary text-primary-foreground border-primary"
+                              : "bg-background text-foreground border-input hover:bg-accent hover:text-accent-foreground"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
               <div className="space-y-2 pl-4">
                 <Label>Time of Day</Label>
-                <Input
-                  type="time"
-                  value={form.recurring_batch_time}
-                  onChange={(e) => update("recurring_batch_time", e.target.value)}
-                  className="max-w-xs"
-                />
+                <div className="flex items-center gap-2 max-w-xs">
+                  <Select
+                    value={form.recurring_batch_time ? form.recurring_batch_time.split(":")[0] : ""}
+                    onValueChange={(h) => {
+                      const mins = form.recurring_batch_time ? form.recurring_batch_time.split(":")[1] || "00" : "00";
+                      update("recurring_batch_time", `${h}:${mins}`);
+                    }}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Hour" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: 24 }, (_, i) => {
+                        const val = String(i).padStart(2, "0");
+                        const label = i === 0 ? "12 AM" : i < 12 ? `${i} AM` : i === 12 ? "12 PM" : `${i - 12} PM`;
+                        return <SelectItem key={val} value={val}>{label}</SelectItem>;
+                      })}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-muted-foreground font-medium">:</span>
+                  <Select
+                    value={form.recurring_batch_time ? form.recurring_batch_time.split(":")[1] || "00" : ""}
+                    onValueChange={(m) => {
+                      const hrs = form.recurring_batch_time ? form.recurring_batch_time.split(":")[0] || "08" : "08";
+                      update("recurring_batch_time", `${hrs}:${m}`);
+                    }}
+                  >
+                    <SelectTrigger className="w-24">
+                      <SelectValue placeholder="Min" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["00", "15", "30", "45"].map((m) => (
+                        <SelectItem key={m} value={m}>:{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.recurring_batch_time && (
+                  <p className="text-xs text-muted-foreground">
+                    Batch time: {(() => {
+                      const [h, m] = form.recurring_batch_time.split(":");
+                      const hr = parseInt(h);
+                      return `${hr === 0 ? 12 : hr > 12 ? hr - 12 : hr}:${m} ${hr < 12 ? "AM" : "PM"}`;
+                    })()}
+                  </p>
+                )}
               </div>
 
               <div className="pl-4">
