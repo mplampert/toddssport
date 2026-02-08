@@ -1213,6 +1213,7 @@ export type Database = {
           created_at: string
           file_url: string
           id: string
+          is_primary: boolean
           method: string
           name: string
           placement: string | null
@@ -1223,6 +1224,7 @@ export type Database = {
           created_at?: string
           file_url: string
           id?: string
+          is_primary?: boolean
           method: string
           name: string
           placement?: string | null
@@ -1233,6 +1235,7 @@ export type Database = {
           created_at?: string
           file_url?: string
           id?: string
+          is_primary?: boolean
           method?: string
           name?: string
           placement?: string | null
@@ -1585,6 +1588,7 @@ export type Database = {
       team_stores: {
         Row: {
           active: boolean
+          brand_colors: string[] | null
           country: string | null
           created_at: string
           description: string | null
@@ -1612,6 +1616,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          brand_colors?: string[] | null
           country?: string | null
           created_at?: string
           description?: string | null
@@ -1639,6 +1644,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          brand_colors?: string[] | null
           country?: string | null
           created_at?: string
           description?: string | null
