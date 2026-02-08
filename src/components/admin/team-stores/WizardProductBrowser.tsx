@@ -102,17 +102,14 @@ export function WizardProductBrowser({
     queryFn: async (): Promise<SSStyle[]> => {
       if (!hasFilters) return [];
 
-      // If we have brand or category, use those API params
-      if (selectedBrand || selectedType) {
-        const params: { brand?: string; category?: string } = {};
-        if (selectedBrand) params.brand = selectedBrand;
-        if (selectedType) params.category = selectedType;
-        return await getStyles(params);
+      // S&S API supports ?category= filter reliably; brand filtering is done client-side
+      const params: { brand?: string; category?: string; style?: string } = {};
+      if (selectedType) params.category = selectedType;
+      // If keyword only (no brand/category), try as style param
+      if (!selectedBrand && !selectedType && debouncedKeyword) {
+        params.style = debouncedKeyword;
       }
-
-      // Keyword-only: fetch all styles and filter client-side
-      const allStyles = await getStyles();
-      return allStyles;
+      return await getStyles(Object.keys(params).length > 0 ? params : undefined);
     },
     enabled: !!hasFilters,
     staleTime: 120_000,
@@ -121,6 +118,12 @@ export function WizardProductBrowser({
   // Client-side keyword filter on top of API results
   const searchResults = useMemo(() => {
     let filtered = rawResults;
+    // Client-side brand filter (API ?brand= param is unreliable)
+    if (selectedBrand) {
+      filtered = filtered.filter(
+        (s) => s.brandName?.toLowerCase() === selectedBrand.toLowerCase()
+      );
+    }
     if (debouncedKeyword && debouncedKeyword.length >= 2) {
       const q = debouncedKeyword.toLowerCase();
       filtered = filtered.filter(
@@ -132,7 +135,7 @@ export function WizardProductBrowser({
       );
     }
     return filtered.slice(0, 50);
-  }, [rawResults, debouncedKeyword]);
+  }, [rawResults, debouncedKeyword, selectedBrand]);
 
   const clearFilters = () => {
     setSelectedBrand("");
