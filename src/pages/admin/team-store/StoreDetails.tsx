@@ -41,6 +41,10 @@ const DAYS_OF_WEEK = [
   { value: 6, label: "Saturday" },
 ];
 
+function parseCsv(val: string): string[] {
+  return val ? val.split(",").filter(Boolean) : [];
+}
+
 function toLocalDatetime(val: string | null): string {
   if (!val) return "";
   try {
@@ -568,15 +572,22 @@ export default function StoreDetails() {
 
               {(form.recurring_batch_frequency === "weekly" || form.recurring_batch_frequency === "biweekly") && (
                 <div className="space-y-2 pl-4">
-                  <Label>Day of Week</Label>
+                  <Label>Days of Week</Label>
                   <div className="flex flex-wrap gap-2">
                     {DAYS_OF_WEEK.map((d) => {
-                      const isSelected = form.recurring_batch_day_of_week === String(d.value);
+                      const selected = parseCsv(form.recurring_batch_day_of_week);
+                      const isSelected = selected.includes(String(d.value));
                       return (
                         <button
                           key={d.value}
                           type="button"
-                          onClick={() => update("recurring_batch_day_of_week", String(d.value))}
+                          onClick={() => {
+                            const val = String(d.value);
+                            const next = isSelected
+                              ? selected.filter((v) => v !== val)
+                              : [...selected, val];
+                            update("recurring_batch_day_of_week", next.join(","));
+                          }}
                           className={`px-3 py-1.5 rounded-md text-sm font-medium border transition-colors ${
                             isSelected
                               ? "bg-primary text-primary-foreground border-primary"
@@ -590,7 +601,7 @@ export default function StoreDetails() {
                   </div>
                   {form.recurring_batch_day_of_week && (
                     <p className="text-xs text-muted-foreground">
-                      Selected: {DAYS_OF_WEEK.find((d) => String(d.value) === form.recurring_batch_day_of_week)?.label}
+                      Selected: {parseCsv(form.recurring_batch_day_of_week).map((v) => DAYS_OF_WEEK.find((d) => String(d.value) === v)?.label).filter(Boolean).join(", ")}
                     </p>
                   )}
                 </div>
@@ -598,15 +609,22 @@ export default function StoreDetails() {
 
               {form.recurring_batch_frequency === "monthly" && (
                 <div className="space-y-2 pl-4">
-                  <Label>Day of Month</Label>
+                  <Label>Days of Month</Label>
                   <div className="grid grid-cols-7 gap-1.5 max-w-xs">
                     {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
-                      const isSelected = form.recurring_batch_day_of_month === String(d);
+                      const selected = parseCsv(form.recurring_batch_day_of_month);
+                      const isSelected = selected.includes(String(d));
                       return (
                         <button
                           key={d}
                           type="button"
-                          onClick={() => update("recurring_batch_day_of_month", String(d))}
+                          onClick={() => {
+                            const val = String(d);
+                            const next = isSelected
+                              ? selected.filter((v) => v !== val)
+                              : [...selected, val];
+                            update("recurring_batch_day_of_month", next.join(","));
+                          }}
                           className={`w-9 h-9 rounded-md text-sm font-medium border transition-colors ${
                             isSelected
                               ? "bg-primary text-primary-foreground border-primary"
@@ -618,6 +636,11 @@ export default function StoreDetails() {
                       );
                     })}
                   </div>
+                  {form.recurring_batch_day_of_month && (
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {parseCsv(form.recurring_batch_day_of_month).sort((a, b) => Number(a) - Number(b)).join(", ")}
+                    </p>
+                  )}
                 </div>
               )}
 
