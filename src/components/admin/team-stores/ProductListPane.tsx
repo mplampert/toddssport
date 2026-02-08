@@ -1,0 +1,233 @@
+import { useState, useMemo } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Trash2, Eye, EyeOff, Package } from "lucide-react";
+import type { EffectiveCategory } from "./StoreCategoryManager";
+
+export interface StoreProduct {
+  id: string;
+  style_id: number;
+  sort_order: number;
+  notes: string | null;
+  price_override: number | null;
+  active: boolean;
+  fundraising_enabled: boolean;
+  fundraising_amount_per_unit: number | null;
+  fundraising_percentage: number | null;
+  personalization_enabled: boolean;
+  personalization_price: number | null;
+  personalization_config: any;
+  screen_print_enabled: boolean;
+  embroidery_enabled: boolean;
+  dtf_enabled: boolean;
+  category_id: string | null;
+  store_category_override_id: string | null;
+  display_name: string | null;
+  display_color: string | null;
+  primary_image_url: string | null;
+  extra_image_urls: string[] | null;
+  internal_notes: string | null;
+  catalog_styles: {
+    id: number;
+    style_id: number;
+    style_name: string;
+    brand_name: string;
+    style_image: string | null;
+    description: string | null;
+  } | null;
+  team_store_categories?: { id: string; name: string } | null;
+}
+
+interface Props {
+  products: StoreProduct[];
+  categories: EffectiveCategory[];
+  selectedId: string | null;
+  selectedIds: Set<string>;
+  onSelect: (id: string) => void;
+  onToggleSelect: (id: string) => void;
+  onSelectAll: (ids: string[]) => void;
+  onBulkAction: (action: "show" | "hide" | "delete", ids: string[]) => void;
+  isLoading: boolean;
+}
+
+export function ProductListPane({
+  products,
+  categories,
+  selectedId,
+  selectedIds,
+  onSelect,
+  onToggleSelect,
+  onSelectAll,
+  onBulkAction,
+  isLoading,
+}: Props) {
+  const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+
+  const filtered = useMemo(() => {
+    let list = products;
+
+    // Search
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((p) => {
+        const name = (p.display_name || p.catalog_styles?.style_name || "").toLowerCase();
+        const brand = (p.catalog_styles?.brand_name || "").toLowerCase();
+        const sid = String(p.catalog_styles?.style_id || "");
+        return name.includes(q) || brand.includes(q) || sid.includes(q);
+      });
+    }
+
+    // Category
+    if (categoryFilter === "uncategorized") {
+      list = list.filter((p) => !p.category_id && !p.store_category_override_id);
+    } else if (categoryFilter !== "all") {
+      list = list.filter(
+        (p) => p.category_id === categoryFilter || p.store_category_override_id === categoryFilter
+      );
+    }
+
+    // Status
+    if (statusFilter === "active") list = list.filter((p) => p.active);
+    if (statusFilter === "hidden") list = list.filter((p) => !p.active);
+
+    return list;
+  }, [products, search, categoryFilter, statusFilter]);
+
+  const allFilteredIds = filtered.map((p) => p.id);
+  const allSelected = filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id));
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Search + Filters */}
+      <div className="p-3 border-b space-y-2">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, brand, style ID…"
+            className="pl-8 h-8 text-xs"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-7 text-xs flex-1">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories.filter((c) => !c.hidden).map((c) => (
+                <SelectItem key={c.id} value={c.globalCategoryId ?? c.id}>{c.name}</SelectItem>
+              ))}
+              <SelectItem value="uncategorized">Uncategorized</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="h-7 text-xs w-28">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="hidden">Hidden</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Bulk Actions */}
+      {selectedIds.size > 0 && (
+        <div className="px-3 py-2 border-b bg-muted/50 flex items-center gap-2 text-xs">
+          <span className="font-medium">{selectedIds.size} selected</span>
+          <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkAction("show", Array.from(selectedIds))}>
+            <Eye className="w-3 h-3 mr-1" /> Show
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkAction("hide", Array.from(selectedIds))}>
+            <EyeOff className="w-3 h-3 mr-1" /> Hide
+          </Button>
+          <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-destructive" onClick={() => onBulkAction("delete", Array.from(selectedIds))}>
+            <Trash2 className="w-3 h-3 mr-1" /> Delete
+          </Button>
+        </div>
+      )}
+
+      {/* Product List */}
+      <div className="flex-1 overflow-y-auto">
+        {isLoading ? (
+          <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : filtered.length === 0 ? (
+          <div className="p-6 text-center">
+            <Package className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
+            <p className="text-sm text-muted-foreground">No products match your filters.</p>
+          </div>
+        ) : (
+          <div>
+            {/* Select all header */}
+            <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+              <Checkbox
+                checked={allSelected}
+                onCheckedChange={(v) => onSelectAll(v ? allFilteredIds : [])}
+                className="h-3.5 w-3.5"
+              />
+              <span className="flex-1">Product</span>
+              <span className="w-16 text-right">Price</span>
+              <span className="w-14 text-center">Status</span>
+            </div>
+            {filtered.map((item) => {
+              const style = item.catalog_styles;
+              const name = item.display_name || style?.style_name || `Style #${item.style_id}`;
+              const isActive = selectedId === item.id;
+              const img = item.primary_image_url || style?.style_image;
+              return (
+                <div
+                  key={item.id}
+                  onClick={() => onSelect(item.id)}
+                  className={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer transition-colors hover:bg-muted/50 ${
+                    isActive ? "bg-accent/10 border-l-2 border-l-accent" : ""
+                  }`}
+                >
+                  <Checkbox
+                    checked={selectedIds.has(item.id)}
+                    onCheckedChange={(e) => {
+                      e; // prevent row click
+                      onToggleSelect(item.id);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="h-3.5 w-3.5"
+                  />
+                  {img && (
+                    <img src={img} alt="" className="w-8 h-8 object-contain rounded shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium truncate">{name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{style?.brand_name}</p>
+                  </div>
+                  <span className="w-16 text-right text-xs tabular-nums">
+                    {item.price_override != null ? `$${Number(item.price_override).toFixed(2)}` : "—"}
+                  </span>
+                  <span className="w-14 text-center">
+                    {item.active ? (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">Active</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground">Hidden</Badge>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Footer count */}
+      <div className="px-3 py-1.5 border-t text-[10px] text-muted-foreground">
+        {filtered.length} of {products.length} products
+      </div>
+    </div>
+  );
+}
