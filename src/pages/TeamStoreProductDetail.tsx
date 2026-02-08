@@ -353,7 +353,7 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 {/* Price - show store override */}
-                <div className="mb-6">
+                <div className="mb-4">
                   {displayPrice != null ? (
                     <span className="text-3xl font-bold text-foreground">
                       ${Number(displayPrice).toFixed(2)}
@@ -361,6 +361,11 @@ export default function TeamStoreProductDetail() {
                   ) : (
                     <span className="text-lg text-muted-foreground">Contact for pricing</span>
                   )}
+                </div>
+
+                {/* Product-level messages */}
+                <div className="mb-6">
+                  <StoreMessages storeId={store.id} location="product" productId={itemId} />
                 </div>
 
                 {/* Stock Status */}
