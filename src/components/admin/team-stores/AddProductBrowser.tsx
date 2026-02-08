@@ -78,23 +78,26 @@ export function AddProductBrowser({ storeId, attachedStyleIds }: Props) {
   const hasFilters = selectedBrand || selectedType || debouncedKeyword.length >= 2;
 
   const { data: rawResults = [] as SSStyle[], isFetching: searching } = useQuery<SSStyle[]>({
-    queryKey: ["add-product-browse", selectedBrand, selectedType, debouncedKeyword],
+    queryKey: ["add-product-browse-all"],
     queryFn: async (): Promise<SSStyle[]> => {
-      if (!hasFilters) return [];
-      if (selectedBrand || selectedType) {
-        const params: { brand?: string; category?: string } = {};
-        if (selectedBrand) params.brand = selectedBrand;
-        if (selectedType) params.category = selectedType;
-        return await getStyles(params);
-      }
       return await getStyles();
     },
     enabled: !!hasFilters && open,
-    staleTime: 120_000,
+    staleTime: 300_000,
   });
 
   const searchResults = useMemo(() => {
     let filtered = rawResults;
+    if (selectedBrand) {
+      filtered = filtered.filter(
+        (s) => s.brandName?.toLowerCase() === selectedBrand.toLowerCase()
+      );
+    }
+    if (selectedType) {
+      filtered = filtered.filter(
+        (s) => s.baseCategory?.toLowerCase() === selectedType.toLowerCase()
+      );
+    }
     if (debouncedKeyword && debouncedKeyword.length >= 2) {
       const q = debouncedKeyword.toLowerCase();
       filtered = filtered.filter(
@@ -106,7 +109,7 @@ export function AddProductBrowser({ storeId, attachedStyleIds }: Props) {
       );
     }
     return filtered.slice(0, 50);
-  }, [rawResults, debouncedKeyword]);
+  }, [rawResults, debouncedKeyword, selectedBrand, selectedType]);
 
   const addProduct = async (style: SSStyle) => {
     setAddingIds((prev) => new Set(prev).add(style.styleID));
