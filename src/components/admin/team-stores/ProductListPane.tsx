@@ -30,6 +30,7 @@ export interface StoreProduct {
   primary_image_url: string | null;
   extra_image_urls: string[] | null;
   internal_notes: string | null;
+  allowed_colors: any;
   catalog_styles: {
     id: number;
     style_id: number;
