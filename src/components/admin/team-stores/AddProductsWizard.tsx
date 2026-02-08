@@ -175,23 +175,27 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
   const hasFilters = !!(selectedBrand || selectedType || debouncedKeyword.length >= 2);
 
   const { data: rawResults = [] as SSStyle[], isFetching: searching } = useQuery<SSStyle[]>({
-    queryKey: ["wizard-browse", selectedBrand, selectedType, debouncedKeyword],
+    queryKey: ["wizard-browse-all"],
     queryFn: async (): Promise<SSStyle[]> => {
-      if (!hasFilters) return [];
-      if (selectedBrand || selectedType) {
-        const params: { brand?: string; category?: string } = {};
-        if (selectedBrand) params.brand = selectedBrand;
-        if (selectedType) params.category = selectedType;
-        return await getStyles(params);
-      }
+      // Fetch all styles once and filter client-side (API doesn't support brand/category params)
       return await getStyles();
     },
     enabled: !!hasFilters && open && step === 0,
-    staleTime: 120_000,
+    staleTime: 300_000, // cache 5 min
   });
 
   const searchResults = useMemo(() => {
     let filtered = rawResults;
+    if (selectedBrand) {
+      filtered = filtered.filter(
+        (s) => s.brandName?.toLowerCase() === selectedBrand.toLowerCase()
+      );
+    }
+    if (selectedType) {
+      filtered = filtered.filter(
+        (s) => s.baseCategory?.toLowerCase() === selectedType.toLowerCase()
+      );
+    }
     if (debouncedKeyword && debouncedKeyword.length >= 2) {
       const q = debouncedKeyword.toLowerCase();
       filtered = filtered.filter(
@@ -203,7 +207,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
       );
     }
     return filtered.slice(0, 60);
-  }, [rawResults, debouncedKeyword]);
+  }, [rawResults, debouncedKeyword, selectedBrand, selectedType]);
 
   const toggleProduct = (s: SSStyle) => {
     setSelected((prev) => {
