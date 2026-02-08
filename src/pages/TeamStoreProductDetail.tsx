@@ -450,7 +450,7 @@ export default function TeamStoreProductDetail() {
                 {/* Store Messages for product page */}
                 {store?.id && (
                   <div className="mb-4">
-                    <StoreMessages storeId={store.id} location="product" />
+                    <StoreMessages storeId={store.id} location="product" productId={itemId} />
                   </div>
                 )}
 

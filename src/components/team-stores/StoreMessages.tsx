@@ -12,10 +12,13 @@ const VARIANT_STYLES: Record<string, { bg: string; icon: typeof Info }> = {
 interface Props {
   storeId: string;
   location: "home" | "product" | "checkout";
+  /** When set, also fetches product-specific messages */
+  productId?: string;
 }
 
-export function StoreMessages({ storeId, location }: Props) {
-  const { data: messages = [] } = useQuery({
+export function StoreMessages({ storeId, location, productId }: Props) {
+  // Store-level messages (no product_id)
+  const { data: storeMessages = [] } = useQuery({
     queryKey: ["store-messages-public", storeId, location],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -23,6 +26,7 @@ export function StoreMessages({ storeId, location }: Props) {
         .select("id, title, content, style_variant, location")
         .eq("team_store_id", storeId)
         .eq("is_active", true)
+        .is("product_id", null)
         .in("location", [location, "global"])
         .order("sort_order")
         .order("created_at");
@@ -31,6 +35,25 @@ export function StoreMessages({ storeId, location }: Props) {
     },
     enabled: !!storeId,
   });
+
+  // Product-specific messages
+  const { data: productMessages = [] } = useQuery({
+    queryKey: ["product-messages-public", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_messages")
+        .select("id, title, content, style_variant, location")
+        .eq("product_id", productId!)
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("created_at");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!productId,
+  });
+
+  const messages = [...storeMessages, ...productMessages];
 
   if (messages.length === 0) return null;
 

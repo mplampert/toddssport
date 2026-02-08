@@ -1457,6 +1457,7 @@ export type Database = {
           id: string
           is_active: boolean
           location: string
+          product_id: string | null
           sort_order: number
           style_variant: string
           team_store_id: string
@@ -1469,6 +1470,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string
+          product_id?: string | null
           sort_order?: number
           style_variant?: string
           team_store_id: string
@@ -1481,6 +1483,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           location?: string
+          product_id?: string | null
           sort_order?: number
           style_variant?: string
           team_store_id?: string
@@ -1488,6 +1491,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_store_messages_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_store_messages_team_store_id_fkey"
             columns: ["team_store_id"]
