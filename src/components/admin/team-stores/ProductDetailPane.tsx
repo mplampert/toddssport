@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Save, Loader2, Package, Image as ImageIcon } from "lucide-react";
+import { ProductVariantsTab } from "./ProductVariantsTab";
 import { toast } from "sonner";
 import { ProductOverridesPanel } from "./ProductOverridesPanel";
 import { ProductMessagesPanel } from "./ProductMessagesPanel";
@@ -84,7 +85,7 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
             <ProductMessagesPanel storeId={storeId} productId={item.id} />
           </TabsContent>
           <TabsContent value="variants" className="m-0 p-4">
-            <VariantsTab item={item} storeId={storeId} />
+            <ProductVariantsTab item={item} storeId={storeId} />
           </TabsContent>
         </div>
       </Tabs>
