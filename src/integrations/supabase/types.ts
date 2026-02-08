@@ -1589,6 +1589,7 @@ export type Database = {
         Row: {
           active: boolean
           brand_colors: string[] | null
+          close_at: string | null
           country: string | null
           created_at: string
           description: string | null
@@ -1598,14 +1599,21 @@ export type Database = {
           fundraising_goal: number | null
           fundraising_goal_amount: number | null
           fundraising_percent: number | null
+          hero_image_url: string | null
           hero_subtitle: string | null
           hero_title: string | null
           id: string
           logo_url: string | null
           name: string
+          open_at: string | null
           org_tax_exempt: boolean | null
           preview_token: string
           primary_color: string | null
+          recurring_batch_day_of_month: number | null
+          recurring_batch_day_of_week: number | null
+          recurring_batch_enabled: boolean
+          recurring_batch_frequency: string | null
+          recurring_batch_time: string | null
           secondary_color: string | null
           slug: string
           start_date: string | null
@@ -1613,10 +1621,12 @@ export type Database = {
           store_pin: string | null
           store_type: string | null
           updated_at: string
+          welcome_message: string | null
         }
         Insert: {
           active?: boolean
           brand_colors?: string[] | null
+          close_at?: string | null
           country?: string | null
           created_at?: string
           description?: string | null
@@ -1626,14 +1636,21 @@ export type Database = {
           fundraising_goal?: number | null
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
+          hero_image_url?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           logo_url?: string | null
           name: string
+          open_at?: string | null
           org_tax_exempt?: boolean | null
           preview_token?: string
           primary_color?: string | null
+          recurring_batch_day_of_month?: number | null
+          recurring_batch_day_of_week?: number | null
+          recurring_batch_enabled?: boolean
+          recurring_batch_frequency?: string | null
+          recurring_batch_time?: string | null
           secondary_color?: string | null
           slug: string
           start_date?: string | null
@@ -1641,10 +1658,12 @@ export type Database = {
           store_pin?: string | null
           store_type?: string | null
           updated_at?: string
+          welcome_message?: string | null
         }
         Update: {
           active?: boolean
           brand_colors?: string[] | null
+          close_at?: string | null
           country?: string | null
           created_at?: string
           description?: string | null
@@ -1654,14 +1673,21 @@ export type Database = {
           fundraising_goal?: number | null
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
+          hero_image_url?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           logo_url?: string | null
           name?: string
+          open_at?: string | null
           org_tax_exempt?: boolean | null
           preview_token?: string
           primary_color?: string | null
+          recurring_batch_day_of_month?: number | null
+          recurring_batch_day_of_week?: number | null
+          recurring_batch_enabled?: boolean
+          recurring_batch_frequency?: string | null
+          recurring_batch_time?: string | null
           secondary_color?: string | null
           slug?: string
           start_date?: string | null
@@ -1669,6 +1695,7 @@ export type Database = {
           store_pin?: string | null
           store_type?: string | null
           updated_at?: string
+          welcome_message?: string | null
         }
         Relationships: []
       }
