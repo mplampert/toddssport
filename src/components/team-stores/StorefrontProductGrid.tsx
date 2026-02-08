@@ -12,6 +12,10 @@ interface StorefrontProduct {
   active: boolean;
   category_id: string | null;
   store_category_override_id: string | null;
+  display_name: string | null;
+  display_color: string | null;
+  primary_image_url: string | null;
+  extra_image_urls: string[] | null;
   catalog_styles: {
     id: number;
     style_id: number;
@@ -167,17 +171,22 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
             {section.items.map((item) => {
               const style = item.catalog_styles;
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
+              const imgSrc = item.primary_image_url || style?.style_image;
+              const name = item.display_name || style?.style_name || "Product";
               return (
                 <Link key={item.id} to={productUrl}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    {style?.style_image && (
+                    {imgSrc && (
                       <div className="aspect-square bg-muted flex items-center justify-center p-4">
-                        <img src={style.style_image} alt={style.style_name} className="max-h-full max-w-full object-contain" />
+                        <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" />
                       </div>
                     )}
                     <CardContent className="p-4">
-                      <h3 className="font-semibold text-foreground">{style?.style_name ?? "Product"}</h3>
+                      <h3 className="font-semibold text-foreground">{name}</h3>
                       <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
+                      {item.display_color && (
+                        <p className="text-xs text-muted-foreground mt-0.5">{item.display_color}</p>
+                      )}
                       {item.price_override != null && (
                         <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
                       )}

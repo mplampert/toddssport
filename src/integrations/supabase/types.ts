@@ -1526,8 +1526,11 @@ export type Database = {
           allowed_colors: Json | null
           category_id: string | null
           created_at: string
+          display_color: string | null
+          display_name: string | null
           dtf_enabled: boolean
           embroidery_enabled: boolean
+          extra_image_urls: Json | null
           fundraising_amount_per_unit: number | null
           fundraising_enabled: boolean
           id: string
@@ -1536,6 +1539,7 @@ export type Database = {
           personalization_enabled: boolean
           personalization_price: number | null
           price_override: number | null
+          primary_image_url: string | null
           screen_print_enabled: boolean
           sort_order: number
           store_category_override_id: string | null
@@ -1548,8 +1552,11 @@ export type Database = {
           allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
+          display_color?: string | null
+          display_name?: string | null
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
           id?: string
@@ -1558,6 +1565,7 @@ export type Database = {
           personalization_enabled?: boolean
           personalization_price?: number | null
           price_override?: number | null
+          primary_image_url?: string | null
           screen_print_enabled?: boolean
           sort_order?: number
           store_category_override_id?: string | null
@@ -1570,8 +1578,11 @@ export type Database = {
           allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
+          display_color?: string | null
+          display_name?: string | null
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
           id?: string
@@ -1580,6 +1591,7 @@ export type Database = {
           personalization_enabled?: boolean
           personalization_price?: number | null
           price_override?: number | null
+          primary_image_url?: string | null
           screen_print_enabled?: boolean
           sort_order?: number
           store_category_override_id?: string | null

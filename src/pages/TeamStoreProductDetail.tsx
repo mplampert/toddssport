@@ -147,11 +147,31 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
+    // If store has override images, use those first
+    const overrideExtra = Array.isArray(storeProduct?.extra_image_urls)
+      ? (storeProduct.extra_image_urls as string[]).filter(Boolean)
+      : [];
+    const overridePrimary = storeProduct?.primary_image_url;
+
+    if (overridePrimary || overrideExtra.length > 0) {
+      const imgs: string[] = [];
+      if (overridePrimary) imgs.push(overridePrimary);
+      imgs.push(...overrideExtra);
+      // Also append SS API images as fallback
+      if (activeColor) {
+        [activeColor.frontImage, activeColor.backImage, activeColor.sideImage]
+          .filter((img): img is string => !!img && img.length > 0)
+          .forEach((img) => { if (!imgs.includes(img)) imgs.push(img); });
+      }
+      return imgs;
+    }
+
+    // Default: SS API images
     if (!activeColor) return [];
     return [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
       (img): img is string => !!img && img.length > 0
     );
-  }, [activeColor]);
+  }, [activeColor, storeProduct?.primary_image_url, storeProduct?.extra_image_urls]);
 
   const sizesForColor = useMemo(() => {
     return products
@@ -243,7 +263,7 @@ export default function TeamStoreProductDetail() {
             </Link>
             <span>/</span>
             <span className="text-foreground font-medium truncate">
-              {styleInfo?.title || catalogStyle?.style_name || "Product"}
+              {storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product"}
             </span>
           </nav>
 
@@ -325,7 +345,7 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                  {styleInfo?.title || catalogStyle?.style_name || "Product"}
+                  {storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product"}
                 </h1>
 
                 {selectedVariant?.sku && (
