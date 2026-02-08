@@ -11,12 +11,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Save, Loader2, Package, Image as ImageIcon } from "lucide-react";
+import { Save, Loader2, Package } from "lucide-react";
 import { ProductVariantsTab } from "./ProductVariantsTab";
+import { ProductLogosTab } from "./ProductLogosTab";
 import { toast } from "sonner";
 import { ProductOverridesPanel } from "./ProductOverridesPanel";
 import { ProductMessagesPanel } from "./ProductMessagesPanel";
-import { LogoAssignmentDialog } from "./LogoAssignmentDialog";
 import type { StoreProduct } from "./ProductListPane";
 
 interface PersonalizationConfig {
@@ -60,7 +60,7 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
       {/* Tabs */}
       <Tabs defaultValue="overview" className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="w-full justify-start rounded-none border-b px-4 h-auto py-0 bg-transparent shrink-0">
-          {["Overview", "Pricing", "Images", "Messages", "Variants"].map((tab) => (
+          {["Overview", "Pricing", "Images", "Logos", "Messages", "Variants"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -80,6 +80,9 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
           </TabsContent>
           <TabsContent value="images" className="m-0 p-4">
             <ImagesTab item={item} storeId={storeId} />
+          </TabsContent>
+          <TabsContent value="logos" className="m-0 p-4">
+            <ProductLogosTab item={item} storeId={storeId} />
           </TabsContent>
           <TabsContent value="messages" className="m-0 p-4">
             <ProductMessagesPanel storeId={storeId} productId={item.id} />
@@ -110,8 +113,8 @@ function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeI
   const [embroidery, setEmbroidery] = useState(item.embroidery_enabled);
   const [dtf, setDtf] = useState(item.dtf_enabled);
 
-  // Logo dialog
-  const [logoOpen, setLogoOpen] = useState(false);
+
+
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -214,15 +217,7 @@ function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeI
           </div>
         </div>
 
-        {/* Logos */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label className="text-xs font-medium">Logos</Label>
-            <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => setLogoOpen(true)}>
-              <ImageIcon className="w-3 h-3 mr-1" /> Assign
-            </Button>
-          </div>
-        </div>
+      
       </div>
 
       {dirty && (
@@ -232,13 +227,8 @@ function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeI
         </Button>
       )}
 
-      <LogoAssignmentDialog
-        open={logoOpen}
-        onOpenChange={setLogoOpen}
-        storeId={storeId}
-        itemId={item.id}
-        assignedLogoIds={[]}
-      />
+
+
     </div>
   );
 }
