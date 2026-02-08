@@ -40,6 +40,8 @@ interface StoreMessage {
   style_variant: string;
   is_active: boolean;
   sort_order: number;
+  is_popup: boolean;
+  popup_dismiss_days: number | null;
 }
 
 interface Props {
@@ -52,6 +54,8 @@ const EMPTY_FORM = {
   content: "",
   style_variant: "info",
   is_active: true,
+  is_popup: false,
+  popup_dismiss_days: 7,
 };
 
 export function StoreMessagesManager({ storeId }: Props) {
@@ -79,13 +83,21 @@ export function StoreMessagesManager({ storeId }: Props) {
     mutationFn: async () => {
       if (!form.content.trim()) throw new Error("Message content is required");
 
+      // Only allow one active popup per store
+      if (form.is_popup && form.is_active) {
+        const existing = messages.find((m) => m.is_popup && m.is_active && m.id !== editingId);
+        if (existing) throw new Error("Only one active popup is allowed per store. Deactivate the existing popup first.");
+      }
+
       const payload = {
         team_store_id: storeId,
-        location: form.location,
+        location: form.is_popup ? "home" : form.location,
         title: form.title.trim() || null,
         content: form.content.trim(),
         style_variant: form.style_variant,
         is_active: form.is_active,
+        is_popup: form.is_popup,
+        popup_dismiss_days: form.is_popup ? (form.popup_dismiss_days || 7) : null,
       };
 
       if (editingId) {
@@ -153,6 +165,8 @@ export function StoreMessagesManager({ storeId }: Props) {
       content: msg.content,
       style_variant: msg.style_variant,
       is_active: msg.is_active,
+      is_popup: msg.is_popup,
+      popup_dismiss_days: msg.popup_dismiss_days ?? 7,
     });
     setDialogOpen(true);
   }
@@ -246,6 +260,9 @@ export function StoreMessagesManager({ storeId }: Props) {
                         <Badge variant="outline" className="text-xs">
                           {getLocationLabel(msg.location)}
                         </Badge>
+                        {msg.is_popup && (
+                          <Badge className="text-xs bg-purple-100 text-purple-800 border-purple-300">Popup</Badge>
+                        )}
                         {!msg.is_active && (
                           <Badge variant="secondary" className="text-xs">Inactive</Badge>
                         )}
@@ -368,6 +385,31 @@ export function StoreMessagesManager({ storeId }: Props) {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {form.location === "home" && (
+              <div className="space-y-3 p-3 rounded-lg border bg-muted/30">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={form.is_popup}
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, is_popup: v }))}
+                  />
+                  <Label>Show as popup on homepage</Label>
+                </div>
+                {form.is_popup && (
+                  <div className="space-y-2 pl-14">
+                    <Label className="text-xs">Hide for X days after dismissed</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={form.popup_dismiss_days}
+                      onChange={(e) => setForm((f) => ({ ...f, popup_dismiss_days: parseInt(e.target.value) || 7 }))}
+                      className="w-24 h-8 text-sm"
+                    />
+                  </div>
+                )}
               </div>
             )}
 

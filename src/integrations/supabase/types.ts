@@ -1456,7 +1456,9 @@ export type Database = {
           created_at: string
           id: string
           is_active: boolean
+          is_popup: boolean
           location: string
+          popup_dismiss_days: number | null
           product_id: string | null
           sort_order: number
           style_variant: string
@@ -1469,7 +1471,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_popup?: boolean
           location?: string
+          popup_dismiss_days?: number | null
           product_id?: string | null
           sort_order?: number
           style_variant?: string
@@ -1482,7 +1486,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_popup?: boolean
           location?: string
+          popup_dismiss_days?: number | null
           product_id?: string | null
           sort_order?: number
           style_variant?: string

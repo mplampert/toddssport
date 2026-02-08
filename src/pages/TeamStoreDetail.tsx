@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Lock, ShoppingBag, Calendar, ArrowLeft } from "lucide-react";
 import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
+import { StorePopupMessage } from "@/components/team-stores/StorePopupMessage";
 
 interface StoreData {
   id: string;
@@ -239,6 +240,9 @@ export default function TeamStoreDetail() {
             )}
           </div>
         </section>
+
+        {/* Popup Message */}
+        <StorePopupMessage storeId={store!.id} />
 
         {/* Store Messages */}
         <section className="pt-8 px-4">
