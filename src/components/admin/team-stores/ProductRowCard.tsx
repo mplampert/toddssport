@@ -12,6 +12,7 @@ import { Trash2, Save, ChevronDown, ChevronUp, Image, Tags } from "lucide-react"
 import { toast } from "sonner";
 import { LogoAssignmentDialog } from "./LogoAssignmentDialog";
 import { ProductMessagesPanel } from "./ProductMessagesPanel";
+import { ProductOverridesPanel } from "./ProductOverridesPanel";
 
 interface PersonalizationConfig {
   allow_name?: boolean;
@@ -248,6 +249,9 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
 
           {/* Product Messages */}
           <ProductMessagesPanel storeId={storeId} productId={item.id} />
+
+          {/* Store Display Overrides */}
+          <ProductOverridesPanel item={item} storeId={storeId} onDirty={markDirty} />
 
           {/* Save */}
           {dirty && (
