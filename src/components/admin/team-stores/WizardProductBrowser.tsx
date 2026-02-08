@@ -98,30 +98,27 @@ export function WizardProductBrowser({
   }, [selectedBrand, selectedType, debouncedKeyword]);
 
   const { data: rawResults = [] as SSStyle[], isFetching: searching } = useQuery<SSStyle[]>({
-    queryKey: ["wizard-product-browse", selectedBrand, selectedType, debouncedKeyword],
+    queryKey: ["wizard-product-browse-all"],
     queryFn: async (): Promise<SSStyle[]> => {
-      if (!hasFilters) return [];
-
-      // S&S API supports ?category= filter reliably; brand filtering is done client-side
-      const params: { brand?: string; category?: string; style?: string } = {};
-      if (selectedType) params.category = selectedType;
-      // If keyword only (no brand/category), try as style param
-      if (!selectedBrand && !selectedType && debouncedKeyword) {
-        params.style = debouncedKeyword;
-      }
-      return await getStyles(Object.keys(params).length > 0 ? params : undefined);
+      // S&S API doesn't support brand/category query params reliably
+      // Fetch all styles once and filter client-side (same approach as catalog pages)
+      return await getStyles();
     },
     enabled: !!hasFilters,
-    staleTime: 120_000,
+    staleTime: 300_000, // cache for 5 min since this is the full catalog
   });
 
-  // Client-side keyword filter on top of API results
+  // All filtering happens client-side
   const searchResults = useMemo(() => {
     let filtered = rawResults;
-    // Client-side brand filter (API ?brand= param is unreliable)
     if (selectedBrand) {
       filtered = filtered.filter(
         (s) => s.brandName?.toLowerCase() === selectedBrand.toLowerCase()
+      );
+    }
+    if (selectedType) {
+      filtered = filtered.filter(
+        (s) => s.baseCategory?.toLowerCase() === selectedType.toLowerCase()
       );
     }
     if (debouncedKeyword && debouncedKeyword.length >= 2) {
@@ -135,7 +132,7 @@ export function WizardProductBrowser({
       );
     }
     return filtered.slice(0, 50);
-  }, [rawResults, debouncedKeyword, selectedBrand]);
+  }, [rawResults, debouncedKeyword, selectedBrand, selectedType]);
 
   const clearFilters = () => {
     setSelectedBrand("");
