@@ -9,6 +9,7 @@ export interface VariantImage {
   image_type: string;
   is_primary: boolean;
   sort_order: number;
+  view: string; // "front" | "back" | "left" | "right" | "detail"
 }
 
 /**
@@ -64,34 +65,46 @@ export function groupByColor(images: VariantImage[]): Map<string, VariantImage[]
 }
 
 /**
- * Get the best image for a specific color, preferring primary then first.
+ * Get the best image for a specific color and view, preferring primary then first.
  */
 export function getBestImageForColor(
   images: VariantImage[],
-  color: string
+  color: string,
+  view: string = "front"
 ): string | null {
-  const colorImages = images.filter((img) => img.color === color);
+  const colorImages = images.filter((img) => img.color === color && (img.view || "front") === view);
   if (colorImages.length === 0) return null;
   const primary = colorImages.find((img) => img.is_primary);
   return primary?.image_url ?? colorImages[0]?.image_url ?? null;
 }
 
 /**
- * Get gallery images for a specific color (ordered).
+ * Get gallery images for a specific color and view (ordered).
  */
 export function getGalleryForColor(
   images: VariantImage[],
-  color: string
+  color: string,
+  view: string = "front"
 ): string[] {
   return images
-    .filter((img) => img.color === color)
+    .filter((img) => img.color === color && (img.view || "front") === view)
     .sort((a, b) => {
-      // Primary first, then by sort_order
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
       return a.sort_order - b.sort_order;
     })
     .map((img) => img.image_url);
+}
+
+/**
+ * Check if any variant images exist for a given color and view.
+ */
+export function hasImagesForView(
+  images: VariantImage[],
+  color: string,
+  view: string
+): boolean {
+  return images.some((img) => img.color === color && (img.view || "front") === view);
 }
 
 export function useDeleteVariantImage() {

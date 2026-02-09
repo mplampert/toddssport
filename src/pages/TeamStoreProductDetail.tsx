@@ -50,7 +50,8 @@ export default function TeamStoreProductDetail() {
   const [selectedSize, setSelectedSize] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeLogoView, setActiveLogoView] = useState<string | null>(null);
+  const [activeLogoView] = useState<string | null>(null); // kept for compat
+  const [activeProductView, setActiveProductView] = useState<"front" | "back">("front");
   const [persName, setPersName] = useState("");
   const [persNumber, setPersNumber] = useState("");
   const { addItem } = useTeamStoreCart();
@@ -62,7 +63,7 @@ export default function TeamStoreProductDetail() {
       // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url), store_logo_variants(file_url))")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -99,10 +100,17 @@ export default function TeamStoreProductDetail() {
   const ssStyleId = catalogStyle?.style_id;
   const allLogos: LogoAssignment[] = (storeProduct as any)?.team_store_item_logos ?? [];
 
-  // Match logos for the currently selected color variant
+  // Match logos for the currently selected color variant, filtered by active view
   const assignedLogos = useMemo(
-    () => matchLogosForVariant(allLogos, selectedColor || undefined),
-    [allLogos, selectedColor]
+    () => matchLogosForVariant(allLogos, selectedColor || undefined)
+      .filter((l: any) => (l.view || "front") === activeProductView),
+    [allLogos, selectedColor, activeProductView]
+  );
+
+  // Check if there are any back-view logos at all (to show toggle)
+  const hasBackLogos = useMemo(
+    () => allLogos.some((l: any) => l.view === "back"),
+    [allLogos]
   );
   const isPreview = store?.status !== "open";
 
@@ -220,7 +228,6 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
-    // Helper: deduplicate by stripping cache-bust params for comparison
     const baseUrl = (u: string) => u.split("?")[0];
     const dedupe = (urls: string[]) => {
       const seen = new Set<string>();
@@ -232,32 +239,33 @@ export default function TeamStoreProductDetail() {
       });
     };
 
-    // If variant images exist for the selected color, show ONLY those
+    // If variant images exist for the selected color + view, show ONLY those
     if (selectedColor) {
-      const colorGallery = getGalleryForColor(variantImages, selectedColor);
+      const colorGallery = getGalleryForColor(variantImages, selectedColor, activeProductView);
       if (colorGallery.length > 0) {
         return colorGallery;
       }
     }
 
-    // No variant images — build gallery from SS color-specific FLAT images
-    // colorFrontImage = flat product shot (no model), from /Images/Color/ path
-    // Never use styleImage here — it's always a model shot (/Images/Style/ path)
+    // No variant images — build gallery from SS color-specific images based on view
     const ssColorImgs = activeColor
-      ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
-          (img): img is string => !!img && img.length > 0
-        )
+      ? activeProductView === "back"
+        ? [activeColor.backImage].filter((img): img is string => !!img && img.length > 0)
+        : [activeColor.frontImage, activeColor.sideImage].filter((img): img is string => !!img && img.length > 0)
       : [];
 
-    // Add any override images from the product as additional gallery shots
-    const overridePrimary = storeProduct?.primary_image_url;
-    const overrideExtras = Array.isArray(storeProduct?.extra_image_urls)
-      ? (storeProduct.extra_image_urls as string[]).filter((u): u is string => !!u)
-      : [];
-    const allImgs = [...ssColorImgs, ...(overridePrimary ? [overridePrimary] : []), ...overrideExtras];
+    // Add any override images from the product as additional gallery shots (front only)
+    if (activeProductView === "front") {
+      const overridePrimary = storeProduct?.primary_image_url;
+      const overrideExtras = Array.isArray(storeProduct?.extra_image_urls)
+        ? (storeProduct.extra_image_urls as string[]).filter((u): u is string => !!u)
+        : [];
+      const allImgs = [...ssColorImgs, ...(overridePrimary ? [overridePrimary] : []), ...overrideExtras];
+      return dedupe(allImgs.filter(Boolean));
+    }
 
-    return dedupe(allImgs.filter(Boolean));
-  }, [activeColor, storeProduct, selectedColor, variantImages]);
+    return dedupe(ssColorImgs.filter(Boolean));
+  }, [activeColor, storeProduct, selectedColor, variantImages, activeProductView]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
@@ -288,6 +296,7 @@ export default function TeamStoreProductDetail() {
     setSelectedColor(colorName);
     setSelectedSize("");
     setActiveImageIdx(0);
+    setActiveProductView("front");
   }, []);
 
   const handleAddToCart = () => {
@@ -429,31 +438,25 @@ export default function TeamStoreProductDetail() {
                     <Package className="w-24 h-24 text-muted-foreground/20" />
                   )}
 
-                  {/* Logo overlays from assigned placements */}
-                  {assignedLogos
-                    .filter((logo: any) => {
-                      const url = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
-                      if (!url) return false;
-                      if (activeLogoView === null) return true;
-                      return logo.id === activeLogoView;
-                    })
-                    .map((logo: any) => {
-                      const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
-                      return (
-                        <img
-                          key={logo.id}
-                          src={logoFileUrl}
-                          alt={logo.store_logos?.name || "Logo"}
-                          className="absolute pointer-events-none object-contain"
-                          style={{
-                            left: `${(logo.x ?? 0.5) * 100}%`,
-                            top: `${(logo.y ?? 0.2) * 100}%`,
-                            width: `${(logo.scale ?? 0.3) * 100}%`,
-                            transform: "translate(-50%, -50%)",
-                          }}
-                        />
-                      );
-                    })}
+                  {/* Logo overlays from assigned placements (already filtered by view) */}
+                  {assignedLogos.map((logo: any) => {
+                    const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
+                    if (!logoFileUrl) return null;
+                    return (
+                      <img
+                        key={logo.id}
+                        src={logoFileUrl}
+                        alt={logo.store_logos?.name || "Logo"}
+                        className="absolute pointer-events-none object-contain"
+                        style={{
+                          left: `${(logo.x ?? 0.5) * 100}%`,
+                          top: `${(logo.y ?? 0.2) * 100}%`,
+                          width: `${(logo.scale ?? 0.3) * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      />
+                    );
+                  })}
 
                   {galleryImages.length > 1 && (
                     <>
@@ -497,34 +500,23 @@ export default function TeamStoreProductDetail() {
                   </div>
                 )}
 
-                {/* Placement selector — shown when multiple logo placements exist */}
-                {assignedLogos.length > 1 && (
+                {/* Front / Back toggle — shown when back logos or back images exist */}
+                {(hasBackLogos || activeColor?.backImage) && (
                   <div className="flex items-center gap-2 justify-center">
-                    <span className="text-xs text-muted-foreground">View:</span>
-                    <button
-                      onClick={() => setActiveLogoView(null)}
-                      className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
-                        activeLogoView === null
-                          ? "border-accent bg-accent/10 text-accent-foreground font-medium"
-                          : "border-border text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      All
-                    </button>
-                    {assignedLogos.map((logo: any) => (
+                    {(["front", "back"] as const).map((v) => (
                       <button
-                        key={logo.id}
-                        onClick={() => setActiveLogoView(logo.id)}
-                        className={`px-2.5 py-1 rounded-md text-xs border transition-colors inline-flex items-center gap-1.5 ${
-                          activeLogoView === logo.id
-                            ? "border-accent bg-accent/10 text-accent-foreground font-medium"
+                        key={v}
+                        onClick={() => {
+                          setActiveProductView(v);
+                          setActiveImageIdx(0);
+                        }}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium capitalize border-2 transition-all ${
+                          activeProductView === v
+                            ? "border-accent bg-accent/10 text-accent-foreground"
                             : "border-border text-muted-foreground hover:bg-muted"
                         }`}
                       >
-                        {logo.store_logos?.file_url && (
-                          <img src={logo.store_logos.file_url} alt="" className="w-4 h-4 object-contain" />
-                        )}
-                        {logo.position || "Logo"}
+                        {v} View
                       </button>
                     ))}
                   </div>

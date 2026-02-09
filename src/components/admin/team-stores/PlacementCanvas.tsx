@@ -28,6 +28,7 @@ export interface LogoPlacement {
   is_primary: boolean;
   variant_color: string | null;
   variant_size: string | null;
+  view: string; // "front" | "back"
   _logo_name?: string;
   _logo_url?: string;
 }

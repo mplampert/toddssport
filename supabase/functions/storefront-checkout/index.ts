@@ -79,6 +79,20 @@ Deno.serve(async (req: Request) => {
 
     const productMap = new Map((dbProducts || []).map((p: any) => [p.id, p]));
 
+    // Fetch logo placements for all products in this order (for decoration_snapshot)
+    const { data: allItemLogos } = await supabase
+      .from("team_store_item_logos")
+      .select("team_store_item_id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url)")
+      .in("team_store_item_id", productIds);
+
+    // Group logos by product id
+    const logosByProduct = new Map<string, any[]>();
+    for (const logo of (allItemLogos || [])) {
+      const arr = logosByProduct.get(logo.team_store_item_id) || [];
+      arr.push(logo);
+      logosByProduct.set(logo.team_store_item_id, arr);
+    }
+
     // Build order items with server-verified prices
     let subtotal = 0;
     const orderItems: any[] = [];
@@ -92,6 +106,26 @@ Deno.serve(async (req: Request) => {
       const qty = Math.max(1, Math.round(Number(item.quantity)));
       const lineTotal = serverUnitPrice * qty;
       subtotal += lineTotal;
+
+      // Build decoration snapshot from logo placements
+      const productLogos = logosByProduct.get(item.productId) || [];
+      const decorationSnapshot = productLogos.length > 0 ? {
+        views: ["front", "back"].filter(v => productLogos.some(l => (l.view || "front") === v)).map(view => ({
+          view,
+          placements: productLogos
+            .filter((l: any) => (l.view || "front") === view)
+            .filter((l: any) => !l.variant_color || l.variant_color === item.color)
+            .map((l: any) => ({
+              position: l.position,
+              x: l.x,
+              y: l.y,
+              scale: l.scale,
+              is_primary: l.is_primary,
+              logo_name: l.store_logos?.name,
+              logo_url: l.store_logo_variants?.file_url || l.store_logos?.file_url,
+            })),
+        })),
+      } : null;
 
       orderItems.push({
         team_store_product_id: item.productId,
@@ -116,6 +150,7 @@ Deno.serve(async (req: Request) => {
           pers_name_price: item.personalization?.namePrice || 0,
           pers_number_price: item.personalization?.numberPrice || 0,
         },
+        decoration_snapshot: decorationSnapshot,
       });
     }
 
