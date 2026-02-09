@@ -185,7 +185,7 @@ export default function StoreProductEditor() {
             <ProductEditorOverviewTab item={item} storeId={store.id} categories={categoryOptions} />
           </TabsContent>
           <TabsContent value="description" className="m-0">
-            <ProductDescriptionTab item={item} storeId={store.id} />
+            <ProductDescriptionTab item={item} storeId={store.id} ssDescription={ssStyle?.description} />
           </TabsContent>
           <TabsContent value="mockups" className="m-0">
             <div className="max-w-2xl">

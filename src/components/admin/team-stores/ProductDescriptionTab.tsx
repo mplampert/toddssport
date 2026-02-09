@@ -14,11 +14,12 @@ import type { StoreProduct } from "./ProductListPane";
 interface Props {
   item: StoreProduct;
   storeId: string;
+  ssDescription?: string | null;
 }
 
-export function ProductDescriptionTab({ item, storeId }: Props) {
+export function ProductDescriptionTab({ item, storeId, ssDescription }: Props) {
   const queryClient = useQueryClient();
-  const catalogDescription = item.catalog_styles?.description ?? "";
+  const catalogDescription = item.catalog_styles?.description || ssDescription || "";
 
   const [descOverride, setDescOverride] = useState((item as any).description_override ?? "");
   const [shortDescOverride, setShortDescOverride] = useState((item as any).short_description_override ?? "");
