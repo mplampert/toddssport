@@ -5,6 +5,7 @@ import { useCreateOrder } from "@/hooks/useStoreOrders";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CardPaymentForm } from "@/components/admin/team-stores/orders/CardPaymentForm";
+import { AddLineItemDialog } from "@/components/admin/team-stores/orders/AddLineItemDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, Save, Trash2, CreditCard } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 interface DraftItem {
   team_store_product_id: string;
@@ -41,22 +41,14 @@ export default function StoreOrderCreate() {
   const [showAddItem, setShowAddItem] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [showCardPayment, setShowCardPayment] = useState(false);
-  const [newItem, setNewItem] = useState<DraftItem>({
-    team_store_product_id: "",
-    product_name_snapshot: "",
-    variant_snapshot: {},
-    quantity: 1,
-    unit_price: 0,
-    personalization_name: "",
-    personalization_number: "",
-  });
+  const [addPending, setAddPending] = useState(false);
 
   const { data: storeProducts = [] } = useQuery({
     queryKey: ["store-products-for-order", store.id],
     queryFn: async () => {
       const { data } = await supabase
         .from("team_store_products")
-        .select("id, display_name, price_override, style_id, catalog_styles(style_name)")
+        .select("id, display_name, price_override, style_id, allowed_colors, catalog_styles(style_name, style_image)")
         .eq("team_store_id", store.id)
         .eq("active", true)
         .order("sort_order");
@@ -67,24 +59,26 @@ export default function StoreOrderCreate() {
   const subtotal = items.reduce((s, i) => s + i.unit_price * i.quantity, 0);
   const total = subtotal - discount + tax + shipping;
 
-  const handleSelectProduct = (productId: string) => {
-    const p = storeProducts.find((sp: any) => sp.id === productId);
-    if (!p) return;
-    const name = (p as any).display_name || (p as any).catalog_styles?.style_name || "Product";
-    setNewItem({
-      ...newItem,
-      team_store_product_id: productId,
-      product_name_snapshot: name,
-      unit_price: Number((p as any).price_override) || 0,
-    });
+  const handleAddFromDialog = async (payload: any) => {
+    setAddPending(true);
+    try {
+      setItems((prev) => [...prev, {
+        team_store_product_id: payload.team_store_product_id || "",
+        product_name_snapshot: payload.product_name_snapshot,
+        variant_snapshot: payload.variant_snapshot,
+        quantity: payload.quantity,
+        unit_price: payload.unit_price,
+        personalization_name: payload.personalization_name || "",
+        personalization_number: payload.personalization_number || "",
+      }]);
+      setShowAddItem(false);
+    } finally {
+      setAddPending(false);
+    }
   };
 
-  const addItemToList = () => {
-    if (!newItem.product_name_snapshot) return;
-    setItems([...items, { ...newItem }]);
-    setNewItem({ team_store_product_id: "", product_name_snapshot: "", variant_snapshot: {}, quantity: 1, unit_price: 0, personalization_name: "", personalization_number: "" });
-    setShowAddItem(false);
-  };
+
+
 
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
@@ -288,46 +282,13 @@ export default function StoreOrderCreate() {
         </Card>
       )}
 
-      {/* Add item dialog */}
-      <Dialog open={showAddItem} onOpenChange={setShowAddItem}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Line Item</DialogTitle>
-            <DialogDescription>Select a product from this store.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label>Product</Label>
-              <Select value={newItem.team_store_product_id} onValueChange={handleSelectProduct}>
-                <SelectTrigger><SelectValue placeholder="Select product…" /></SelectTrigger>
-                <SelectContent>
-                  {storeProducts.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.display_name || p.catalog_styles?.style_name || `Style ${p.style_id}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Size</Label><Input value={newItem.variant_snapshot.size || ""} onChange={(e) => setNewItem({ ...newItem, variant_snapshot: { ...newItem.variant_snapshot, size: e.target.value } })} /></div>
-              <div><Label>Color</Label><Input value={newItem.variant_snapshot.color || ""} onChange={(e) => setNewItem({ ...newItem, variant_snapshot: { ...newItem.variant_snapshot, color: e.target.value } })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Quantity</Label><Input type="number" min={1} value={newItem.quantity} onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })} /></div>
-              <div><Label>Unit Price</Label><Input type="number" step="0.01" value={newItem.unit_price} onChange={(e) => setNewItem({ ...newItem, unit_price: parseFloat(e.target.value) || 0 })} /></div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Name (personalization)</Label><Input value={newItem.personalization_name} onChange={(e) => setNewItem({ ...newItem, personalization_name: e.target.value })} /></div>
-              <div><Label>Number</Label><Input value={newItem.personalization_number} onChange={(e) => setNewItem({ ...newItem, personalization_number: e.target.value })} /></div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddItem(false)}>Cancel</Button>
-            <Button onClick={addItemToList}>Add</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddLineItemDialog
+        open={showAddItem}
+        onOpenChange={setShowAddItem}
+        storeProducts={storeProducts as any}
+        onAdd={handleAddFromDialog}
+        isPending={addPending}
+      />
     </div>
   );
 }
