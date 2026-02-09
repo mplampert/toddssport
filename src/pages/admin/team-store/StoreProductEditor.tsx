@@ -17,7 +17,47 @@ import { ProductEditorPricingTab } from "@/components/admin/team-stores/ProductE
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
 import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import { getStorefrontHero } from "@/lib/storefrontHero";
+import { useProductVariantImages } from "@/hooks/useVariantImages";
 import type { StoreProduct } from "@/components/admin/team-stores/ProductListPane";
+
+function StorefrontImagePreview({ item }: { item: StoreProduct }) {
+  const { data: variantImages = [] } = useProductVariantImages(item.id);
+  const hero = getStorefrontHero(item, variantImages);
+
+  const sourceLabel =
+    hero.heroImageType === "variant"
+      ? `Variant image${hero.defaultColor ? ` (${hero.defaultColor})` : ""}`
+      : hero.heroImageType === "catalog"
+        ? "Catalog flat image"
+        : "Override image";
+
+  return (
+    <div className="max-w-2xl space-y-1.5">
+      <p className="text-sm font-semibold">Storefront Image</p>
+      <p className="text-xs text-muted-foreground">
+        This is the image customers see on the storefront grid and product page.
+      </p>
+      <div className="flex items-start gap-3 p-3 border rounded-lg bg-muted/20">
+        <div className="w-24 h-24 border rounded bg-white flex items-center justify-center overflow-hidden shrink-0">
+          {hero.heroImageUrl ? (
+            <img src={hero.heroImageUrl} alt="Storefront hero" className="w-full h-full object-contain p-1" />
+          ) : (
+            <span className="text-[10px] text-muted-foreground">No image</span>
+          )}
+        </div>
+        <div className="space-y-1 pt-1">
+          <Badge variant="secondary" className="text-[10px]">{sourceLabel}</Badge>
+          {!hero.heroImageUrl && (
+            <p className="text-xs text-amber-600">
+              No image resolved. Upload an image below or add variant images.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function StoreProductEditor() {
   const { store } = useTeamStoreContext();
@@ -143,7 +183,10 @@ export default function StoreProductEditor() {
             <ProductEditorPricingTab item={item} storeId={store.id} />
           </TabsContent>
           <TabsContent value="images" className="m-0">
-            <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
+            <StorefrontImagePreview item={item} />
+            <div className="mt-6">
+              <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
+            </div>
           </TabsContent>
           <TabsContent value="logos" className="m-0">
             <div className="max-w-2xl">
