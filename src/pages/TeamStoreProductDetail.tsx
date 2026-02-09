@@ -483,12 +483,12 @@ export default function TeamStoreProductDetail() {
                 </div>
 
                 {galleryImages.length > 1 && (
-                  <div className="flex gap-3 justify-center">
+                  <div className="flex gap-3 justify-center overflow-x-auto flex-nowrap">
                     {galleryImages.map((img, i) => (
                       <button
                         key={i}
                         onClick={() => setActiveImageIdx(i)}
-                        className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
+                        className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all shrink-0 ${
                           i === activeImageIdx
                             ? "border-accent ring-2 ring-accent/20"
                             : "border-border hover:border-muted-foreground/50"
