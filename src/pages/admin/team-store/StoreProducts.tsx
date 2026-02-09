@@ -43,7 +43,7 @@ export default function StoreProducts() {
           screen_print_enabled, embroidery_enabled, dtf_enabled,
           category_id, store_category_override_id,
           display_name, display_color, primary_image_url, extra_image_urls,
-          internal_notes, allowed_colors,
+          internal_notes, allowed_colors, size_upcharges,
           catalog_styles(id, style_id, style_name, brand_name, style_image, description, title, part_number),
           team_store_categories(id, name)
         `)

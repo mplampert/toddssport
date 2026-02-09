@@ -185,6 +185,22 @@ export default function TeamStoreProductDetail() {
     return total;
   }, [persSettings, persName, persNumber, customFieldsUpcharge]);
 
+  // Size upcharge lookup
+  const sizeUpchargesMap = useMemo<Record<string, number>>(() => {
+    const raw = (storeProduct as any)?.size_upcharges;
+    if (!raw || typeof raw !== "object") return {};
+    return raw as Record<string, number>;
+  }, [storeProduct]);
+
+  const getSizeUpcharge = useCallback((sizeName: string) => {
+    return sizeUpchargesMap[sizeName] ?? 0;
+  }, [sizeUpchargesMap]);
+
+  const currentSizeUpcharge = useMemo(
+    () => getSizeUpcharge(selectedSize),
+    [getSizeUpcharge, selectedSize]
+  );
+
   // Determine deterministic default color from allowed_colors (same as grid)
   const determinedDefaultColor = useMemo(
     () => getDefaultColor(storeProduct?.allowed_colors),
@@ -400,7 +416,8 @@ export default function TeamStoreProductDetail() {
       }
     }
     const basePrice = Number(displayPrice) || 0;
-    const totalUnit = basePrice + decoUpcharge + persUpcharge;
+    const sizeUpcharge = getSizeUpcharge(selectedSize);
+    const totalUnit = basePrice + sizeUpcharge + decoUpcharge + persUpcharge;
     const hasCustomFields = Object.values(customFieldValues).some((v) => v?.trim());
     addItem({
       storeId: store?.id ?? "",
@@ -417,6 +434,7 @@ export default function TeamStoreProductDetail() {
       quantity,
       unitPrice: totalUnit,
       basePrice,
+      sizeUpcharge,
       decoUpcharge,
       persUpcharge,
       imageUrl: galleryImages[0] ?? catalogStyle?.style_image ?? null,
@@ -710,11 +728,12 @@ export default function TeamStoreProductDetail() {
                   {displayPrice != null ? (
                     <div>
                       <span className="text-3xl font-bold text-foreground">
-                        ${(Number(displayPrice) + decoUpcharge + persUpcharge).toFixed(2)}
+                        ${(Number(displayPrice) + currentSizeUpcharge + decoUpcharge + persUpcharge).toFixed(2)}
                       </span>
-                      {(decoUpcharge > 0 || persUpcharge > 0) && (
+                      {(currentSizeUpcharge > 0 || decoUpcharge > 0 || persUpcharge > 0) && (
                         <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
                           <p>Base: ${Number(displayPrice).toFixed(2)}</p>
+                          {currentSizeUpcharge > 0 && <p>Size upcharge: +${currentSizeUpcharge.toFixed(2)}</p>}
                           {decoUpcharge > 0 && <p>Decoration: +${decoUpcharge.toFixed(2)}</p>}
                           {persUpcharge > 0 && <p>Personalization: +${persUpcharge.toFixed(2)}</p>}
                         </div>
@@ -826,11 +845,19 @@ export default function TeamStoreProductDetail() {
                                 : "border-border bg-muted text-muted-foreground/40 line-through cursor-not-allowed"
                             }`}
                           >
-                            {variant.sizeName}
+                          <span className="flex flex-col items-center">
+                            <span>{variant.sizeName}</span>
+                            {getSizeUpcharge(variant.sizeName!) > 0 && (
+                              <span className="text-[9px] opacity-70">+${getSizeUpcharge(variant.sizeName!).toFixed(2)}</span>
+                            )}
+                          </span>
                           </button>
                         );
                       })}
                     </div>
+                    {Object.values(sizeUpchargesMap).some((v) => v > 0) && (
+                      <p className="text-[11px] text-muted-foreground mt-1.5">Extended sizes include an upcharge.</p>
+                    )}
                   </div>
                 )}
 
