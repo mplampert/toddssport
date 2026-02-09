@@ -11,6 +11,7 @@ import { ProductLogosTab } from "@/components/admin/team-stores/ProductLogosTab"
 import { ProductVariantsTab } from "@/components/admin/team-stores/ProductVariantsTab";
 import { ProductMessagesPanel } from "@/components/admin/team-stores/ProductMessagesPanel";
 import { ProductOverridesPanel } from "@/components/admin/team-stores/ProductOverridesPanel";
+import { ProductVariantImagesTab } from "@/components/admin/team-stores/ProductVariantImagesTab";
 import { ProductEditorOverviewTab } from "@/components/admin/team-stores/ProductEditorOverviewTab";
 import { ProductEditorPricingTab } from "@/components/admin/team-stores/ProductEditorPricingTab";
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
@@ -142,7 +143,12 @@ export default function StoreProductEditor() {
             <ProductEditorPricingTab item={item} storeId={store.id} />
           </TabsContent>
           <TabsContent value="images" className="m-0">
-            <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
+            <div className="space-y-8">
+              <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
+              <div className="border-t pt-6">
+                <ProductVariantImagesTab item={item} storeId={store.id} />
+              </div>
+            </div>
           </TabsContent>
           <TabsContent value="logos" className="m-0">
             <div className="max-w-2xl">
