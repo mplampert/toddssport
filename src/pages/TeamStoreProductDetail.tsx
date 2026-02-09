@@ -507,6 +507,13 @@ export default function TeamStoreProductDetail() {
                       const thumbSrc = v === "front"
                         ? (activeColor?.frontImage || catalogStyle?.style_image)
                         : (activeColor?.backImage || activeColor?.frontImage || catalogStyle?.style_image);
+                      const viewLogos = allLogos
+                        .filter((l: any) => (l.view || "front") === v)
+                        .filter((l: any) => {
+                          if (!selectedColor) return true;
+                          if (!l.variant_color) return true;
+                          return l.variant_color === selectedColor;
+                        });
                       return (
                         <button
                           key={v}
@@ -514,7 +521,7 @@ export default function TeamStoreProductDetail() {
                             setActiveProductView(v);
                             setActiveImageIdx(0);
                           }}
-                          className={`w-16 h-16 rounded-lg border-2 overflow-hidden transition-all flex flex-col items-center ${
+                          className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${
                             activeProductView === v
                               ? "border-accent ring-2 ring-accent/20"
                               : "border-border hover:border-muted-foreground/50"
@@ -528,8 +535,26 @@ export default function TeamStoreProductDetail() {
                               onError={handleImageError}
                             />
                           ) : (
-                            <span className="text-[10px] text-muted-foreground capitalize m-auto">{v}</span>
+                            <span className="text-[10px] text-muted-foreground capitalize m-auto flex items-center justify-center h-full">{v}</span>
                           )}
+                          {viewLogos.map((logo: any) => {
+                            const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
+                            if (!logoFileUrl) return null;
+                            return (
+                              <img
+                                key={logo.id}
+                                src={logoFileUrl}
+                                alt=""
+                                className="absolute pointer-events-none object-contain"
+                                style={{
+                                  left: `${(logo.x ?? 0.5) * 100}%`,
+                                  top: `${(logo.y ?? 0.2) * 100}%`,
+                                  width: `${(logo.scale ?? 0.3) * 100}%`,
+                                  transform: "translate(-50%, -50%)",
+                                }}
+                              />
+                            );
+                          })}
                         </button>
                       );
                     })}
