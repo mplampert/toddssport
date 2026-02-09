@@ -21,10 +21,11 @@ import { handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
-import { useProductVariantImages, getGalleryForColor } from "@/hooks/useVariantImages";
+import { useProductVariantImages, getGalleryForColor, hasImagesForView } from "@/hooks/useVariantImages";
 import { getDefaultColor } from "@/lib/storefrontHero";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
+import { VIEW_ORDER, getViewLabel, type ViewEnum } from "@/lib/viewLabels";
 
 interface ColorOption {
   name: string;
@@ -50,8 +51,7 @@ export default function TeamStoreProductDetail() {
   const [selectedSize, setSelectedSize] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeLogoView] = useState<string | null>(null); // kept for compat
-  const [activeProductView, setActiveProductView] = useState<"front" | "back">("front");
+  const [activeProductView, setActiveProductView] = useState<ViewEnum>("front");
   const [persName, setPersName] = useState("");
   const [persNumber, setPersNumber] = useState("");
   const { addItem } = useTeamStoreCart();
@@ -107,11 +107,6 @@ export default function TeamStoreProductDetail() {
     [allLogos, selectedColor, activeProductView]
   );
 
-  // Check if there are any back-view logos at all (to show toggle)
-  const hasBackLogos = useMemo(
-    () => allLogos.some((l: any) => l.view === "back"),
-    [allLogos]
-  );
   const isPreview = store?.status !== "open";
 
   // Personalization & decoration pricing
@@ -226,6 +221,21 @@ export default function TeamStoreProductDetail() {
     () => colorOptions.find((c) => c.name === selectedColor) || colorOptions[0],
     [colorOptions, selectedColor]
   );
+
+  // Compute which views are active (have at least one image)
+  const activeViews = useMemo<ViewEnum[]>(() => {
+    const views: ViewEnum[] = [];
+    for (const v of VIEW_ORDER) {
+      if (selectedColor && hasImagesForView(variantImages, selectedColor, v)) {
+        views.push(v);
+        continue;
+      }
+      if (v === "front" && activeColor?.frontImage) { views.push(v); continue; }
+      if (v === "back" && activeColor?.backImage) { views.push(v); continue; }
+    }
+    if (!views.includes("front")) views.unshift("front");
+    return views;
+  }, [selectedColor, variantImages, activeColor]);
 
   const galleryImages = useMemo(() => {
     const baseUrl = (u: string) => u.split("?")[0];
@@ -482,38 +492,23 @@ export default function TeamStoreProductDetail() {
                   )}
                 </div>
 
-                {galleryImages.length > 1 && (
+                {/* View-based thumbnails: one per active view */}
+                {activeViews.length > 1 && (
                   <div className="flex gap-3 justify-center overflow-x-auto flex-nowrap">
-                    {galleryImages.map((img, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setActiveImageIdx(i)}
-                        className={`w-20 h-20 rounded-lg border-2 overflow-hidden transition-all shrink-0 ${
-                          i === activeImageIdx
-                            ? "border-accent ring-2 ring-accent/20"
-                            : "border-border hover:border-muted-foreground/50"
-                        }`}
-                      >
-                        <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-contain p-1" />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                    {activeViews.map((v) => {
+                      const variantThumb = selectedColor
+                        ? getGalleryForColor(variantImages, selectedColor, v)[0]
+                        : undefined;
+                      const ssThumb = v === "front"
+                        ? activeColor?.frontImage
+                        : v === "back"
+                          ? activeColor?.backImage
+                          : undefined;
+                      const thumbSrc = variantThumb || ssThumb || catalogStyle?.style_image;
 
-                {/* Front / Back toggle thumbnails — shown when back logos or back images exist */}
-                {(hasBackLogos || activeColor?.backImage) && (
-                  <div className="flex items-center gap-3 justify-center">
-                    {(["front", "back"] as const).map((v) => {
-                      const thumbSrc = v === "front"
-                        ? (activeColor?.frontImage || catalogStyle?.style_image)
-                        : (activeColor?.backImage || activeColor?.frontImage || catalogStyle?.style_image);
-                      const viewLogos = allLogos
-                        .filter((l: any) => (l.view || "front") === v)
-                        .filter((l: any) => {
-                          if (!selectedColor) return true;
-                          if (!l.variant_color) return true;
-                          return l.variant_color === selectedColor;
-                        });
+                      const viewLogos = matchLogosForVariant(allLogos, selectedColor || undefined)
+                        .filter((l: any) => (l.view || "front") === v);
+
                       return (
                         <button
                           key={v}
@@ -521,7 +516,7 @@ export default function TeamStoreProductDetail() {
                             setActiveProductView(v);
                             setActiveImageIdx(0);
                           }}
-                          className={`relative w-16 h-16 rounded-lg border-2 overflow-hidden transition-all ${
+                          className={`relative w-20 h-20 rounded-lg border-2 overflow-hidden transition-all shrink-0 ${
                             activeProductView === v
                               ? "border-accent ring-2 ring-accent/20"
                               : "border-border hover:border-muted-foreground/50"
@@ -530,12 +525,14 @@ export default function TeamStoreProductDetail() {
                           {thumbSrc ? (
                             <img
                               src={thumbSrc}
-                              alt={`${v} view`}
+                              alt={getViewLabel(v)}
                               className="w-full h-full object-contain p-1"
                               onError={handleImageError}
                             />
                           ) : (
-                            <span className="text-[10px] text-muted-foreground capitalize m-auto flex items-center justify-center h-full">{v}</span>
+                            <span className="text-[10px] text-muted-foreground m-auto flex items-center justify-center h-full">
+                              {getViewLabel(v)}
+                            </span>
                           )}
                           {viewLogos.map((logo: any) => {
                             const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
@@ -555,6 +552,9 @@ export default function TeamStoreProductDetail() {
                               />
                             );
                           })}
+                          <span className="absolute bottom-0 inset-x-0 text-[9px] font-medium text-center bg-background/80 py-0.5 truncate">
+                            {getViewLabel(v)}
+                          </span>
                         </button>
                       );
                     })}
