@@ -461,6 +461,20 @@ export function ProductLogosTab({ item, storeId }: Props) {
                       const all = JSON.parse(savedSnapshot) as LogoPlacement[];
                       setPlacements(filterPlacementsForEditing(all, c.code, false, activeView));
                     }
+                    // Re-pick best logo variant for the new garment color
+                    const garmentColor = c.color1;
+                    setPlacements((prev) =>
+                      prev.map((p) => {
+                        const variants = variantsByLogo.get(p.store_logo_id) || [];
+                        if (variants.length <= 1) return p;
+                        const best = pickBestVariant(variants, garmentColor);
+                        if (best && best.id !== p.store_logo_variant_id) {
+                          return { ...p, store_logo_variant_id: best.id, _logo_url: best.file_url };
+                        }
+                        return p;
+                      })
+                    );
+                    setDirty(true);
                   }}
                   className={`relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border transition-colors ${
                     selectedColor === c.code
