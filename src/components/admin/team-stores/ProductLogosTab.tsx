@@ -499,7 +499,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
       if (activeView === "back" && color?.backImage) return { url: color.backImage, source: "ss" as const, variantImageId: null };
       if (activeView === "front" && color?.frontImage) return { url: color.frontImage, source: "ss" as const, variantImageId: null };
     }
-    // Fallback
+    // For sleeves (and back without SS image), stay blank — no generic fallback
+    if (activeView !== "front") return { url: "", source: "catalog" as const, variantImageId: null };
+    // Fallback only for front view
     const fallback = item.primary_image_url || item.catalog_styles?.style_image || "";
     return { url: fallback, source: "catalog" as const, variantImageId: null };
   }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image, activeView, variantImages]);
