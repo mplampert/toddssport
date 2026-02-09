@@ -66,7 +66,7 @@ export function TeamStoreCartDrawer({ storeId }: Props) {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <button className="fixed bottom-6 right-6 z-50 bg-accent text-accent-foreground rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-105">
+        <button className="fixed bottom-6 left-6 z-50 bg-accent text-accent-foreground rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-105">
           <ShoppingCart className="w-6 h-6" />
           {displayCount > 0 && (
             <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-destructive text-destructive-foreground">
