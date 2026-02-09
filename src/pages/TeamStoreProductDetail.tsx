@@ -27,7 +27,8 @@ import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateD
 import { useProductVariantImages, getGalleryForColor, hasImagesForView } from "@/hooks/useVariantImages";
 import { getDefaultColor } from "@/lib/storefrontHero";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
-import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
+import { TeamStoreCartDrawer, openCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
+import { Check } from "lucide-react";
 import { VIEW_ORDER, getViewLabel, type ViewEnum } from "@/lib/viewLabels";
 import { type TextLayer, resolveTextContent, applyTextTransform } from "@/lib/textLayers";
 import { getEffectiveDescription } from "@/lib/productDescriptions";
@@ -112,6 +113,8 @@ export default function TeamStoreProductDetail() {
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const { addItem } = useTeamStoreCart();
+  const [addingToCart, setAddingToCart] = useState(false);
+  const [justAdded, setJustAdded] = useState(false);
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
@@ -446,7 +449,8 @@ export default function TeamStoreProductDetail() {
   }, []);
 
   const handleAddToCart = () => {
-    if (!selectedVariant) {
+    if (!selectedVariant || addingToCart) return;
+    if (!selectedColor || !selectedSize) {
       toast.error("Please select a color and size.");
       return;
     }
@@ -458,13 +462,14 @@ export default function TeamStoreProductDetail() {
       toast.error(`${persSettings.number_label} is required.`);
       return;
     }
-    // Validate required custom fields
     for (const f of persSettings.custom_fields ?? []) {
       if (f.required && (!customFieldValues[f.id] || !customFieldValues[f.id].trim())) {
         toast.error(`${f.label} is required.`);
         return;
       }
     }
+
+    setAddingToCart(true);
     const basePrice = Number(displayPrice) || 0;
     const sizeUpcharge = getSizeUpcharge(selectedSize);
     const totalUnit = basePrice + sizeUpcharge + decoUpcharge + persUpcharge;
@@ -505,13 +510,27 @@ export default function TeamStoreProductDetail() {
         })) : undefined,
       } : undefined,
     });
-    toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
+
+    // Show "Added" state & announce to screen readers
+    setJustAdded(true);
+    const liveRegion = document.getElementById("cart-live-region");
+    if (liveRegion) liveRegion.textContent = "Item added to cart.";
+
+    // Open the cart drawer
+    openCartDrawer();
+
     // Reset personalization after adding
     setPersName("");
     setPersNumber("");
     setCustomFieldValues({});
     setSelectedPlayerId(null);
     setQuantity(1);
+
+    // Reset button state after brief delay
+    setTimeout(() => {
+      setJustAdded(false);
+      setAddingToCart(false);
+    }, 1800);
   };
 
   // Store price override takes precedence; add fundraising if enabled
@@ -1078,16 +1097,26 @@ export default function TeamStoreProductDetail() {
 
                   <Button
                     size="lg"
-                    className="flex-1 btn-cta text-base"
+                    className={`flex-1 text-base transition-all ${justAdded ? "bg-green-600 hover:bg-green-600 text-white" : "btn-cta"}`}
                     onClick={handleAddToCart}
-                    disabled={!selectedVariant || (selectedVariant.qty !== undefined && selectedVariant.qty === 0)}
+                    disabled={addingToCart || !selectedVariant || (selectedVariant.qty !== undefined && selectedVariant.qty === 0)}
+                    aria-busy={addingToCart}
                   >
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    {!selectedColor || !selectedSize
-                      ? "Select options"
-                      : selectedVariant?.qty === 0
-                      ? "Out of Stock"
-                      : "Add to Cart"}
+                    {justAdded ? (
+                      <>
+                        <Check className="w-5 h-5 mr-2" />
+                        Added to Cart
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5 mr-2" />
+                        {!selectedColor || !selectedSize
+                          ? "Select options"
+                          : selectedVariant?.qty === 0
+                          ? "Out of Stock"
+                          : "Add to Cart"}
+                      </>
+                    )}
                   </Button>
                 </div>
 
