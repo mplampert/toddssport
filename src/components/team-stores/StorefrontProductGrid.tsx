@@ -5,6 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 
+interface LogoAssignment {
+  id: string;
+  x: number;
+  y: number;
+  scale: number;
+  is_primary: boolean;
+  store_logos: { name: string; file_url: string } | null;
+}
+
 interface StorefrontProduct {
   id: string;
   sort_order: number;
@@ -44,6 +53,32 @@ interface Props {
 
 export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "", basePath }: Props) {
   const base = basePath ?? `/team-stores/${slug}`;
+
+  // Fetch logo assignments for all products in this store
+  const productIds = products.map((p) => p.id);
+  const { data: logoAssignments = [] } = useQuery({
+    queryKey: ["storefront-product-logos", storeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_item_logos")
+        .select("id, team_store_item_id, x, y, scale, is_primary, store_logos(name, file_url)")
+        .in("team_store_item_id", productIds);
+      if (error) throw error;
+      return data as (LogoAssignment & { team_store_item_id: string })[];
+    },
+    enabled: productIds.length > 0,
+  });
+
+  // Group logos by product id
+  const logosByProduct = useMemo(() => {
+    const map = new Map<string, LogoAssignment[]>();
+    for (const la of logoAssignments) {
+      const arr = map.get(la.team_store_item_id) || [];
+      arr.push(la);
+      map.set(la.team_store_item_id, arr);
+    }
+    return map;
+  }, [logoAssignments]);
 
   // Fetch global categories
   const { data: globalCategories = [] } = useQuery({
@@ -173,12 +208,32 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
               const imgSrc = item.primary_image_url || style?.style_image;
               const name = item.display_name || style?.style_name || "Product";
+              const itemLogos = logosByProduct.get(item.id) || [];
               return (
                 <Link key={item.id} to={productUrl}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     {imgSrc && (
-                      <div className="aspect-square bg-muted flex items-center justify-center p-4">
+                      <div className="relative aspect-square bg-muted flex items-center justify-center p-4">
                         <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" />
+                        {/* Logo overlays */}
+                        {itemLogos.map((logo) => {
+                          const logoUrl = logo.store_logos?.file_url;
+                          if (!logoUrl) return null;
+                          return (
+                            <img
+                              key={logo.id}
+                              src={logoUrl}
+                              alt={logo.store_logos?.name || "Logo"}
+                              className="absolute pointer-events-none object-contain"
+                              style={{
+                                left: `${(logo.x ?? 0.5) * 100}%`,
+                                top: `${(logo.y ?? 0.2) * 100}%`,
+                                width: `${(logo.scale ?? 0.3) * 100}%`,
+                                transform: "translate(-50%, -50%)",
+                              }}
+                            />
+                          );
+                        })}
                       </div>
                     )}
                     <CardContent className="p-4">
