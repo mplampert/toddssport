@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Trash2, Eye, EyeOff, Package, DollarSign, Percent, ToggleRight } from "lucide-react";
 import { getProductImage } from "@/lib/productImages";
+import { getStorefrontHero } from "@/lib/storefrontHero";
 import { InlineProductRow } from "./InlineProductRow";
 import type { VariantImage } from "@/hooks/useVariantImages";
 import type { EffectiveCategory } from "./StoreCategoryManager";
@@ -125,22 +126,13 @@ export function ProductListPane({
   const allFilteredIds = filtered.map((p) => p.id);
   const allSelected = filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id));
 
-  // Resolve variant image for a product
+  // Resolve image using the same hero logic as the storefront
   const resolveImage = (item: StoreProduct): string | null => {
     const itemVariants = variantImages.filter(
-      (v) => v.team_store_product_id === item.id && (v.view || "front") === "front"
+      (v) => v.team_store_product_id === item.id
     );
-    if (itemVariants.length > 0) {
-      const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
-      const firstName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
-      if (firstName) {
-        const colorImgs = itemVariants.filter((v) => v.color === firstName);
-        const found = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
-        if (found) return found;
-      }
-      return (itemVariants.find((v) => v.is_primary) || itemVariants[0])?.image_url ?? null;
-    }
-    return getProductImage(item);
+    const hero = getStorefrontHero(item, itemVariants);
+    return hero.heroImageUrl || getProductImage(item) || null;
   };
 
   // Build logo overlays per product (front view, no variant_color filter — show defaults)
