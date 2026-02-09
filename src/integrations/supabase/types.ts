@@ -2659,6 +2659,7 @@ export type Database = {
           default_flat_rate_shipping: number
           default_fulfillment_method: string
           default_org_tax_exempt: boolean
+          default_pickup_location: string | null
           id: string
           updated_at: string
         }
@@ -2668,6 +2669,7 @@ export type Database = {
           default_flat_rate_shipping?: number
           default_fulfillment_method?: string
           default_org_tax_exempt?: boolean
+          default_pickup_location?: string | null
           id?: string
           updated_at?: string
         }
@@ -2677,6 +2679,7 @@ export type Database = {
           default_flat_rate_shipping?: number
           default_fulfillment_method?: string
           default_org_tax_exempt?: boolean
+          default_pickup_location?: string | null
           id?: string
           updated_at?: string
         }
@@ -2704,6 +2707,7 @@ export type Database = {
           name: string
           open_at: string | null
           org_tax_exempt: boolean | null
+          pickup_location: string | null
           preview_token: string
           primary_color: string | null
           recurring_batch_day_of_month: number | null
@@ -2741,6 +2745,7 @@ export type Database = {
           name: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
+          pickup_location?: string | null
           preview_token?: string
           primary_color?: string | null
           recurring_batch_day_of_month?: number | null
@@ -2778,6 +2783,7 @@ export type Database = {
           name?: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
+          pickup_location?: string | null
           preview_token?: string
           primary_color?: string | null
           recurring_batch_day_of_month?: number | null
