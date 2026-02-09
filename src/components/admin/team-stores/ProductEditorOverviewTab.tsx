@@ -82,12 +82,13 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
     <div className="max-w-2xl space-y-6">
       {/* Catalog Info */}
       <div className="p-4 bg-muted/30 rounded-lg border space-y-1">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Catalog Info (read-only)</p>
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Catalog Name / SKU — Internal, read-only</p>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <div><span className="text-muted-foreground">Name:</span> {style?.style_name}</div>
+          <div><span className="text-muted-foreground">Catalog Name:</span> {style?.style_name}</div>
           <div><span className="text-muted-foreground">Brand:</span> {style?.brand_name}</div>
-          <div><span className="text-muted-foreground">Style ID:</span> {style?.style_id}</div>
+          <div><span className="text-muted-foreground">SKU / Style ID:</span> {(style as any)?.part_number || style?.style_id}</div>
         </div>
+        <p className="text-[10px] text-muted-foreground mt-1">Work orders and production views always use this catalog name and SKU.</p>
         {style?.style_image && (
           <img src={style.style_image} alt="" className="w-20 h-20 object-contain rounded mt-2" />
         )}
@@ -97,8 +98,9 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
-          <Label>Display Name (override)</Label>
+          <Label>Storefront Name <span className="text-muted-foreground font-normal">(what customers see)</span></Label>
           <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={style?.style_name || "Product name"} />
+          <p className="text-[10px] text-muted-foreground">Leave blank to use the catalog name. This does not affect work orders or internal views.</p>
         </div>
 
         <div className="flex items-center gap-3">

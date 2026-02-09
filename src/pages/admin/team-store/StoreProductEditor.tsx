@@ -83,7 +83,7 @@ export default function StoreProductEditor() {
           display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types,
           internal_notes, allowed_colors,
           team_roster_id, number_lock_rule,
-          catalog_styles(id, style_id, style_name, brand_name, style_image, description),
+          catalog_styles(id, style_id, style_name, brand_name, style_image, description, part_number),
           team_store_categories(id, name)
         `)
         .eq("id", productId!)
