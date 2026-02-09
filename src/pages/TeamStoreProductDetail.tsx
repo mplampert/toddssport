@@ -51,7 +51,7 @@ export default function TeamStoreProductDetail() {
       // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url))")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url), store_logo_variants(file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -288,24 +288,28 @@ export default function TeamStoreProductDetail() {
                   {/* Logo overlays from assigned placements */}
                   {assignedLogos
                     .filter((logo: any) => {
-                      if (!logo.store_logos?.file_url) return false;
+                      const url = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
+                      if (!url) return false;
                       if (activeLogoView === null) return true;
                       return logo.id === activeLogoView;
                     })
-                    .map((logo: any) => (
-                      <img
-                        key={logo.id}
-                        src={logo.store_logos.file_url}
-                        alt={logo.store_logos?.name || "Logo"}
-                        className="absolute pointer-events-none object-contain"
-                        style={{
-                          left: `${(logo.x ?? 0.5) * 100}%`,
-                          top: `${(logo.y ?? 0.2) * 100}%`,
-                          width: `${(logo.scale ?? 0.3) * 100}%`,
-                          transform: "translate(-50%, -50%)",
-                        }}
-                      />
-                    ))}
+                    .map((logo: any) => {
+                      const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
+                      return (
+                        <img
+                          key={logo.id}
+                          src={logoFileUrl}
+                          alt={logo.store_logos?.name || "Logo"}
+                          className="absolute pointer-events-none object-contain"
+                          style={{
+                            left: `${(logo.x ?? 0.5) * 100}%`,
+                            top: `${(logo.y ?? 0.2) * 100}%`,
+                            width: `${(logo.scale ?? 0.3) * 100}%`,
+                            transform: "translate(-50%, -50%)",
+                          }}
+                        />
+                      );
+                    })}
 
                   {galleryImages.length > 1 && (
                     <>

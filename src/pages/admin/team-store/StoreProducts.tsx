@@ -7,10 +7,11 @@ import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCate
 import { StoreCategoryManager } from "@/components/admin/team-stores/StoreCategoryManager";
 import { AddProductsWizard } from "@/components/admin/team-stores/AddProductsWizard";
 import { ProductListPane, type StoreProduct } from "@/components/admin/team-stores/ProductListPane";
+import { BulkAssignLogosDialog } from "@/components/admin/team-stores/BulkAssignLogosDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Layers } from "lucide-react";
 import { toast } from "sonner";
 
 export default function StoreProducts() {
@@ -21,6 +22,7 @@ export default function StoreProducts() {
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addSingleOpen, setAddSingleOpen] = useState(false);
+  const [bulkLogosOpen, setBulkLogosOpen] = useState(false);
   const [singleSearch, setSingleSearch] = useState("");
 
   const { visible: visibleCategories } = useEffectiveCategories(store.id);
@@ -145,6 +147,11 @@ export default function StoreProducts() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <StoreCategoryManager storeId={store.id} />
+          {selectedIds.size > 0 && (
+            <Button size="sm" variant="outline" onClick={() => setBulkLogosOpen(true)}>
+              <Layers className="w-3.5 h-3.5 mr-1" /> Assign Logos ({selectedIds.size})
+            </Button>
+          )}
           <Button size="sm" variant="outline" onClick={() => setAddSingleOpen(true)}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Add Single
           </Button>
@@ -222,6 +229,14 @@ export default function StoreProducts() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Assign Logos Dialog */}
+      <BulkAssignLogosDialog
+        storeId={store.id}
+        selectedProductIds={Array.from(selectedIds)}
+        open={bulkLogosOpen}
+        onOpenChange={setBulkLogosOpen}
+      />
     </div>
   );
 }
