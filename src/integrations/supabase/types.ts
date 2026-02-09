@@ -1532,6 +1532,218 @@ export type Database = {
           },
         ]
       }
+      team_store_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          line_total: number
+          order_id: string
+          personalization_name: string | null
+          personalization_number: string | null
+          product_name_snapshot: string
+          quantity: number
+          team_store_product_id: string | null
+          unit_price: number
+          updated_at: string
+          variant_snapshot: Json | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          line_total?: number
+          order_id: string
+          personalization_name?: string | null
+          personalization_number?: string | null
+          product_name_snapshot: string
+          quantity?: number
+          team_store_product_id?: string | null
+          unit_price?: number
+          updated_at?: string
+          variant_snapshot?: Json | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          line_total?: number
+          order_id?: string
+          personalization_name?: string | null
+          personalization_number?: string | null
+          product_name_snapshot?: string
+          quantity?: number
+          team_store_product_id?: string | null
+          unit_price?: number
+          updated_at?: string
+          variant_snapshot?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_order_items_team_store_product_id_fkey"
+            columns: ["team_store_product_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_store_orders: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_email: string | null
+          customer_name: string | null
+          customer_notes: string | null
+          customer_phone: string | null
+          discount_total: number
+          fulfillment_method: string
+          fulfillment_status: string
+          id: string
+          internal_notes: string | null
+          is_sample: boolean
+          order_number: string
+          shipping_address1: string | null
+          shipping_address2: string | null
+          shipping_city: string | null
+          shipping_name: string | null
+          shipping_state: string | null
+          shipping_total: number
+          shipping_zip: string | null
+          source: string
+          status: string
+          store_id: string
+          subtotal: number
+          tax_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_notes?: string | null
+          customer_phone?: string | null
+          discount_total?: number
+          fulfillment_method?: string
+          fulfillment_status?: string
+          id?: string
+          internal_notes?: string | null
+          is_sample?: boolean
+          order_number: string
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_name?: string | null
+          shipping_state?: string | null
+          shipping_total?: number
+          shipping_zip?: string | null
+          source?: string
+          status?: string
+          store_id: string
+          subtotal?: number
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_email?: string | null
+          customer_name?: string | null
+          customer_notes?: string | null
+          customer_phone?: string | null
+          discount_total?: number
+          fulfillment_method?: string
+          fulfillment_status?: string
+          id?: string
+          internal_notes?: string | null
+          is_sample?: boolean
+          order_number?: string
+          shipping_address1?: string | null
+          shipping_address2?: string | null
+          shipping_city?: string | null
+          shipping_name?: string | null
+          shipping_state?: string | null
+          shipping_total?: number
+          shipping_zip?: string | null
+          source?: string
+          status?: string
+          store_id?: string
+          subtotal?: number
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_orders_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_store_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          method: string
+          note: string | null
+          order_id: string
+          provider: string | null
+          provider_ref: string | null
+          type: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method?: string
+          note?: string | null
+          order_id: string
+          provider?: string | null
+          provider_ref?: string | null
+          type?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          method?: string
+          note?: string | null
+          order_id?: string
+          provider?: string | null
+          provider_ref?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_payments_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_products: {
         Row: {
           active: boolean
