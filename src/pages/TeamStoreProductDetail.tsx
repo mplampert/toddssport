@@ -245,18 +245,24 @@ export default function TeamStoreProductDetail() {
       return fallback;
     }
     // No variant images at all — use SS catalog images
-    const ssImgs = activeColor
+    // Prefer flat style image first (no model/person), then front/back/side
+    const flatStyleImg = styleInfo?.styleImage;
+    const ssColorImgs = activeColor
       ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
+    // Put flat style image first, then color-specific images
+    const ssImgs = flatStyleImg
+      ? [flatStyleImg, ...ssColorImgs.filter((u) => u !== flatStyleImg)]
+      : ssColorImgs;
     const gallery = getProductGallery(storeProduct ?? {}, ssImgs);
     // Ensure hero is first
     if (heroUrl && gallery[0] !== heroUrl) {
       return [heroUrl, ...gallery.filter((u) => u !== heroUrl)];
     }
     return gallery;
-  }, [activeColor, storeProduct, selectedColor, variantImages, determinedDefaultColor]);
+  }, [activeColor, storeProduct, selectedColor, variantImages, determinedDefaultColor, styleInfo]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
