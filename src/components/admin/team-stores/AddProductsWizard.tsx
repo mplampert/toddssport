@@ -378,8 +378,32 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
         }
       }
 
-      // 2. Bulk insert team_store_products
-      const rows = products.map((p, i) => ({
+      // 2. Filter out products already attached to this store
+      const catalogIds = Array.from(catalogIdMap.values());
+      const { data: existingRows } = await supabase
+        .from("team_store_products")
+        .select("style_id")
+        .eq("team_store_id", storeId)
+        .in("style_id", catalogIds);
+      const existingStyleIds = new Set((existingRows || []).map((r: any) => r.style_id));
+
+      const newProducts = products.filter((p) => {
+        const catId = catalogIdMap.get(p.ssStyleID)!;
+        return !existingStyleIds.has(catId);
+      });
+
+      if (newProducts.length === 0) {
+        toast.info("All selected products are already in this store");
+        resetAndClose();
+        return;
+      }
+
+      if (newProducts.length < products.length) {
+        toast.info(`${products.length - newProducts.length} product(s) already in store — skipped`);
+      }
+
+      // 3. Bulk insert team_store_products
+      const rows = newProducts.map((p, i) => ({
         team_store_id: storeId,
         style_id: catalogIdMap.get(p.ssStyleID)!,
         sort_order: i,
@@ -416,7 +440,7 @@ export function AddProductsWizard({ storeId, attachedStyleIds }: Props) {
       }
 
       queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] });
-      toast.success(`Added ${products.length} products to the store`);
+      toast.success(`Added ${newProducts.length} products to the store`);
       resetAndClose();
     } catch (e: any) {
       toast.error(e.message || "Failed to save products");
