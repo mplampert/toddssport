@@ -14,7 +14,7 @@ interface StoreProduct {
   price_override: number | null;
   style_id: number;
   allowed_colors: any;
-  catalog_styles: { style_name: string; style_image: string | null; style_id: number } | null;
+  catalog_styles: { style_name: string; style_image: string | null; style_id: number; title?: string | null; brand_name?: string } | null;
 }
 
 interface LineItemPayload {
@@ -199,7 +199,7 @@ export function AddLineItemDialog({ open, onOpenChange, storeProducts, onAdd, is
   }, [open]);
 
   const productName = selectedProduct
-    ? selectedProduct.display_name || selectedProduct.catalog_styles?.style_name || "Product"
+    ? selectedProduct.display_name || selectedProduct.catalog_styles?.title || selectedProduct.catalog_styles?.style_name || "Product"
     : "";
 
   const handleAdd = async () => {
