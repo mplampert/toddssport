@@ -167,7 +167,7 @@ export function HeroGenerator({ storeId, storeName, brandColors }: Props) {
         <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/50 rounded-md p-3">
           <Info className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            The generated image is a wide background (16:9). Your store name, logo, and CTA stay as editable HTML text on top for fast load times and crisp rendering on all devices.
+            The generated image is 1200×630 (OG-friendly for social sharing &amp; SMS previews). Your store name, logo, and CTA stay as editable HTML text on top for fast load times and crisp rendering on all devices.
           </span>
         </div>
 
@@ -266,7 +266,7 @@ export function HeroGenerator({ storeId, storeName, brandColors }: Props) {
               <img
                 src={heroImageUrl}
                 alt="Generated hero banner"
-                className="w-full aspect-[16/9] object-cover"
+                className="w-full aspect-[1200/630] object-cover"
               />
               {/* Overlay preview showing how text looks on top */}
               <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/30 to-transparent flex items-center">

@@ -76,7 +76,7 @@ serve(async (req) => {
       ? "This is for a corporate/company merchandise store."
       : "This is for a school/youth/club team spirit store.";
 
-    const prompt = `Create a wide cinematic hero banner image for an online team store called "${storeName || "Team Store"}".
+    const prompt = `Create a wide hero banner image for an online team store called "${storeName || "Team Store"}".
 
 Art direction: ${styleDesc}
 
@@ -86,12 +86,13 @@ ${mascotStr}
 ${colorDesc}
 
 CRITICAL RULES:
+- The image MUST be exactly 1200 pixels wide by 630 pixels tall (1200×630, roughly 1.9:1 landscape).
 - Absolutely NO text, NO words, NO letters, NO numbers, NO logos, NO brand marks anywhere in the image.
 - The image must work as a background with HTML text overlaid on top.
 - Create visual depth with layers so a dark gradient overlay can sit naturally on the left side.
-- Wide 16:9 aspect ratio composition.
 - Ultra high resolution, photorealistic or highly stylized depending on the art direction above.
-- The image should feel premium, professional, and energetic.`;
+- The image should feel premium, professional, and energetic.
+- This image will be used as an Open Graph social share image, so it must look great as a preview card.`;
 
     console.log("AI prompt:", prompt);
 
