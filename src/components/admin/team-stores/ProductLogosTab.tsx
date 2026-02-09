@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { getProductImage, handleImageError } from "@/lib/productImages";
+import { handleImageError } from "@/lib/productImages";
+import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 
 /* ─── Types ─── */
 
@@ -34,6 +35,8 @@ interface LogoPlacement {
   y: number;
   scale: number;
   is_primary: boolean;
+  variant_color: string | null;
+  variant_size: string | null;
   _logo_name?: string;
   _logo_url?: string;
 }
@@ -47,12 +50,22 @@ interface StoreLogo {
   method: string;
 }
 
+interface ColorOption {
+  code: string;
+  name: string;
+  frontImage?: string;
+  swatchImage?: string;
+  color1?: string;
+  color2?: string;
+}
+
 interface Props {
   item: {
     id: string;
     style_id: number;
-    catalog_styles?: { style_image: string | null } | null;
+    catalog_styles?: { style_id: number; style_image: string | null } | null;
     primary_image_url: string | null;
+    allowed_colors?: any;
   };
   storeId: string;
 }
@@ -79,6 +92,15 @@ function usePlacementPresets() {
 
 export function ProductLogosTab({ item, storeId }: Props) {
   const queryClient = useQueryClient();
+  const ssStyleId = item.catalog_styles?.style_id ?? item.style_id;
+
+  // ── Variant state ──
+  const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [applyToAllColors, setApplyToAllColors] = useState(true);
+  const [loadingVariants, setLoadingVariants] = useState(true);
+
+  // ── Placement state ──
   const [placements, setPlacements] = useState<LogoPlacement[]>([]);
   const [dirty, setDirty] = useState(false);
   const [activePlacementIdx, setActivePlacementIdx] = useState<number | null>(null);
@@ -113,37 +135,106 @@ export function ProductLogosTab({ item, storeId }: Props) {
     },
   });
 
+  // Fetch ALL logo assignments for this product (all variants)
   const { data: existingPlacements, isLoading } = useQuery({
     queryKey: ["item-logos", item.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, store_logos(name, file_url)")
+        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url)")
         .eq("team_store_item_id", item.id);
       if (error) throw error;
       return data;
     },
   });
 
+  // Fetch color variants from S&S API
   useEffect(() => {
-    if (existingPlacements) {
-      const mapped = existingPlacements.map((p: any) => ({
-        id: p.id,
-        store_logo_id: p.store_logo_id,
-        store_logo_variant_id: p.store_logo_variant_id,
-        position: p.position || "left_chest",
-        x: p.x ?? 0.5,
-        y: p.y ?? 0.2,
-        scale: p.scale ?? 0.3,
-        is_primary: p.is_primary ?? false,
-        _logo_name: p.store_logos?.name,
-        _logo_url: p.store_logos?.file_url,
-      }));
-      setPlacements(mapped);
-      setSavedSnapshot(JSON.stringify(mapped));
-      setDirty(false);
+    let cancelled = false;
+    async function fetchColors() {
+      setLoadingVariants(true);
+      try {
+        const products = await getProducts({ style: String(ssStyleId) });
+        if (cancelled) return;
+
+        const allowedCodes = (() => {
+          const raw = item.allowed_colors;
+          if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
+          return new Set((raw as { code: string }[]).map((c) => c.code));
+        })();
+
+        const map = new Map<string, ColorOption>();
+        (products as SSProduct[]).forEach((p) => {
+          if (!p.colorName || map.has(p.colorCode)) return;
+          if (allowedCodes && !allowedCodes.has(p.colorCode)) return;
+          map.set(p.colorCode, {
+            code: p.colorCode,
+            name: p.colorName,
+            frontImage: p.colorFrontImage,
+            swatchImage: p.colorSwatchImage,
+            color1: p.color1,
+            color2: p.color2,
+          });
+        });
+        const opts = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+        setColorOptions(opts);
+        if (opts.length > 0 && !selectedColor) setSelectedColor(opts[0].code);
+      } catch {
+        // silently fail — colors are optional
+      } finally {
+        if (!cancelled) setLoadingVariants(false);
+      }
     }
-  }, [existingPlacements]);
+    fetchColors();
+    return () => { cancelled = true; };
+  }, [ssStyleId, item.allowed_colors]);
+
+  // When existing placements load or selectedColor changes, filter to relevant placements
+  useEffect(() => {
+    if (!existingPlacements) return;
+
+    const all = existingPlacements.map((p: any) => ({
+      id: p.id,
+      store_logo_id: p.store_logo_id,
+      store_logo_variant_id: p.store_logo_variant_id,
+      position: p.position || "left_chest",
+      x: p.x ?? 0.5,
+      y: p.y ?? 0.2,
+      scale: p.scale ?? 0.3,
+      is_primary: p.is_primary ?? false,
+      variant_color: p.variant_color ?? null,
+      variant_size: p.variant_size ?? null,
+      _logo_name: p.store_logos?.name,
+      _logo_url: p.store_logos?.file_url,
+    }));
+
+    // Check if there are any color-specific overrides
+    const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
+    setApplyToAllColors(!hasColorOverrides);
+
+    // Filter to what we should edit
+    const filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides);
+    setPlacements(filtered);
+    setSavedSnapshot(JSON.stringify(all));
+    setDirty(false);
+    setActivePlacementIdx(null);
+  }, [existingPlacements, selectedColor]);
+
+  function filterPlacementsForEditing(all: LogoPlacement[], color: string | null, allColors: boolean): LogoPlacement[] {
+    if (allColors) {
+      // Show global placements only
+      return all.filter((p) => !p.variant_color);
+    }
+    // Show color-specific if they exist, else show globals (as template)
+    const colorSpecific = all.filter((p) => p.variant_color === color);
+    if (colorSpecific.length > 0) return colorSpecific;
+    // Copy globals as templates for this color
+    return all.filter((p) => !p.variant_color).map((p) => ({
+      ...p,
+      id: undefined, // new record
+      variant_color: color,
+    }));
+  }
 
   const addPlacement = () => {
     if (storeLogos.length === 0) {
@@ -162,6 +253,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
         y: defaultPreset?.default_y ?? 0.25,
         scale: defaultPreset?.default_scale ?? 0.15,
         is_primary: prev.length === 0,
+        variant_color: applyToAllColors ? null : selectedColor,
+        variant_size: null,
         _logo_name: firstLogo.name,
         _logo_url: firstLogo.file_url,
       },
@@ -226,8 +319,10 @@ export function ProductLogosTab({ item, storeId }: Props) {
   };
 
   const resetChanges = () => {
-    if (savedSnapshot) {
-      setPlacements(JSON.parse(savedSnapshot));
+    if (savedSnapshot && existingPlacements) {
+      const all = JSON.parse(savedSnapshot) as LogoPlacement[];
+      const hasColorOverrides = all.some((p) => p.variant_color != null);
+      setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides));
       setDirty(false);
       setActivePlacementIdx(null);
     }
@@ -235,35 +330,74 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await supabase.from("team_store_item_logos").delete().eq("team_store_item_id", item.id);
-      if (placements.length > 0) {
-        const rows = placements.map((p) => ({
-          team_store_item_id: item.id,
-          store_logo_id: p.store_logo_id,
-          store_logo_variant_id: p.store_logo_variant_id,
-          position: p.position,
-          x: p.x,
-          y: p.y,
-          scale: p.scale,
-          is_primary: p.is_primary,
-        }));
-        const { error } = await supabase.from("team_store_item_logos").insert(rows);
-        if (error) throw error;
+      if (applyToAllColors) {
+        // Delete ALL for this product and save globals
+        await supabase.from("team_store_item_logos").delete().eq("team_store_item_id", item.id);
+        if (placements.length > 0) {
+          const rows = placements.map((p) => ({
+            team_store_item_id: item.id,
+            store_logo_id: p.store_logo_id,
+            store_logo_variant_id: p.store_logo_variant_id,
+            position: p.position,
+            x: p.x,
+            y: p.y,
+            scale: p.scale,
+            is_primary: p.is_primary,
+            variant_color: null,
+            variant_size: null,
+          }));
+          const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
+          if (error) throw error;
+        }
+      } else {
+        // Delete only records for this specific color, plus globals if we're overriding
+        // Keep other colors' overrides intact
+        const { error: delErr } = await supabase
+          .from("team_store_item_logos")
+          .delete()
+          .eq("team_store_item_id", item.id)
+          .or(`variant_color.eq.${selectedColor},variant_color.is.null`);
+        if (delErr) throw delErr;
+
+        // Re-insert globals that aren't being overridden by other colors
+        // plus the current color-specific placements
+        if (placements.length > 0) {
+          const rows = placements.map((p) => ({
+            team_store_item_id: item.id,
+            store_logo_id: p.store_logo_id,
+            store_logo_variant_id: p.store_logo_variant_id,
+            position: p.position,
+            x: p.x,
+            y: p.y,
+            scale: p.scale,
+            is_primary: p.is_primary,
+            variant_color: selectedColor,
+            variant_size: null,
+          }));
+          const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
+          if (error) throw error;
+        }
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
-      queryClient.invalidateQueries({ queryKey: ["team-store-products-public"] });
-      queryClient.invalidateQueries({ queryKey: ["team-store-products-preview"] });
+      queryClient.invalidateQueries({ queryKey: ["storefront-product-logos"] });
       queryClient.invalidateQueries({ queryKey: ["ts-product-detail"] });
       toast.success("Logo placements saved");
-      setSavedSnapshot(JSON.stringify(placements));
       setDirty(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const garmentImage = getProductImage(item);
+  // Determine canvas image based on selected color
+  const canvasImage = useMemo(() => {
+    if (selectedColor) {
+      const color = colorOptions.find((c) => c.code === selectedColor);
+      if (color?.frontImage) return color.frontImage;
+    }
+    return item.primary_image_url || item.catalog_styles?.style_image || "";
+  }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image]);
+
   const active = activePlacementIdx !== null ? placements[activePlacementIdx] : null;
 
   if (isLoading) {
@@ -276,9 +410,82 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   return (
     <div className="flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
-      {/* ─── Canvas + Controls ─── */}
       <div className="flex-1 space-y-4 pb-20">
-        {/* Placement Canvas — hero element */}
+
+        {/* ─── Variant Selector ─── */}
+        {colorOptions.length > 0 && (
+          <div className="border rounded-lg p-3 bg-card space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">Variant Preview</Label>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={applyToAllColors}
+                  onCheckedChange={(v) => {
+                    setApplyToAllColors(v);
+                    setDirty(true);
+                    // Re-filter placements based on new scope
+                    if (existingPlacements) {
+                      const all = JSON.parse(savedSnapshot) as LogoPlacement[];
+                      setPlacements(filterPlacementsForEditing(all, selectedColor, v));
+                    }
+                  }}
+                />
+                <Label className="text-xs text-muted-foreground">
+                  {applyToAllColors ? "Apply to all colors" : "This color only"}
+                </Label>
+              </div>
+            </div>
+
+            {/* Color swatches */}
+            <div className="flex flex-wrap gap-1.5">
+              {colorOptions.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => {
+                    setSelectedColor(c.code);
+                    setActivePlacementIdx(null);
+                    if (!applyToAllColors && existingPlacements) {
+                      const all = JSON.parse(savedSnapshot) as LogoPlacement[];
+                      setPlacements(filterPlacementsForEditing(all, c.code, false));
+                    }
+                  }}
+                  className={`relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border transition-colors ${
+                    selectedColor === c.code
+                      ? "border-accent bg-accent/10 font-medium"
+                      : "border-border hover:bg-muted"
+                  }`}
+                  title={c.name}
+                >
+                  {c.swatchImage ? (
+                    <img src={c.swatchImage} alt={c.name} className="w-4 h-4 rounded-sm border shrink-0" />
+                  ) : c.color1 ? (
+                    <span
+                      className="w-4 h-4 rounded-sm border shrink-0"
+                      style={{
+                        background: c.color2
+                          ? `linear-gradient(135deg, ${c.color1} 50%, ${c.color2} 50%)`
+                          : c.color1,
+                      }}
+                    />
+                  ) : (
+                    <span className="w-4 h-4 rounded-sm bg-muted border shrink-0" />
+                  )}
+                  <span className="truncate max-w-[80px]">{c.name}</span>
+                  {!applyToAllColors && selectedColor === c.code && (
+                    <Badge variant="secondary" className="text-[8px] px-1 h-3.5">editing</Badge>
+                  )}
+                </button>
+              ))}
+            </div>
+            {loadingVariants && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="w-3 h-3 animate-spin" /> Loading colors…
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Placement Canvas */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label className="text-sm font-semibold">Placement Canvas</Label>
@@ -287,7 +494,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             </Button>
           </div>
           <PlacementCanvas
-            image={garmentImage}
+            image={canvasImage}
             placements={placements}
             presetMap={presetMap}
             activeIdx={activePlacementIdx}
@@ -561,6 +768,7 @@ function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, 
           alt="Garment"
           className="w-full h-full object-contain p-6 pointer-events-none"
           draggable={false}
+          onError={handleImageError}
         />
       ) : (
         <div className="w-full h-full flex items-center justify-center">
@@ -622,7 +830,6 @@ function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, 
             {/* Resize handles — only on active logo */}
             {isActive && (
               <>
-                {/* Corner handles */}
                 {(["nw", "ne", "se", "sw"] as const).map((corner) => {
                   const pos: Record<string, React.CSSProperties> = {
                     nw: { top: -4, left: -4, cursor: "nwse-resize" },

@@ -1408,6 +1408,8 @@ export type Database = {
           store_logo_id: string
           store_logo_variant_id: string | null
           team_store_item_id: string
+          variant_color: string | null
+          variant_size: string | null
           x: number
           y: number
         }
@@ -1420,6 +1422,8 @@ export type Database = {
           store_logo_id: string
           store_logo_variant_id?: string | null
           team_store_item_id: string
+          variant_color?: string | null
+          variant_size?: string | null
           x?: number
           y?: number
         }
@@ -1432,6 +1436,8 @@ export type Database = {
           store_logo_id?: string
           store_logo_variant_id?: string | null
           team_store_item_id?: string
+          variant_color?: string | null
+          variant_size?: string | null
           x?: number
           y?: number
         }
