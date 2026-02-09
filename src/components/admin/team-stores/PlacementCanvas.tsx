@@ -177,7 +177,7 @@ export function PlacementCanvas({ image, placements, textLayers = [], presetMap,
     <div
       ref={containerRef}
       className="relative w-full bg-muted/20 border-2 border-dashed border-muted-foreground/15 rounded-xl overflow-hidden select-none"
-      style={{ aspectRatio: "4/5", maxHeight: "420px" }}
+      style={{ aspectRatio: "4/5" }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
