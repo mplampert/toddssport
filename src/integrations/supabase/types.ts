@@ -1690,14 +1690,22 @@ export type Database = {
       }
       team_store_orders: {
         Row: {
+          billing_address: Json | null
+          billing_email: string | null
+          billing_name: string | null
+          billing_phone: string | null
+          billing_snapshot: Json | null
           created_at: string
           created_by: string | null
           customer_email: string | null
           customer_name: string | null
           customer_notes: string | null
           customer_phone: string | null
+          delivery_address: string | null
+          delivery_instructions: string | null
           discount_total: number
           fulfillment_method: string
+          fulfillment_snapshot: Json | null
           fulfillment_status: string
           id: string
           internal_notes: string | null
@@ -1705,6 +1713,16 @@ export type Database = {
           order_number: string
           payment_intent_id: string | null
           payment_status: string
+          pickup_contact_name: string | null
+          pickup_contact_phone: string | null
+          pickup_location_id: string | null
+          promo_code_id: string | null
+          promo_snapshot: Json | null
+          recipient_email: string | null
+          recipient_name: string | null
+          recipient_phone: string | null
+          recipient_sms_opt_in: boolean
+          recipient_snapshot: Json | null
           shipping_address1: string | null
           shipping_address2: string | null
           shipping_city: string | null
@@ -1721,14 +1739,22 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_address?: Json | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_phone?: string | null
+          billing_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_notes?: string | null
           customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_instructions?: string | null
           discount_total?: number
           fulfillment_method?: string
+          fulfillment_snapshot?: Json | null
           fulfillment_status?: string
           id?: string
           internal_notes?: string | null
@@ -1736,6 +1762,16 @@ export type Database = {
           order_number: string
           payment_intent_id?: string | null
           payment_status?: string
+          pickup_contact_name?: string | null
+          pickup_contact_phone?: string | null
+          pickup_location_id?: string | null
+          promo_code_id?: string | null
+          promo_snapshot?: Json | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          recipient_sms_opt_in?: boolean
+          recipient_snapshot?: Json | null
           shipping_address1?: string | null
           shipping_address2?: string | null
           shipping_city?: string | null
@@ -1752,14 +1788,22 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_address?: Json | null
+          billing_email?: string | null
+          billing_name?: string | null
+          billing_phone?: string | null
+          billing_snapshot?: Json | null
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
           customer_name?: string | null
           customer_notes?: string | null
           customer_phone?: string | null
+          delivery_address?: string | null
+          delivery_instructions?: string | null
           discount_total?: number
           fulfillment_method?: string
+          fulfillment_snapshot?: Json | null
           fulfillment_status?: string
           id?: string
           internal_notes?: string | null
@@ -1767,6 +1811,16 @@ export type Database = {
           order_number?: string
           payment_intent_id?: string | null
           payment_status?: string
+          pickup_contact_name?: string | null
+          pickup_contact_phone?: string | null
+          pickup_location_id?: string | null
+          promo_code_id?: string | null
+          promo_snapshot?: Json | null
+          recipient_email?: string | null
+          recipient_name?: string | null
+          recipient_phone?: string | null
+          recipient_sms_opt_in?: boolean
+          recipient_snapshot?: Json | null
           shipping_address1?: string | null
           shipping_address2?: string | null
           shipping_city?: string | null
@@ -1783,6 +1837,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_store_orders_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_promo_codes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_store_orders_store_id_fkey"
             columns: ["store_id"]
@@ -2093,6 +2154,114 @@ export type Database = {
             columns: ["team_store_id"]
             isOneToOne: false
             referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_store_promo_codes: {
+        Row: {
+          active: boolean
+          allowed_email_domains: Json | null
+          allowed_emails: Json | null
+          code: string
+          created_at: string
+          discount_type: string
+          discount_value: number
+          ends_at: string | null
+          id: string
+          max_redemptions_per_email: number
+          max_redemptions_total: number | null
+          starts_at: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          allowed_email_domains?: Json | null
+          allowed_emails?: Json | null
+          code: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          id?: string
+          max_redemptions_per_email?: number
+          max_redemptions_total?: number | null
+          starts_at?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          allowed_email_domains?: Json | null
+          allowed_emails?: Json | null
+          code?: string
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string | null
+          id?: string
+          max_redemptions_per_email?: number
+          max_redemptions_total?: number | null
+          starts_at?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_promo_codes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_promo_codes_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_store_promo_redemptions: {
+        Row: {
+          discount_snapshot: number
+          id: string
+          order_id: string
+          promo_code_id: string
+          purchaser_email: string
+          redeemed_at: string
+        }
+        Insert: {
+          discount_snapshot?: number
+          id?: string
+          order_id: string
+          promo_code_id: string
+          purchaser_email: string
+          redeemed_at?: string
+        }
+        Update: {
+          discount_snapshot?: number
+          id?: string
+          order_id?: string
+          promo_code_id?: string
+          purchaser_email?: string
+          redeemed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_promo_redemptions_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_promo_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_promo_codes"
             referencedColumns: ["id"]
           },
         ]

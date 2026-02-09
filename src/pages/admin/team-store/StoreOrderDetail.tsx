@@ -109,9 +109,9 @@ export default function StoreOrderDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left column: customer + shipping + notes */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Customer info */}
+          {/* Customer / Billing info */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Customer Info</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Billing / Purchaser</CardTitle></CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div><Label>Name</Label><Input value={form.customer_name} onChange={(e) => update("customer_name", e.target.value)} /></div>
@@ -121,21 +121,71 @@ export default function StoreOrderDetail() {
             </CardContent>
           </Card>
 
+          {/* Recipient / Player */}
+          {((order as any).recipient_name || (order as any).recipient_snapshot) && (
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">Player / Recipient</CardTitle></CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                  <div><span className="text-muted-foreground block text-xs">Name</span>{(order as any).recipient_name || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs">Email</span>{(order as any).recipient_email || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs">Phone</span>{(order as any).recipient_phone || "—"}</div>
+                </div>
+                {(order as any).recipient_sms_opt_in && (
+                  <Badge variant="outline" className="mt-2 text-xs">SMS Opt-in</Badge>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Promo Info */}
+          {(order as any).promo_snapshot && (
+            <Card>
+              <CardHeader className="pb-3"><CardTitle className="text-base">Promo Code</CardTitle></CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-3 text-sm">
+                  <Badge variant="secondary" className="font-mono">{((order as any).promo_snapshot as any)?.code}</Badge>
+                  <span className="text-muted-foreground">
+                    {((order as any).promo_snapshot as any)?.discount_type === "percent"
+                      ? `${((order as any).promo_snapshot as any)?.discount_value}% off`
+                      : `$${Number(((order as any).promo_snapshot as any)?.discount_value || 0).toFixed(2)} off`}
+                  </span>
+                  <span className="font-medium">→ -${Number(((order as any).promo_snapshot as any)?.discount_amount || 0).toFixed(2)}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Email: {((order as any).promo_snapshot as any)?.purchaser_email}</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Line items */}
           <OrderItemsEditor orderId={order.id} storeId={store.id} onTotalsChange={handleSubtotalChange} />
 
-          {/* Shipping */}
+          {/* Shipping / Fulfillment */}
           <Card>
-            <CardHeader className="pb-3"><CardTitle className="text-base">Shipping</CardTitle></CardHeader>
+            <CardHeader className="pb-3"><CardTitle className="text-base">Fulfillment</CardTitle></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div><Label>Ship To Name</Label><Input value={form.shipping_name} onChange={(e) => update("shipping_name", e.target.value)} /></div>
-                <div><Label>Address Line 1</Label><Input value={form.shipping_address1} onChange={(e) => update("shipping_address1", e.target.value)} /></div>
-                <div><Label>Address Line 2</Label><Input value={form.shipping_address2} onChange={(e) => update("shipping_address2", e.target.value)} /></div>
-                <div><Label>City</Label><Input value={form.shipping_city} onChange={(e) => update("shipping_city", e.target.value)} /></div>
-                <div><Label>State</Label><Input value={form.shipping_state} onChange={(e) => update("shipping_state", e.target.value)} /></div>
-                <div><Label>ZIP</Label><Input value={form.shipping_zip} onChange={(e) => update("shipping_zip", e.target.value)} /></div>
-              </div>
+              {order.fulfillment_method === "ship" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div><Label>Ship To Name</Label><Input value={form.shipping_name} onChange={(e) => update("shipping_name", e.target.value)} /></div>
+                  <div><Label>Address Line 1</Label><Input value={form.shipping_address1} onChange={(e) => update("shipping_address1", e.target.value)} /></div>
+                  <div><Label>Address Line 2</Label><Input value={form.shipping_address2} onChange={(e) => update("shipping_address2", e.target.value)} /></div>
+                  <div><Label>City</Label><Input value={form.shipping_city} onChange={(e) => update("shipping_city", e.target.value)} /></div>
+                  <div><Label>State</Label><Input value={form.shipping_state} onChange={(e) => update("shipping_state", e.target.value)} /></div>
+                  <div><Label>ZIP</Label><Input value={form.shipping_zip} onChange={(e) => update("shipping_zip", e.target.value)} /></div>
+                </div>
+              )}
+              {order.fulfillment_method === "pickup" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                  <div><span className="text-muted-foreground block text-xs">Contact Name</span>{(order as any).pickup_contact_name || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs">Contact Phone</span>{(order as any).pickup_contact_phone || "—"}</div>
+                </div>
+              )}
+              {order.fulfillment_method === "local_delivery" && (
+                <div className="space-y-2 text-sm">
+                  <div><span className="text-muted-foreground block text-xs">Delivery Address</span>{(order as any).delivery_address || "—"}</div>
+                  <div><span className="text-muted-foreground block text-xs">Instructions</span>{(order as any).delivery_instructions || "—"}</div>
+                </div>
+              )}
             </CardContent>
           </Card>
 

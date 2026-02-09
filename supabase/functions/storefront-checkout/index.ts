@@ -30,14 +30,23 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     const {
       storeId,
-      items, // array of cart items from frontend
-      customer, // { name, email, phone }
-      fulfillment, // { method: 'ship'|'pickup'|'deliver', address? }
+      items,
+      billing,       // { name, email, phone, address? }
+      recipient,     // { name, email?, phone?, smsOptIn? }
+      fulfillment,   // { method, address?, pickupLocationId?, pickupContactName?, pickupContactPhone?, deliveryAddress?, deliveryInstructions? }
       customerNotes,
+      promoCode,     // string | undefined
     } = body;
 
     if (!storeId || !items || items.length === 0) {
       return new Response(JSON.stringify({ error: "storeId and items required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!billing?.email || !billing?.name) {
+      return new Response(JSON.stringify({ error: "Billing name and email are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -61,7 +70,7 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    // Server-side price verification: fetch each product's price_override
+    // Server-side price verification
     const productIds = [...new Set(items.map((i: any) => i.productId))];
     const { data: dbProducts } = await supabase
       .from("team_store_products")
@@ -77,7 +86,6 @@ Deno.serve(async (req: Request) => {
     for (const item of items) {
       const dbProduct = productMap.get(item.productId);
       const serverBasePrice = dbProduct ? Number(dbProduct.price_override) || 0 : 0;
-      // Trust decoration and personalization upcharges from the cart (they are deterministic from store settings)
       const decoUpcharge = Number(item.decoUpcharge) || 0;
       const persUpcharge = Number(item.persUpcharge) || 0;
       const serverUnitPrice = serverBasePrice + decoUpcharge + persUpcharge;
@@ -111,17 +119,169 @@ Deno.serve(async (req: Request) => {
       });
     }
 
-    const total = subtotal; // no tax/shipping for now
+    // ═══ Promo code validation ═══
+    let discountTotal = 0;
+    let promoSnapshot: any = null;
+    let promoCodeId: string | null = null;
 
-    if (total < 0.5) {
-      return new Response(JSON.stringify({ error: "Order total too low" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (promoCode && typeof promoCode === "string" && promoCode.trim()) {
+      const code = promoCode.trim().toUpperCase();
+      const purchaserEmail = billing.email.trim().toLowerCase();
+
+      // Look up promo code for this store
+      const { data: promo, error: promoErr } = await supabase
+        .from("team_store_promo_codes")
+        .select("*")
+        .eq("store_id", storeId)
+        .ilike("code", code)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (promoErr || !promo) {
+        return new Response(JSON.stringify({ error: "Invalid promo code" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check date range
+      const now = new Date();
+      if (promo.starts_at && new Date(promo.starts_at) > now) {
+        return new Response(JSON.stringify({ error: "Promo code is not yet active" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (promo.ends_at && new Date(promo.ends_at) < now) {
+        return new Response(JSON.stringify({ error: "Promo code has expired" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check allowed_emails
+      const allowedEmails: string[] = Array.isArray(promo.allowed_emails) ? promo.allowed_emails : [];
+      const allowedDomains: string[] = Array.isArray(promo.allowed_email_domains) ? promo.allowed_email_domains : [];
+
+      if (allowedEmails.length > 0) {
+        const emailAllowed = allowedEmails.some(
+          (e: string) => e.toLowerCase() === purchaserEmail
+        );
+        if (!emailAllowed) {
+          // Also check domains
+          const domain = purchaserEmail.split("@")[1];
+          const domainAllowed = allowedDomains.length > 0 && allowedDomains.some(
+            (d: string) => d.toLowerCase() === domain
+          );
+          if (!domainAllowed) {
+            return new Response(JSON.stringify({ error: "This promo code is not available for your email" }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        }
+      } else if (allowedDomains.length > 0) {
+        const domain = purchaserEmail.split("@")[1];
+        const domainAllowed = allowedDomains.some(
+          (d: string) => d.toLowerCase() === domain
+        );
+        if (!domainAllowed) {
+          return new Response(JSON.stringify({ error: "This promo code is not available for your email domain" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Check max total redemptions
+      if (promo.max_redemptions_total) {
+        const { count } = await supabase
+          .from("team_store_promo_redemptions")
+          .select("id", { count: "exact", head: true })
+          .eq("promo_code_id", promo.id);
+        if ((count || 0) >= promo.max_redemptions_total) {
+          return new Response(JSON.stringify({ error: "Promo code has reached its maximum number of uses" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Check per-email limit
+      const { count: emailCount } = await supabase
+        .from("team_store_promo_redemptions")
+        .select("id", { count: "exact", head: true })
+        .eq("promo_code_id", promo.id)
+        .ilike("purchaser_email", purchaserEmail);
+
+      if ((emailCount || 0) >= promo.max_redemptions_per_email) {
+        return new Response(JSON.stringify({ error: "You have already used this promo code" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Calculate discount
+      if (promo.discount_type === "percent") {
+        discountTotal = Math.round(subtotal * (Number(promo.discount_value) / 100) * 100) / 100;
+      } else {
+        discountTotal = Math.min(Number(promo.discount_value), subtotal);
+      }
+
+      promoCodeId = promo.id;
+      promoSnapshot = {
+        code: promo.code,
+        purchaser_email: purchaserEmail,
+        discount_type: promo.discount_type,
+        discount_value: promo.discount_value,
+        discount_amount: discountTotal,
+      };
+
+      log("Promo applied", promoSnapshot);
     }
+
+    const total = Math.max(0.5, subtotal - discountTotal); // Stripe minimum
 
     // Generate order number
     const orderNumber = `TS-${Date.now().toString(36).toUpperCase()}`;
+
+    // Build snapshots
+    const billingSnapshot = {
+      name: billing.name,
+      email: billing.email,
+      phone: billing.phone || null,
+      address: billing.address || null,
+    };
+
+    const recipientSnapshot = recipient ? {
+      name: recipient.name || null,
+      email: recipient.email || null,
+      phone: recipient.phone || null,
+      sms_opt_in: recipient.smsOptIn || false,
+    } : null;
+
+    const fulfillmentMethod = fulfillment?.method || "ship";
+    const fulfillmentSnapshot = {
+      method: fulfillmentMethod,
+      ...(fulfillmentMethod === "ship" ? {
+        shipping_name: fulfillment?.address?.name || billing.name,
+        shipping_address1: fulfillment?.address?.address1 || null,
+        shipping_address2: fulfillment?.address?.address2 || null,
+        shipping_city: fulfillment?.address?.city || null,
+        shipping_state: fulfillment?.address?.state || null,
+        shipping_zip: fulfillment?.address?.zip || null,
+        shipping_phone: fulfillment?.address?.phone || billing.phone || null,
+      } : {}),
+      ...(fulfillmentMethod === "pickup" ? {
+        pickup_location_id: fulfillment?.pickupLocationId || null,
+        pickup_contact_name: fulfillment?.pickupContactName || null,
+        pickup_contact_phone: fulfillment?.pickupContactPhone || null,
+      } : {}),
+      ...(fulfillmentMethod === "local_delivery" ? {
+        delivery_address: fulfillment?.deliveryAddress || null,
+        delivery_instructions: fulfillment?.deliveryInstructions || null,
+      } : {}),
+    };
 
     // Create order draft
     const { data: order, error: orderErr } = await supabase
@@ -132,22 +292,45 @@ Deno.serve(async (req: Request) => {
         source: "online",
         status: "draft",
         payment_status: "unpaid",
-        customer_name: customer?.name || null,
-        customer_email: customer?.email || null,
-        customer_phone: customer?.phone || null,
-        fulfillment_method: fulfillment?.method || "ship",
-        shipping_name: fulfillment?.address?.name || customer?.name || null,
-        shipping_address1: fulfillment?.address?.address1 || null,
-        shipping_address2: fulfillment?.address?.address2 || null,
-        shipping_city: fulfillment?.address?.city || null,
-        shipping_state: fulfillment?.address?.state || null,
-        shipping_zip: fulfillment?.address?.zip || null,
+        // Billing (also stored in legacy fields for backward compat)
+        customer_name: billing.name,
+        customer_email: billing.email,
+        customer_phone: billing.phone || null,
+        billing_name: billing.name,
+        billing_email: billing.email,
+        billing_phone: billing.phone || null,
+        billing_address: billing.address || null,
+        // Recipient
+        recipient_name: recipient?.name || null,
+        recipient_email: recipient?.email || null,
+        recipient_phone: recipient?.phone || null,
+        recipient_sms_opt_in: recipient?.smsOptIn || false,
+        // Fulfillment
+        fulfillment_method: fulfillmentMethod,
+        shipping_name: fulfillmentMethod === "ship" ? (fulfillment?.address?.name || billing.name) : null,
+        shipping_address1: fulfillmentMethod === "ship" ? (fulfillment?.address?.address1 || null) : null,
+        shipping_address2: fulfillmentMethod === "ship" ? (fulfillment?.address?.address2 || null) : null,
+        shipping_city: fulfillmentMethod === "ship" ? (fulfillment?.address?.city || null) : null,
+        shipping_state: fulfillmentMethod === "ship" ? (fulfillment?.address?.state || null) : null,
+        shipping_zip: fulfillmentMethod === "ship" ? (fulfillment?.address?.zip || null) : null,
+        pickup_location_id: fulfillmentMethod === "pickup" ? (fulfillment?.pickupLocationId || null) : null,
+        pickup_contact_name: fulfillmentMethod === "pickup" ? (fulfillment?.pickupContactName || null) : null,
+        pickup_contact_phone: fulfillmentMethod === "pickup" ? (fulfillment?.pickupContactPhone || null) : null,
+        delivery_address: fulfillmentMethod === "local_delivery" ? (fulfillment?.deliveryAddress || null) : null,
+        delivery_instructions: fulfillmentMethod === "local_delivery" ? (fulfillment?.deliveryInstructions || null) : null,
+        // Snapshots
+        billing_snapshot: billingSnapshot,
+        recipient_snapshot: recipientSnapshot,
+        fulfillment_snapshot: fulfillmentSnapshot,
+        promo_snapshot: promoSnapshot,
+        promo_code_id: promoCodeId,
+        // Totals
         customer_notes: customerNotes || null,
         subtotal,
         total,
         tax_total: 0,
         shipping_total: 0,
-        discount_total: 0,
+        discount_total: discountTotal,
       } as any)
       .select()
       .single();
@@ -171,20 +354,29 @@ Deno.serve(async (req: Request) => {
       log("Error creating order items", { error: itemsErr.message });
     }
 
+    // Record promo redemption
+    if (promoCodeId && promoSnapshot) {
+      await supabase.from("team_store_promo_redemptions").insert({
+        promo_code_id: promoCodeId,
+        order_id: order.id,
+        purchaser_email: promoSnapshot.purchaser_email,
+        discount_snapshot: discountTotal,
+      });
+    }
+
     // Create Stripe PaymentIntent
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
     const amountCents = Math.round(total * 100);
 
-    // Look up or create Stripe customer
     let customerId: string | undefined;
-    if (customer?.email) {
-      const customers = await stripe.customers.list({ email: customer.email, limit: 1 });
+    if (billing.email) {
+      const customers = await stripe.customers.list({ email: billing.email, limit: 1 });
       if (customers.data.length > 0) {
         customerId = customers.data[0].id;
       } else {
         const c = await stripe.customers.create({
-          email: customer.email,
-          name: customer.name || undefined,
+          email: billing.email,
+          name: billing.name || undefined,
         });
         customerId = c.id;
       }
@@ -218,6 +410,7 @@ Deno.serve(async (req: Request) => {
         orderId: order.id,
         orderNumber,
         total,
+        discountTotal,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
