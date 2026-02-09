@@ -63,6 +63,16 @@ const COLORWAYS = [
   "black", "white", "red", "navy", "royal", "gold", "green", "orange", "purple", "grey", "multi",
 ];
 
+const DECORATION_TYPES = [
+  { value: "screen_print", label: "Screen Print" },
+  { value: "embroidery", label: "Embroidery" },
+  { value: "tackle_twill", label: "Tackle Twill" },
+  { value: "dtf", label: "DTF" },
+  { value: "heat_press", label: "Heat Press" },
+  { value: "sublimation", label: "Sublimation" },
+  { value: "other", label: "Other" },
+];
+
 interface LogoVariant {
   id: string;
   store_logo_id: string;
@@ -81,6 +91,7 @@ interface MasterLogo {
   name: string;
   method: string;
   placement: string | null;
+  decoration_type: string;
   file_url: string;
   is_primary: boolean;
   variants: LogoVariant[];
@@ -101,6 +112,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
 
   const [decoName, setDecoName] = useState("");
   const [decoPlacement, setDecoPlacement] = useState("left_front");
+  const [decoType, setDecoType] = useState("screen_print");
 
   const [variantDialog, setVariantDialog] = useState<{ logoId: string; logoName: string } | null>(null);
   const [variantName, setVariantName] = useState("");
@@ -189,6 +201,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
         name: decoName.trim(),
         method: "multi",
         placement: decoPlacement,
+        decoration_type: decoType,
         file_url: publicUrl,
         file_type: fileType,
         original_file_url: isVector ? publicUrl : null,
@@ -211,6 +224,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
 
       queryClient.invalidateQueries({ queryKey: ["store-logos-with-variants", storeId] });
       setDecoName("");
+      setDecoType("screen_print");
       toast.success(`Logo added (${FILE_TYPE_LABELS[fileType]}) with default variant`);
     } catch (e: any) {
       toast.error(e.message);
@@ -375,7 +389,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
       {/* Add new decoration logo */}
       <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
         <p className="text-sm font-medium">Add New Decoration Logo</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">
             <Label className="text-xs">Logo Name</Label>
             <Input
@@ -392,6 +406,17 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
               <SelectContent>
                 {PLACEMENTS.map((p) => (
                   <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs">Decoration Type</Label>
+            <Select value={decoType} onValueChange={setDecoType}>
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DECORATION_TYPES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -447,7 +472,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground capitalize">
-                        {(logo.placement || "left_front").replace(/_/g, " ")} · {logo.variants.length} variant{logo.variants.length !== 1 ? "s" : ""}
+                        {(logo.placement || "left_front").replace(/_/g, " ")} · {DECORATION_TYPES.find((d) => d.value === logo.decoration_type)?.label || logo.decoration_type?.replace(/_/g, " ")} · {logo.variants.length} variant{logo.variants.length !== 1 ? "s" : ""}
                       </p>
                     </div>
                   </div>
