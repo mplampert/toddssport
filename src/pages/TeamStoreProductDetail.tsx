@@ -123,11 +123,16 @@ export default function TeamStoreProductDetail() {
 
   /* ── derived data ── */
   // Parse allowed_colors from the store product (if set, filter to only those)
-  const allowedColorCodes = useMemo(() => {
+  const allowedColors = useMemo(() => {
     const raw = storeProduct?.allowed_colors;
     if (!raw || !Array.isArray(raw) || raw.length === 0) return null;
-    return new Set((raw as { code: string; name: string }[]).map((c) => c.code));
+    return raw as { code: string; name: string; excludedSizes?: string[] }[];
   }, [storeProduct?.allowed_colors]);
+
+  const allowedColorCodes = useMemo(() => {
+    if (!allowedColors) return null;
+    return new Set(allowedColors.map((c) => c.code));
+  }, [allowedColors]);
 
   const colorOptions = useMemo<ColorOption[]>(() => {
     const map = new Map<string, ColorOption>();
@@ -164,15 +169,25 @@ export default function TeamStoreProductDetail() {
     return getProductGallery(storeProduct ?? {}, ssImgs);
   }, [activeColor, storeProduct]);
 
+  // Get excluded sizes for the selected color
+  const excludedSizesForColor = useMemo(() => {
+    if (!allowedColors || !selectedColor) return new Set<string>();
+    const activeColorOption = colorOptions.find((c) => c.name === selectedColor);
+    if (!activeColorOption) return new Set<string>();
+    const match = allowedColors.find((c) => c.code === activeColorOption.code);
+    return new Set(match?.excludedSizes || []);
+  }, [allowedColors, selectedColor, colorOptions]);
+
   const sizesForColor = useMemo(() => {
     return products
       .filter((p) => p.colorName === selectedColor && p.sizeName)
+      .filter((p) => !excludedSizesForColor.has(p.sizeName!))
       .sort((a, b) => (a.sizeOrder || "").localeCompare(b.sizeOrder || ""))
       .reduce<SSProduct[]>((acc, p) => {
         if (!acc.find((x) => x.sizeName === p.sizeName)) acc.push(p);
         return acc;
       }, []);
-  }, [products, selectedColor]);
+  }, [products, selectedColor, excludedSizesForColor]);
 
   const selectedVariant = useMemo(() => {
     if (!selectedColor || !selectedSize) return null;
