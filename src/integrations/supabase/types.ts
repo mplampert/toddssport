@@ -2014,6 +2014,104 @@ export type Database = {
           },
         ]
       }
+      team_store_item_text_layers: {
+        Row: {
+          active: boolean
+          alignment: string
+          created_at: string
+          custom_field_id: string | null
+          fill_color: string
+          font_family: string
+          font_size_px: number
+          font_weight: string
+          id: string
+          letter_spacing: number
+          line_height: number
+          outline_color: string | null
+          outline_thickness: number
+          rotation: number
+          scale: number
+          sort_order: number
+          source: string
+          static_text: string | null
+          team_store_item_id: string
+          text_pattern: string | null
+          text_transform: string
+          updated_at: string
+          variant_color: string | null
+          view: string
+          x: number
+          y: number
+          z_index: number
+        }
+        Insert: {
+          active?: boolean
+          alignment?: string
+          created_at?: string
+          custom_field_id?: string | null
+          fill_color?: string
+          font_family?: string
+          font_size_px?: number
+          font_weight?: string
+          id?: string
+          letter_spacing?: number
+          line_height?: number
+          outline_color?: string | null
+          outline_thickness?: number
+          rotation?: number
+          scale?: number
+          sort_order?: number
+          source?: string
+          static_text?: string | null
+          team_store_item_id: string
+          text_pattern?: string | null
+          text_transform?: string
+          updated_at?: string
+          variant_color?: string | null
+          view?: string
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Update: {
+          active?: boolean
+          alignment?: string
+          created_at?: string
+          custom_field_id?: string | null
+          fill_color?: string
+          font_family?: string
+          font_size_px?: number
+          font_weight?: string
+          id?: string
+          letter_spacing?: number
+          line_height?: number
+          outline_color?: string | null
+          outline_thickness?: number
+          rotation?: number
+          scale?: number
+          sort_order?: number
+          source?: string
+          static_text?: string | null
+          team_store_item_id?: string
+          text_pattern?: string | null
+          text_transform?: string
+          updated_at?: string
+          variant_color?: string | null
+          view?: string
+          x?: number
+          y?: number
+          z_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_item_text_layers_team_store_item_id_fkey"
+            columns: ["team_store_item_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_leads: {
         Row: {
           additional_info: string | null

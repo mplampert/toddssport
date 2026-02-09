@@ -7,13 +7,15 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle, Upload, Replace } from "lucide-react";
+import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle, Upload, Replace, Type, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
 import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
 import { pickBestVariant, type LogoVariantOption } from "@/lib/logoVariantPicker";
 import { useProductVariantImages, type VariantImage } from "@/hooks/useVariantImages";
+import { TextLayerPanel } from "./TextLayerPanel";
+import { type TextLayer, DEFAULT_TEXT_LAYER, TEXT_SOURCE_LABELS, type TextLayerSource } from "@/lib/textLayers";
 
 /* ─── Types ─── */
 
@@ -75,6 +77,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [dirty, setDirty] = useState(false);
   const [activePlacementIdx, setActivePlacementIdx] = useState<number | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+
+  // ── Text layer state ──
+  const [textLayers, setTextLayers] = useState<TextLayer[]>([]);
+  const [activeTextIdx, setActiveTextIdx] = useState<number | null>(null);
+  const [textDirty, setTextDirty] = useState(false);
+  const [savedTextSnapshot, setSavedTextSnapshot] = useState<string>("");
 
   // ── Variant images for sleeve backgrounds ──
   const { data: variantImages = [] } = useProductVariantImages(item.id);
@@ -146,6 +154,20 @@ export function ProductLogosTab({ item, storeId }: Props) {
         .order("sort_order");
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Fetch ALL text layers for this product
+  const { data: existingTextLayers, isLoading: isLoadingText } = useQuery({
+    queryKey: ["item-text-layers", item.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_item_text_layers")
+        .select("*")
+        .eq("team_store_item_id", item.id)
+        .order("sort_order");
+      if (error) throw error;
+      return data as TextLayer[];
     },
   });
 
@@ -283,6 +305,16 @@ export function ProductLogosTab({ item, storeId }: Props) {
     setActivePlacementIdx(null);
   }, [existingPlacements, selectedColor, activeView, colorOptions, variantsByLogo]);
 
+  // When text layers load or view changes, filter to current view
+  useEffect(() => {
+    if (!existingTextLayers) return;
+    const viewFiltered = existingTextLayers.filter((t) => (t.view || "front") === activeView);
+    setTextLayers(viewFiltered);
+    setSavedTextSnapshot(JSON.stringify(existingTextLayers));
+    setTextDirty(false);
+    setActiveTextIdx(null);
+  }, [existingTextLayers, activeView]);
+
   function filterPlacementsForEditing(all: LogoPlacement[], color: string | null, allColors: boolean, view: string): LogoPlacement[] {
     // Filter by view first
     const viewFiltered = all.filter((p) => (p.view || "front") === view);
@@ -400,13 +432,57 @@ export function ProductLogosTab({ item, storeId }: Props) {
       setDirty(false);
       setActivePlacementIdx(null);
     }
+    if (savedTextSnapshot && existingTextLayers) {
+      const allText = JSON.parse(savedTextSnapshot) as TextLayer[];
+      setTextLayers(allText.filter((t) => (t.view || "front") === activeView));
+      setTextDirty(false);
+      setActiveTextIdx(null);
+    }
   };
+
+  // ── Text layer CRUD ──
+  const addTextLayer = (source: TextLayerSource) => {
+    const defaultY = source === "personalization_number" ? 0.6
+      : source === "personalization_name" ? 0.45
+      : 0.5;
+    const defaultText = source === "static_text" ? "TEXT"
+      : source === "name_number_template" ? "{LAST_NAME} {NUMBER}"
+      : null;
+    const newLayer: TextLayer = {
+      ...DEFAULT_TEXT_LAYER,
+      source,
+      view: activeView,
+      y: defaultY,
+      static_text: source === "static_text" ? defaultText : null,
+      text_pattern: source === "name_number_template" ? defaultText : null,
+      variant_color: applyToAllColors ? null : selectedColor,
+      sort_order: textLayers.length,
+    };
+    setTextLayers((prev) => [...prev, newLayer]);
+    setActiveTextIdx(textLayers.length);
+    setActivePlacementIdx(null);
+    setTextDirty(true);
+    toast.success(`Added ${TEXT_SOURCE_LABELS[source]} text to ${activeView} view`);
+  };
+
+  const removeTextLayer = (idx: number) => {
+    setTextLayers((prev) => prev.filter((_, i) => i !== idx));
+    if (activeTextIdx === idx) setActiveTextIdx(null);
+    else if (activeTextIdx !== null && activeTextIdx > idx) setActiveTextIdx(activeTextIdx - 1);
+    setTextDirty(true);
+  };
+
+  const updateTextLayer = useCallback((idx: number, updates: Partial<TextLayer>) => {
+    setTextLayers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...updates } : t)));
+    setTextDirty(true);
+  }, []);
+
+  const anyDirty = dirty || textDirty;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      // Save only placements for the current view — delete existing for this view + color scope, then insert
+      // ── Save logo placements ──
       if (applyToAllColors) {
-        // Delete all placements for this view (all colors)
         await supabase.from("team_store_item_logos").delete()
           .eq("team_store_item_id", item.id)
           .eq("view", activeView);
@@ -416,61 +492,65 @@ export function ProductLogosTab({ item, storeId }: Props) {
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
             position: p.position,
-            x: p.x,
-            y: p.y,
-            scale: p.scale,
-            rotation: p.rotation,
-            is_primary: p.is_primary,
-            role: p.role,
-            sort_order: i,
-            active: p.active,
-            variant_color: null,
-            variant_size: null,
-            view: activeView,
+            x: p.x, y: p.y, scale: p.scale, rotation: p.rotation,
+            is_primary: p.is_primary, role: p.role, sort_order: i,
+            active: p.active, variant_color: null, variant_size: null, view: activeView,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
         }
       } else {
-        // Delete placements for this view + specific color
         const { error: delErr } = await supabase
-          .from("team_store_item_logos")
-          .delete()
+          .from("team_store_item_logos").delete()
           .eq("team_store_item_id", item.id)
           .eq("view", activeView)
           .or(`variant_color.eq.${selectedColor},variant_color.is.null`);
         if (delErr) throw delErr;
-
         if (placements.length > 0) {
           const rows = placements.map((p, i) => ({
             team_store_item_id: item.id,
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
             position: p.position,
-            x: p.x,
-            y: p.y,
-            scale: p.scale,
-            rotation: p.rotation,
-            is_primary: p.is_primary,
-            role: p.role,
-            sort_order: i,
-            active: p.active,
-            variant_color: selectedColor,
-            variant_size: null,
-            view: activeView,
+            x: p.x, y: p.y, scale: p.scale, rotation: p.rotation,
+            is_primary: p.is_primary, role: p.role, sort_order: i,
+            active: p.active, variant_color: selectedColor, variant_size: null, view: activeView,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
         }
       }
+
+      // ── Save text layers for current view ──
+      await supabase.from("team_store_item_text_layers").delete()
+        .eq("team_store_item_id", item.id)
+        .eq("view", activeView);
+      if (textLayers.length > 0) {
+        const rows = textLayers.map((t, i) => ({
+          team_store_item_id: item.id,
+          source: t.source, view: activeView,
+          x: t.x, y: t.y, scale: t.scale, rotation: t.rotation, z_index: t.z_index,
+          static_text: t.static_text, text_pattern: t.text_pattern, custom_field_id: t.custom_field_id,
+          font_family: t.font_family, font_weight: t.font_weight, font_size_px: t.font_size_px,
+          text_transform: t.text_transform, fill_color: t.fill_color,
+          outline_color: t.outline_color, outline_thickness: t.outline_thickness,
+          letter_spacing: t.letter_spacing, line_height: t.line_height, alignment: t.alignment,
+          variant_color: applyToAllColors ? null : selectedColor,
+          active: t.active, sort_order: i,
+        }));
+        const { error } = await supabase.from("team_store_item_text_layers").insert(rows as any);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["item-text-layers", item.id] });
       queryClient.invalidateQueries({ queryKey: ["store-logos", storeId] });
       queryClient.invalidateQueries({ queryKey: ["storefront-product-logos"] });
       queryClient.invalidateQueries({ queryKey: ["ts-product-detail"] });
-      toast.success("Logo placements saved");
+      toast.success("Placements saved");
       setDirty(false);
+      setTextDirty(false);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -745,13 +825,19 @@ export function ProductLogosTab({ item, storeId }: Props) {
           <PlacementCanvas
             image={canvasImage}
             placements={placements}
+            textLayers={textLayers}
             presetMap={presetMap}
             activeIdx={activePlacementIdx}
+            activeTextIdx={activeTextIdx}
             maxScaleFn={getMaxScale}
-            onSelectPlacement={setActivePlacementIdx}
+            onSelectPlacement={(idx) => { setActivePlacementIdx(idx >= 0 ? idx : null); if (idx >= 0) setActiveTextIdx(null); }}
             onMovePlacement={(idx, x, y) => updatePlacement(idx, { x, y })}
             onScalePlacement={(idx, scale) => updatePlacement(idx, { scale })}
             onDeletePlacement={removePlacement}
+            onSelectTextLayer={(idx) => { setActiveTextIdx(idx >= 0 ? idx : null); if (idx >= 0) setActivePlacementIdx(null); }}
+            onMoveTextLayer={(idx, x, y) => updateTextLayer(idx, { x, y })}
+            onScaleTextLayer={(idx, scale) => updateTextLayer(idx, { scale })}
+            onDeleteTextLayer={removeTextLayer}
             onUploadSleeveImage={isSleeveView ? handleSleeveUpload : undefined}
             sleeveUploading={sleeveUploading}
             sleeveViewLabel={sleeveViewLabel}
@@ -1060,17 +1146,76 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         )}
 
-        {placements.length === 0 && (
+        {/* ─── Add Text Button ─── */}
+        <div className="border rounded-lg p-3 bg-card space-y-2">
+          <div className="flex items-center justify-between">
+            <Label className="text-xs font-semibold flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5" /> Text Layers ({textLayers.length})
+            </Label>
+            <div className="flex gap-1">
+              {(["static_text", "personalization_name", "personalization_number", "name_number_template"] as TextLayerSource[]).map((src) => (
+                <Button
+                  key={src}
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px]"
+                  onClick={() => addTextLayer(src)}
+                >
+                  <Plus className="w-3 h-3 mr-0.5" />
+                  {TEXT_SOURCE_LABELS[src]}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          {/* Text layer list */}
+          {textLayers.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {textLayers.map((t, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => { setActiveTextIdx(idx); setActivePlacementIdx(null); }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
+                    !t.active ? "opacity-40" : ""
+                  } ${
+                    activeTextIdx === idx
+                      ? "border-primary bg-primary/10 text-foreground font-medium"
+                      : "border-border bg-card text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <Type className="w-3 h-3" />
+                  <span className="truncate max-w-[100px]">{TEXT_SOURCE_LABELS[t.source]}</span>
+                  <span
+                    className="w-3 h-3 rounded-sm border shrink-0"
+                    style={{ backgroundColor: t.fill_color }}
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ─── Active Text Layer Panel ─── */}
+        {activeTextIdx !== null && textLayers[activeTextIdx] && (
+          <TextLayerPanel
+            layer={textLayers[activeTextIdx]}
+            idx={activeTextIdx}
+            onUpdate={updateTextLayer}
+            onDelete={removeTextLayer}
+          />
+        )}
+
+        {placements.length === 0 && textLayers.length === 0 && (
           <div className="text-center py-6 border border-dashed rounded-lg">
             <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">No logos assigned yet. Pick one from the library above.</p>
+            <p className="text-sm text-muted-foreground">No logos or text assigned yet. Pick a logo from the library above or add a text layer.</p>
           </div>
         )}
       </div>
 
       {/* ─── Sticky Footer ─── */}
       <div className="sticky bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t py-3 px-1 -mx-1 flex items-center gap-3 z-20">
-        {dirty && (
+        {anyDirty && (
           <div className="flex items-center gap-1.5 text-xs text-destructive">
             <AlertCircle className="w-3.5 h-3.5" />
             <span>Unsaved changes</span>
@@ -1082,7 +1227,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
           variant="outline"
           className="h-8 text-xs"
           onClick={resetChanges}
-          disabled={!dirty || saveMutation.isPending}
+          disabled={!anyDirty || saveMutation.isPending}
         >
           <RotateCcw className="w-3 h-3 mr-1" /> Reset
         </Button>
@@ -1090,7 +1235,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
           size="sm"
           className="h-8 text-xs"
           onClick={() => saveMutation.mutate()}
-          disabled={!dirty || saveMutation.isPending}
+          disabled={!anyDirty || saveMutation.isPending}
         >
           {saveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
           <Save className="w-3 h-3 mr-1" /> Save Placements
