@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { getInternalIdentity } from "@/lib/productIdentity";
 import type { StoreProduct } from "./ProductListPane";
 
 interface Props {
@@ -25,6 +26,7 @@ const num = (v: string) => v.trim() ? parseFloat(v) : null;
 export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
   const queryClient = useQueryClient();
   const style = item.catalog_styles;
+  const identity = getInternalIdentity(item);
 
   const [displayName, setDisplayName] = useState(item.display_name ?? "");
   const [active, setActive] = useState(item.active);
@@ -84,9 +86,9 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
       <div className="p-4 bg-muted/30 rounded-lg border space-y-1">
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Catalog Name / SKU — Internal, read-only</p>
         <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-          <div><span className="text-muted-foreground">Catalog Name:</span> {style?.style_name}</div>
-          <div><span className="text-muted-foreground">Brand:</span> {style?.brand_name}</div>
-          <div><span className="text-muted-foreground">SKU / Style ID:</span> {(style as any)?.part_number || style?.style_id}</div>
+          <div><span className="text-muted-foreground">Catalog Name:</span> {identity.catalogName}</div>
+          <div><span className="text-muted-foreground">Brand:</span> {identity.brand}</div>
+          <div><span className="text-muted-foreground">Style ID / SKU:</span> {identity.catalogSku}</div>
         </div>
         <p className="text-[10px] text-muted-foreground mt-1">Work orders and production views always use this catalog name and SKU.</p>
         {style?.style_image && (
@@ -99,7 +101,7 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Storefront Name <span className="text-muted-foreground font-normal">(what customers see)</span></Label>
-          <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={style?.style_name || "Product name"} />
+          <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={identity.catalogName} />
           <p className="text-[10px] text-muted-foreground">Leave blank to use the catalog name. This does not affect work orders or internal views.</p>
         </div>
 

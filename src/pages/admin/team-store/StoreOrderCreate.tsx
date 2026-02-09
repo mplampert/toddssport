@@ -86,8 +86,8 @@ export default function StoreOrderCreate() {
     const orderItems = items.map((i) => {
       // Look up catalog info for snapshot
       const sp = storeProducts.find((p: any) => p.id === i.team_store_product_id);
-      const catalogName = (sp as any)?.catalog_styles?.style_name || i.product_name_snapshot;
-      const catalogSku = (sp as any)?.catalog_styles?.part_number || (sp as any)?.catalog_styles?.style_id?.toString() || null;
+      const catalogName = (sp as any)?.catalog_styles?.title || (sp as any)?.catalog_styles?.style_name || i.product_name_snapshot;
+      const catalogSku = (sp as any)?.catalog_styles?.style_name || null;
       const storeDisplayName = (sp as any)?.display_name || null;
       return {
         team_store_product_id: i.team_store_product_id || null,

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { handleImageError } from "@/lib/productImages";
+import { getDisplayName } from "@/lib/productIdentity";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useRosterPlayers, type RosterPlayer } from "@/hooks/useTeamRosters";
@@ -66,7 +67,7 @@ export default function TeamStoreProductDetail() {
       // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, rotation, is_primary, role, sort_order, active, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url))")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description, title), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, rotation, is_primary, role, sort_order, active, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -384,7 +385,7 @@ export default function TeamStoreProductDetail() {
       storeName: store?.name ?? "",
       productId: itemId ?? "",
       styleId: ssStyleId ?? 0,
-      productName: storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product",
+      productName: getDisplayName(storeProduct as any),
       brandName: catalogStyle?.brand_name ?? "",
       color: selectedVariant.colorName ?? "",
       colorCode: selectedVariant.colorCode ?? "",
@@ -476,7 +477,7 @@ export default function TeamStoreProductDetail() {
             </Link>
             <span>/</span>
             <span className="text-foreground font-medium truncate">
-              {storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product"}
+              {getDisplayName(storeProduct as any)}
             </span>
           </nav>
 
@@ -632,7 +633,7 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">
-                  {storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product"}
+                  {getDisplayName(storeProduct as any)}
                 </h1>
 
                 {selectedVariant?.sku && (
