@@ -13,6 +13,8 @@ import { ProductMessagesPanel } from "@/components/admin/team-stores/ProductMess
 import { ProductOverridesPanel } from "@/components/admin/team-stores/ProductOverridesPanel";
 import { ProductEditorOverviewTab } from "@/components/admin/team-stores/ProductEditorOverviewTab";
 import { ProductEditorPricingTab } from "@/components/admin/team-stores/ProductEditorPricingTab";
+import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
+import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
 import { getProductImage, handleImageError } from "@/lib/productImages";
 import type { StoreProduct } from "@/components/admin/team-stores/ProductListPane";
 
@@ -33,6 +35,8 @@ export default function StoreProductEditor() {
           id, style_id, sort_order, notes, price_override, active,
           fundraising_enabled, fundraising_amount_per_unit, fundraising_percentage,
           personalization_enabled, personalization_price, personalization_config,
+          personalization_override_enabled, personalization_settings,
+          decoration_pricing_override_enabled, decoration_prices_override,
           screen_print_enabled, embroidery_enabled, dtf_enabled,
           category_id, store_category_override_id,
           display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types,
@@ -118,12 +122,12 @@ export default function StoreProductEditor() {
 
       {/* Full-width tabs */}
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="w-full justify-start bg-transparent border-b rounded-none px-0 h-auto py-0">
-          {["Overview", "Pricing", "Images", "Logos", "Messages", "Variants"].map((tab) => (
+        <TabsList className="w-full justify-start bg-transparent border-b rounded-none px-0 h-auto py-0 overflow-x-auto">
+          {["Overview", "Pricing", "Images", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
-              className="text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent py-3 px-5"
+              className="text-sm rounded-none border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent py-3 px-4 whitespace-nowrap"
             >
               {tab}
             </TabsTrigger>
@@ -150,6 +154,12 @@ export default function StoreProductEditor() {
           </TabsContent>
           <TabsContent value="variants" className="m-0">
             <ProductVariantsTab item={item} storeId={store.id} />
+          </TabsContent>
+          <TabsContent value="personalization" className="m-0">
+            <ProductPersonalizationTab item={item} storeId={store.id} />
+          </TabsContent>
+          <TabsContent value="decoration" className="m-0">
+            <ProductDecorationPricingTab item={item} storeId={store.id} />
           </TabsContent>
         </div>
       </Tabs>
