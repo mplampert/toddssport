@@ -1,11 +1,13 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCategoryManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { ProductLogosTab } from "@/components/admin/team-stores/ProductLogosTab";
 import { ProductVariantsTab } from "@/components/admin/team-stores/ProductVariantsTab";
@@ -24,6 +26,7 @@ export default function StoreProductEditor() {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
 
   const { visible: visibleCategories } = useEffectiveCategories(store.id);
 
@@ -63,6 +66,22 @@ export default function StoreProductEditor() {
     isCustom: c.isCustom,
   }));
 
+  const toggleActiveMutation = useMutation({
+    mutationFn: async (active: boolean) => {
+      const { error } = await supabase
+        .from("team_store_products")
+        .update({ active })
+        .eq("id", productId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-product-editor", productId] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-products", store.id] });
+      toast.success(item?.active ? "Product hidden" : "Product activated");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Preserve list state when going back
   const backParams = new URLSearchParams();
   const listSearch = searchParams.get("ls");
@@ -99,26 +118,34 @@ export default function StoreProductEditor() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={() => navigate(backUrl)} className="shrink-0">
+      <div className="flex items-start gap-4">
+        <Button variant="ghost" size="sm" onClick={() => navigate(backUrl)} className="shrink-0 mt-1">
           <ArrowLeft className="w-4 h-4 mr-1" /> Products
         </Button>
-        <div className="flex items-center gap-3 min-w-0 flex-1">
+        <div className="flex items-start gap-3 min-w-0 flex-1">
           {getProductImage(item) && (
             <img
               src={getProductImage(item)}
               alt=""
-              className="w-10 h-10 object-contain rounded border bg-muted p-0.5 shrink-0"
+              className="w-12 h-12 object-contain rounded border bg-muted p-0.5 shrink-0"
               onError={handleImageError}
             />
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-foreground truncate">{displayName}</h2>
-            <p className="text-xs text-muted-foreground">{style?.brand_name} · #{style?.style_id}</p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+              {style?.style_id && <span>SKU: {style.style_id}</span>}
+              {style?.brand_name && <span>Vendor: {style.brand_name}</span>}
+              {(style as any)?.part_number && <span>Part #: {(style as any).part_number}</span>}
+            </div>
           </div>
-          <Badge variant={item.active ? "default" : "secondary"} className="shrink-0">
-            {item.active ? "Active" : "Hidden"}
-          </Badge>
+          <div className="flex items-center gap-2 shrink-0 mt-1">
+            <span className="text-xs text-muted-foreground">{item.active ? "Active" : "Hidden"}</span>
+            <Switch
+              checked={item.active}
+              onCheckedChange={(checked) => toggleActiveMutation.mutate(checked)}
+            />
+          </div>
         </div>
       </div>
 
