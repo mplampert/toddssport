@@ -111,7 +111,9 @@ export function ProductListPane({
 
   // Resolve variant image for a product
   const resolveImage = (item: StoreProduct): string | null => {
-    const itemVariants = variantImages.filter((v) => v.team_store_product_id === item.id);
+    const itemVariants = variantImages.filter(
+      (v) => v.team_store_product_id === item.id && (v.view || "front") === "front"
+    );
     if (itemVariants.length > 0) {
       const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
       const firstName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
