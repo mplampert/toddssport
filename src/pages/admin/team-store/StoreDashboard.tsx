@@ -52,33 +52,24 @@ export default function StoreDashboard() {
   const status = getStoreStatus(store);
   const storeUrl = `${window.location.origin}/team-stores/${store.slug}`;
 
-  // --- KPIs ---
-  const { data: orderCount = 0 } = useQuery({
+  // --- KPIs from real orders table ---
+  const { data: ordersData = [] } = useQuery({
     queryKey: ["store-dash-orders", store.id],
     queryFn: async () => {
-      const { count } = await supabase
-        .from("champro_orders")
-        .select("id", { count: "exact", head: true })
-        .contains("request_payload", { team_store_id: store.id });
-      return count ?? 0;
+      const { data, error } = await supabase
+        .from("team_store_orders")
+        .select("id, total")
+        .eq("store_id", store.id)
+        .eq("is_sample", false);
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
-  const { data: totalSales = 0 } = useQuery({
-    queryKey: ["store-dash-sales", store.id],
-    queryFn: async () => {
-      // sum from cart_items linked to this store
-      const { data } = await supabase
-        .from("cart_items")
-        .select("unit_price, quantity")
-        .eq("team_store_id", store.id);
-      if (!data) return 0;
-      return data.reduce((sum, i) => sum + (i.unit_price ?? 0) * (i.quantity ?? 0), 0);
-    },
-  });
-
+  const orderCount = ordersData.length;
+  const totalSales = ordersData.reduce((sum, o) => sum + Number(o.total ?? 0), 0);
   const avgOrderValue = orderCount > 0 ? totalSales / orderCount : 0;
-  const fundraisingRate = 20; // fixed for now
+  const fundraisingRate = store.fundraising_percent ?? 0;
 
   const isLive = status.label === "Live";
   const isClosed = status.label === "Closed";
