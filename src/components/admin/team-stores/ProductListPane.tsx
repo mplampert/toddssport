@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Trash2, Eye, EyeOff, Package } from "lucide-react";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import type { VariantImage } from "@/hooks/useVariantImages";
 import type { EffectiveCategory } from "./StoreCategoryManager";
 
 export interface StoreProduct {
@@ -46,6 +47,7 @@ export interface StoreProduct {
 interface Props {
   products: StoreProduct[];
   categories: EffectiveCategory[];
+  variantImages?: VariantImage[];
   selectedId: string | null;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
@@ -61,6 +63,7 @@ interface Props {
 export function ProductListPane({
   products,
   categories,
+  variantImages = [],
   selectedId,
   selectedIds,
   onSelect,
@@ -190,7 +193,21 @@ export function ProductListPane({
               const style = item.catalog_styles;
               const name = item.display_name || style?.style_name || `Style #${item.style_id}`;
               const isActive = selectedId === item.id;
-              const img = getProductImage(item);
+              // Resolve image: prefer variant image for first allowed color
+              let img: string | null = null;
+              const itemVariants = variantImages.filter((v) => v.team_store_product_id === item.id);
+              if (itemVariants.length > 0) {
+                const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
+                const firstName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
+                if (firstName) {
+                  const colorImgs = itemVariants.filter((v) => v.color === firstName);
+                  img = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
+                }
+                if (!img) {
+                  img = (itemVariants.find((v) => v.is_primary) || itemVariants[0])?.image_url ?? null;
+                }
+              }
+              if (!img) img = getProductImage(item);
               return (
                 <div
                   key={item.id}
