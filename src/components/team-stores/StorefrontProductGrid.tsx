@@ -243,36 +243,36 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
                 <Link key={item.id} to={productUrl}>
-                  <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
-                    {imgSrc && (
-                      <div className="relative aspect-square bg-muted flex items-center justify-center p-4">
+                  <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
+                    <div className="relative aspect-square bg-muted flex items-center justify-center p-4 overflow-hidden">
+                      {imgSrc ? (
                         <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" onError={handleImageError} />
-                        {/* Primary logo overlay only */}
-                        {(() => {
-                          // Use variant-aware matching (grid shows global/primary only)
-                          const matched = matchLogosForVariant(itemLogos);
-                          const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
-                          if (!primaryLogo) return null;
-                          // Prefer variant file_url over master logo file_url
-                          const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
-                          if (!logoUrl) return null;
-                          return (
-                            <img
-                              src={logoUrl}
-                              alt=""
-                              className="absolute pointer-events-none object-contain"
-                              style={{
-                                left: `${(primaryLogo.x ?? 0.5) * 100}%`,
-                                top: `${(primaryLogo.y ?? 0.2) * 100}%`,
-                                width: `${(primaryLogo.scale ?? 0.3) * 100}%`,
-                                transform: "translate(-50%, -50%)",
-                              }}
-                            />
-                          );
-                        })()}
-                      </div>
-                    )}
-                    <CardContent className="p-4">
+                      ) : (
+                        <ShoppingBag className="w-12 h-12 text-muted-foreground/40" />
+                      )}
+                      {/* Primary logo overlay only */}
+                      {(() => {
+                        const matched = matchLogosForVariant(itemLogos);
+                        const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
+                        if (!primaryLogo) return null;
+                        const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
+                        if (!logoUrl) return null;
+                        return (
+                          <img
+                            src={logoUrl}
+                            alt=""
+                            className="absolute pointer-events-none object-contain"
+                            style={{
+                              left: `${(primaryLogo.x ?? 0.5) * 100}%`,
+                              top: `${(primaryLogo.y ?? 0.2) * 100}%`,
+                              width: `${(primaryLogo.scale ?? 0.3) * 100}%`,
+                              transform: "translate(-50%, -50%)",
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
+                    <CardContent className="p-4 flex-1">
                       <h3 className="font-semibold text-foreground">{name}</h3>
                       <p className="text-sm text-muted-foreground">{style?.brand_name}</p>
                       {item.display_color && (
