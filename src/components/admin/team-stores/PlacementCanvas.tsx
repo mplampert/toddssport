@@ -1,5 +1,5 @@
 import React, { useRef, useCallback, useEffect } from "react";
-import { ImageIcon, Trash2 } from "lucide-react";
+import { ImageIcon, Trash2, Upload, Loader2 } from "lucide-react";
 import { handleImageError } from "@/lib/productImages";
 
 /* ─── Types ─── */
@@ -47,10 +47,15 @@ interface CanvasProps {
   onMovePlacement: (idx: number, x: number, y: number) => void;
   onScalePlacement: (idx: number, scale: number) => void;
   onDeletePlacement?: (idx: number) => void;
+  /** When set, shows an upload prompt if `image` is empty (used for sleeve views) */
+  onUploadSleeveImage?: (file: File) => void;
+  sleeveUploading?: boolean;
+  sleeveViewLabel?: string;
 }
 
-export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, onSelectPlacement, onMovePlacement, onScalePlacement, onDeletePlacement }: CanvasProps) {
+export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, onSelectPlacement, onMovePlacement, onScalePlacement, onDeletePlacement, onUploadSleeveImage, sleeveUploading, sleeveViewLabel }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const sleeveFileRef = useRef<HTMLInputElement>(null);
   const interactionRef = useRef<
     | { type: "drag"; idx: number; offsetX: number; offsetY: number }
     | { type: "resize"; idx: number; startScale: number; startDist: number }
@@ -153,7 +158,7 @@ export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxSc
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
     >
-      {/* Garment image */}
+      {/* Garment image or sleeve upload prompt */}
       {image ? (
         <img
           src={image}
@@ -162,6 +167,39 @@ export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxSc
           draggable={false}
           onError={handleImageError}
         />
+      ) : onUploadSleeveImage ? (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-8">
+          <ImageIcon className="w-12 h-12 text-muted-foreground/20" />
+          <p className="text-sm text-muted-foreground font-medium">
+            No {sleeveViewLabel || "sleeve"} image yet
+          </p>
+          <button
+            onClick={() => sleeveFileRef.current?.click()}
+            disabled={sleeveUploading}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-accent text-accent-foreground text-sm font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+          >
+            {sleeveUploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            Upload {sleeveViewLabel || "Sleeve"} Image
+          </button>
+          <p className="text-[11px] text-muted-foreground/60 text-center max-w-[200px]">
+            Upload a flat sleeve image to position logos on this view
+          </p>
+          <input
+            ref={sleeveFileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) onUploadSleeveImage(file);
+              if (sleeveFileRef.current) sleeveFileRef.current.value = "";
+            }}
+          />
+        </div>
       ) : (
         <div className="w-full h-full flex items-center justify-center">
           <ImageIcon className="w-20 h-20 text-muted-foreground/10" />
