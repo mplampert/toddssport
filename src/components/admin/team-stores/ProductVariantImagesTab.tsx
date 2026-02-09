@@ -34,6 +34,8 @@ const IMAGE_TYPE_OPTIONS = [
 const VIEW_OPTIONS = [
   { value: "front", label: "Front" },
   { value: "back", label: "Back" },
+  { value: "left_sleeve", label: "Left Sleeve" },
+  { value: "right_sleeve", label: "Right Sleeve" },
   { value: "left", label: "Left" },
   { value: "right", label: "Right" },
   { value: "detail", label: "Detail" },
