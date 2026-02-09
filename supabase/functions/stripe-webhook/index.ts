@@ -688,7 +688,7 @@ Deno.serve(async (req: Request) => {
     // ---- TEAM STORE PAYMENT INTENT EVENTS ----
     if (event.type === "payment_intent.succeeded") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      if (pi.metadata?.source === "team_store_manual") {
+      if (pi.metadata?.source === "team_store_manual" || pi.metadata?.source === "team_store_online") {
         const orderId = pi.metadata.order_id;
         logStep("Team store PaymentIntent succeeded", { piId: pi.id, orderId, amount: pi.amount });
 
@@ -714,6 +714,13 @@ Deno.serve(async (req: Request) => {
               note: `Stripe PaymentIntent ${pi.id}`,
             });
             logStep("Payment ledger entry created via webhook", { orderId, piId: pi.id });
+
+            // Mark order as confirmed/paid
+            await supabase
+              .from("team_store_orders")
+              .update({ status: "confirmed", payment_status: "paid" })
+              .eq("id", orderId)
+              .eq("payment_status", "unpaid");
           } else {
             logStep("Payment ledger entry already exists, skipping", { orderId, piId: pi.id });
           }
@@ -723,7 +730,7 @@ Deno.serve(async (req: Request) => {
 
     if (event.type === "payment_intent.payment_failed") {
       const pi = event.data.object as Stripe.PaymentIntent;
-      if (pi.metadata?.source === "team_store_manual") {
+      if (pi.metadata?.source === "team_store_manual" || pi.metadata?.source === "team_store_online") {
         logStep("Team store PaymentIntent failed", {
           piId: pi.id,
           orderId: pi.metadata.order_id,

@@ -2,8 +2,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ShoppingCart, Trash2, Minus, Plus, X } from "lucide-react";
+import { ShoppingCart, Trash2, Minus, Plus } from "lucide-react";
 import { useTeamStoreCart, type TeamStoreCartItem } from "@/hooks/useTeamStoreCart";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 
 function CartLine({ item, onRemove, onUpdateQty }: {
@@ -55,10 +56,12 @@ interface Props {
 export function TeamStoreCartDrawer({ storeId }: Props) {
   const { items, itemCount, subtotal, removeItem, updateQuantity, clearAll, itemsForStore } = useTeamStoreCart();
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
 
   const displayItems = storeId ? itemsForStore(storeId) : items;
   const displayTotal = displayItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
   const displayCount = displayItems.reduce((s, i) => s + i.quantity, 0);
+  const slug = displayItems[0]?.storeSlug;
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -105,12 +108,16 @@ export function TeamStoreCartDrawer({ storeId }: Props) {
                 <span className="text-muted-foreground">Subtotal</span>
                 <span className="font-bold text-lg">${displayTotal.toFixed(2)}</span>
               </div>
-              <Button className="w-full btn-cta" size="lg" disabled>
-                Checkout (coming soon)
+              <Button
+                className="w-full btn-cta"
+                size="lg"
+                onClick={() => {
+                  setOpen(false);
+                  if (slug) navigate(`/team-stores/${slug}/cart`);
+                }}
+              >
+                View Cart & Checkout
               </Button>
-              <p className="text-[10px] text-center text-muted-foreground">
-                Cart is saved locally for testing. Full checkout is under development.
-              </p>
             </div>
           </>
         )}

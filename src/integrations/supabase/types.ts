@@ -1703,6 +1703,8 @@ export type Database = {
           internal_notes: string | null
           is_sample: boolean
           order_number: string
+          payment_intent_id: string | null
+          payment_status: string
           shipping_address1: string | null
           shipping_address2: string | null
           shipping_city: string | null
@@ -1732,6 +1734,8 @@ export type Database = {
           internal_notes?: string | null
           is_sample?: boolean
           order_number: string
+          payment_intent_id?: string | null
+          payment_status?: string
           shipping_address1?: string | null
           shipping_address2?: string | null
           shipping_city?: string | null
@@ -1761,6 +1765,8 @@ export type Database = {
           internal_notes?: string | null
           is_sample?: boolean
           order_number?: string
+          payment_intent_id?: string | null
+          payment_status?: string
           shipping_address1?: string | null
           shipping_address2?: string | null
           shipping_city?: string | null

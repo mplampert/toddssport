@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.order-payment-intent]
 verify_jwt = false
+
+[functions.storefront-checkout]
+verify_jwt = false
