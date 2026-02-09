@@ -544,6 +544,54 @@ export type Database = {
         }
         Relationships: []
       }
+      decoration_placements: {
+        Row: {
+          code: string
+          created_at: string
+          default_scale: number
+          default_x: number
+          default_y: number
+          garment_type: string
+          id: string
+          is_active: boolean
+          label: string
+          max_height_in: number
+          max_width_in: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          default_scale?: number
+          default_x?: number
+          default_y?: number
+          garment_type?: string
+          id?: string
+          is_active?: boolean
+          label: string
+          max_height_in: number
+          max_width_in: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          default_scale?: number
+          default_x?: number
+          default_y?: number
+          garment_type?: string
+          id?: string
+          is_active?: boolean
+          label?: string
+          max_height_in?: number
+          max_width_in?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       fanwear_leads: {
         Row: {
           additional_info: string | null
