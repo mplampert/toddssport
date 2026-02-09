@@ -15,6 +15,7 @@ import {
 import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
+import { getProductGallery, handleImageError } from "@/lib/productImages";
 
 interface ColorOption {
   name: string;
@@ -149,31 +150,13 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
-    // If store has override images, use those first
-    const overrideExtra = Array.isArray(storeProduct?.extra_image_urls)
-      ? (storeProduct.extra_image_urls as string[]).filter(Boolean)
+    const ssImgs = activeColor
+      ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
+          (img): img is string => !!img && img.length > 0
+        )
       : [];
-    const overridePrimary = storeProduct?.primary_image_url;
-
-    if (overridePrimary || overrideExtra.length > 0) {
-      const imgs: string[] = [];
-      if (overridePrimary) imgs.push(overridePrimary);
-      imgs.push(...overrideExtra);
-      // Also append SS API images as fallback
-      if (activeColor) {
-        [activeColor.frontImage, activeColor.backImage, activeColor.sideImage]
-          .filter((img): img is string => !!img && img.length > 0)
-          .forEach((img) => { if (!imgs.includes(img)) imgs.push(img); });
-      }
-      return imgs;
-    }
-
-    // Default: SS API images
-    if (!activeColor) return [];
-    return [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
-      (img): img is string => !!img && img.length > 0
-    );
-  }, [activeColor, storeProduct?.primary_image_url, storeProduct?.extra_image_urls]);
+    return getProductGallery(storeProduct ?? {}, ssImgs);
+  }, [activeColor, storeProduct]);
 
   const sizesForColor = useMemo(() => {
     return products
@@ -284,6 +267,7 @@ export default function TeamStoreProductDetail() {
                       src={galleryImages[activeImageIdx]}
                       alt={`${activeColor?.name || "Product"} view`}
                       className="w-full h-full object-contain p-8 transition-transform duration-300 group-hover:scale-105"
+                      onError={handleImageError}
                     />
                   ) : catalogStyle?.style_image ? (
                     <img

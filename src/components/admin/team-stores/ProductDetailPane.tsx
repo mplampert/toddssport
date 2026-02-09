@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -39,11 +40,12 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 p-4 border-b shrink-0">
-        {(item.primary_image_url || style?.style_image) && (
+        {getProductImage(item) && (
           <img
-            src={item.primary_image_url || style?.style_image || ""}
+            src={getProductImage(item)}
             alt=""
             className="w-12 h-12 object-contain rounded border bg-muted p-1"
+            onError={handleImageError}
           />
         )}
         <div className="min-w-0">
