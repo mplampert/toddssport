@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Palette, Save, Info, Plus, X, Wand2, Loader2, ImageIcon } from "lucide-react";
+import { Palette, Save, Info, Plus, X, Wand2, Loader2, ImageIcon, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { HeroGenerator } from "@/components/admin/team-stores/HeroGenerator";
 
@@ -67,6 +67,7 @@ export default function StoreBranding() {
   const [logoUrl, setLogoUrl] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   useEffect(() => {
     if (storeData) {
@@ -97,11 +98,40 @@ export default function StoreBranding() {
     onError: (e: Error) => toast.error(`Failed to save: ${e.message}`),
   });
 
-  const handleSave = () => {
-    if (brandColors.length === 0) {
-      toast.error("Add at least one brand color before saving.");
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file.");
       return;
     }
+    setIsUploadingLogo(true);
+    try {
+      const ext = file.name.split(".").pop() || "png";
+      const path = `${store.id}/store-logo-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from("store-logos")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data: { publicUrl } } = supabase.storage
+        .from("store-logos")
+        .getPublicUrl(path);
+      setLogoUrl(publicUrl);
+      setHasChanges(true);
+      toast.success("Logo uploaded!");
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUrl("");
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
     saveMutation.mutate({ colors: brandColors, logo: logoUrl });
   };
 
@@ -208,23 +238,41 @@ export default function StoreBranding() {
         <CardContent className="space-y-4">
           <div className="flex items-start gap-6">
             {logoUrl ? (
-              <div className="w-24 h-24 rounded-lg border border-border bg-muted flex items-center justify-center p-2 shrink-0">
+              <div className="w-28 h-28 rounded-lg border border-border bg-muted flex items-center justify-center p-2 shrink-0 relative group">
                 <img src={logoUrl} alt="Store logo" className="max-w-full max-h-full object-contain" />
+                <button
+                  onClick={handleRemoveLogo}
+                  className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  type="button"
+                  aria-label="Remove logo"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
               </div>
             ) : (
-              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0">
-                <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
-              </div>
+              <label className="w-28 h-28 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center shrink-0 cursor-pointer hover:border-muted-foreground/60 transition-colors">
+                {isUploadingLogo ? (
+                  <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+                ) : (
+                  <>
+                    <Upload className="w-6 h-6 text-muted-foreground/50 mb-1" />
+                    <span className="text-[10px] text-muted-foreground">Upload</span>
+                  </>
+                )}
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} disabled={isUploadingLogo} />
+              </label>
             )}
-            <div className="flex-1 space-y-2">
-              <Label>Logo URL</Label>
-              <Input
-                value={logoUrl}
-                onChange={(e) => { setLogoUrl(e.target.value); setHasChanges(true); }}
-                placeholder="https://..."
-              />
+            <div className="flex-1 space-y-3">
+              <div className="space-y-1.5">
+                <Label>Or paste a logo URL</Label>
+                <Input
+                  value={logoUrl}
+                  onChange={(e) => { setLogoUrl(e.target.value); setHasChanges(true); }}
+                  placeholder="https://..."
+                />
+              </div>
               <p className="text-xs text-muted-foreground">
-                Paste a URL to your logo image. This appears on the store page and in marketing materials.
+                This logo appears on the storefront hero, header, and marketing materials.
               </p>
             </div>
           </div>
