@@ -594,14 +594,14 @@ export default function TeamStoreProductDetail() {
                     <img
                       src={galleryImages[activeImageIdx]}
                       alt={`${activeColor?.name || "Product"} view`}
-                      className="w-full h-full object-contain p-6 transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105" style={{ padding: "8%" }}
                       onError={handleImageError}
                     />
                   ) : catalogStyle?.style_image ? (
                     <img
                       src={catalogStyle.style_image}
                       alt={catalogStyle.style_name}
-                      className="w-full h-full object-contain p-6"
+                      className="w-full h-full object-contain" style={{ padding: "8%" }}
                     />
                   ) : (
                     <Package className="w-24 h-24 text-muted-foreground/20" />
