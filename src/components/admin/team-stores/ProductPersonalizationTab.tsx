@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import {
   useStorePersonalizationDefaults,
@@ -7,6 +8,7 @@ import {
   type PersonalizationSettings,
   type CustomPersonalizationField,
 } from "@/hooks/useStorePersonalization";
+import { useStoreRosters } from "@/hooks/useTeamRosters";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Loader2, RotateCcw, Plus, Trash2, GripVertical } from "lucide-react";
+import { Save, Loader2, RotateCcw, Plus, Trash2, GripVertical, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -23,6 +25,8 @@ interface Props {
     id: string;
     personalization_override_enabled?: boolean;
     personalization_settings?: any;
+    team_roster_id?: string | null;
+    number_lock_rule?: string;
   };
   storeId: string;
 }
@@ -156,11 +160,17 @@ function CustomFieldEditor({
 
 export function ProductPersonalizationTab({ item, storeId }: Props) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { data: storeDefaults, isLoading } = useStorePersonalizationDefaults(storeId);
+  const { data: rosters = [] } = useStoreRosters(storeId);
 
   const [overrideEnabled, setOverrideEnabled] = useState(item.personalization_override_enabled ?? false);
   const [settings, setSettings] = useState<PersonalizationSettings | null>(null);
   const [dirty, setDirty] = useState(false);
+
+  // Roster state
+  const [rosterId, setRosterId] = useState<string | null>(item.team_roster_id ?? null);
+  const [lockRule, setLockRule] = useState<string>(item.number_lock_rule ?? "none");
 
   const effective = resolvePersonalization(storeDefaults, {
     personalization_override_enabled: overrideEnabled,
@@ -170,6 +180,8 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
   useEffect(() => {
     setOverrideEnabled(item.personalization_override_enabled ?? false);
     setSettings(item.personalization_settings ?? null);
+    setRosterId(item.team_roster_id ?? null);
+    setLockRule(item.number_lock_rule ?? "none");
     setDirty(false);
   }, [item.id]);
 
@@ -223,7 +235,9 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
         .update({
           personalization_override_enabled: overrideEnabled,
           personalization_settings: (overrideEnabled ? settings : null) as any,
-        })
+          team_roster_id: rosterId,
+          number_lock_rule: lockRule,
+        } as any)
         .eq("id", item.id);
       if (error) throw error;
     },
@@ -270,6 +284,65 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
           <RotateCcw className="w-3 h-3 mr-1" /> Reset to store defaults
         </Button>
       )}
+
+      {/* Team Roster */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Team Roster</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch
+              checked={!!rosterId}
+              onCheckedChange={(on) => {
+                setRosterId(on && rosters.length > 0 ? rosters[0].id : null);
+                if (!on) setLockRule("none");
+                setDirty(true);
+              }}
+            />
+            <Label>Use Team Roster for Name/Number</Label>
+          </div>
+          {!!rosterId && (
+            <div className="space-y-3 pl-8">
+              <div className="space-y-1">
+                <Label className="text-xs">Roster</Label>
+                <Select value={rosterId ?? ""} onValueChange={(v) => { setRosterId(v); setDirty(true); }}>
+                  <SelectTrigger><SelectValue placeholder="Select a roster" /></SelectTrigger>
+                  <SelectContent>
+                    {rosters.map((r) => (
+                      <SelectItem key={r.id} value={r.id}>
+                        {r.name} {r.season ? `(${r.season})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Number Lock Rule</Label>
+                <Select value={lockRule} onValueChange={(v) => { setLockRule(v); setDirty(true); }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None – roster for convenience only</SelectItem>
+                    <SelectItem value="lock_on_first_order">Lock on first order – mark taken after purchase</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button
+                variant="link" size="sm" className="text-xs p-0 h-auto"
+                onClick={() => navigate(`/admin/team-stores/${storeId}/rosters`)}
+              >
+                <ExternalLink className="w-3 h-3 mr-1" /> Manage this roster
+              </Button>
+              {rosters.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No rosters found for this store.{" "}
+                  <button className="underline" onClick={() => navigate(`/admin/team-stores/${storeId}/rosters`)}>Create one</button>
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Name */}
       <Card>

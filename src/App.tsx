@@ -59,6 +59,7 @@ import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
 import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import StorePersonalization from "./pages/admin/team-store/StorePersonalization";
+import StoreRosters from "./pages/admin/team-store/StoreRosters";
 import StoreDecorationPricing from "./pages/admin/team-store/StoreDecorationPricing";
 import StoreMessagesPage from "./pages/admin/team-store/StoreMessagesPage";
 import StorePromoCodes from "./pages/admin/team-store/StorePromoCodes";
@@ -162,6 +163,7 @@ const App = () => (
               <Route path="marketing" element={<StoreMarketing />} />
               <Route path="settings" element={<StoreSettings />} />
               <Route path="personalization" element={<StorePersonalization />} />
+              <Route path="rosters" element={<StoreRosters />} />
               <Route path="decoration-pricing" element={<StoreDecorationPricing />} />
             </Route>
           </Route>
