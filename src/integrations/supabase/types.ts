@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_messages: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          customer_id: string | null
+          error: string | null
+          id: string
+          order_id: string | null
+          recipient_address: string
+          sent_at: string | null
+          sent_by: string | null
+          status: string
+          subject: string | null
+        }
+        Insert: {
+          body: string
+          channel: string
+          created_at?: string
+          customer_id?: string | null
+          error?: string | null
+          id?: string
+          order_id?: string | null
+          recipient_address: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          customer_id?: string | null
+          error?: string | null
+          id?: string
+          order_id?: string | null
+          recipient_address?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: string
+          subject?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brands: {
         Row: {
           created_at: string | null
@@ -544,6 +597,89 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_channels: {
+        Row: {
+          created_at: string
+          customer_id: string
+          email: string | null
+          email_enabled_transactional: boolean
+          id: string
+          phone: string | null
+          sms_enabled_transactional: boolean
+          sms_opt_out_keyword: string | null
+          sms_opted_in_at: string | null
+          sms_opted_out: boolean
+          sms_opted_out_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id: string
+          email?: string | null
+          email_enabled_transactional?: boolean
+          id?: string
+          phone?: string | null
+          sms_enabled_transactional?: boolean
+          sms_opt_out_keyword?: string | null
+          sms_opted_in_at?: string | null
+          sms_opted_out?: boolean
+          sms_opted_out_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string
+          email?: string | null
+          email_enabled_transactional?: boolean
+          id?: string
+          phone?: string | null
+          sms_enabled_transactional?: boolean
+          sms_opt_out_keyword?: string | null
+          sms_opted_in_at?: string | null
+          sms_opted_out?: boolean
+          sms_opted_out_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_channels_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       decoration_placements: {
         Row: {
           code: string
@@ -726,6 +862,95 @@ export type Database = {
           },
         ]
       }
+      global_notification_settings: {
+        Row: {
+          created_at: string
+          default_email_enabled: boolean
+          default_sms_enabled: boolean
+          email_from_address: string
+          email_reply_to: string | null
+          email_sending_domain: string | null
+          id: string
+          sms_compliance_message: string | null
+          sms_messaging_service_sid: string | null
+          sms_sender_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_email_enabled?: boolean
+          default_sms_enabled?: boolean
+          email_from_address?: string
+          email_reply_to?: string | null
+          email_sending_domain?: string | null
+          id?: string
+          sms_compliance_message?: string | null
+          sms_messaging_service_sid?: string | null
+          sms_sender_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_email_enabled?: boolean
+          default_sms_enabled?: boolean
+          email_from_address?: string
+          email_reply_to?: string | null
+          email_sending_domain?: string | null
+          id?: string
+          sms_compliance_message?: string | null
+          sms_messaging_service_sid?: string | null
+          sms_sender_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      inbound_messages: {
+        Row: {
+          body: string
+          created_at: string
+          customer_id: string | null
+          from_phone: string
+          id: string
+          is_opt_in: boolean
+          is_opt_out: boolean
+          order_id: string | null
+          processed: boolean
+          twilio_message_sid: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          customer_id?: string | null
+          from_phone: string
+          id?: string
+          is_opt_in?: boolean
+          is_opt_out?: boolean
+          order_id?: string | null
+          processed?: boolean
+          twilio_message_sid?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          customer_id?: string | null
+          from_phone?: string
+          id?: string
+          is_opt_in?: boolean
+          is_opt_out?: boolean
+          order_id?: string | null
+          processed?: boolean
+          twilio_message_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbound_messages_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lookbook_products: {
         Row: {
           created_at: string
@@ -765,6 +990,154 @@ export type Database = {
           sport?: string
           type?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_events: {
+        Row: {
+          channel: string
+          created_at: string
+          customer_id: string | null
+          error: string | null
+          id: string
+          max_retries: number
+          order_id: string | null
+          payload_snapshot: Json | null
+          phone_selection_reason: string | null
+          recipient_address: string
+          retry_count: number
+          sent_at: string | null
+          status: string
+          template_key: string
+          updated_at: string
+        }
+        Insert: {
+          channel: string
+          created_at?: string
+          customer_id?: string | null
+          error?: string | null
+          id?: string
+          max_retries?: number
+          order_id?: string | null
+          payload_snapshot?: Json | null
+          phone_selection_reason?: string | null
+          recipient_address: string
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          template_key: string
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          customer_id?: string | null
+          error?: string | null
+          id?: string
+          max_retries?: number
+          order_id?: string | null
+          payload_snapshot?: Json | null
+          phone_selection_reason?: string | null
+          recipient_address?: string
+          retry_count?: number
+          sent_at?: string | null
+          status?: string
+          template_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_events_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          order_id: string
+          scheduled_at: string
+          sent_notification_id: string | null
+          status: string
+          template_key: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          order_id: string
+          scheduled_at: string
+          sent_notification_id?: string | null
+          status?: string
+          template_key: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          order_id?: string
+          scheduled_at?: string
+          sent_notification_id?: string | null
+          status?: string
+          template_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_reminders_sent_notification_id_fkey"
+            columns: ["sent_notification_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_templates: {
+        Row: {
+          body: string
+          channel: string
+          created_at: string
+          email_enabled: boolean
+          id: string
+          is_active: boolean
+          name: string
+          sms_enabled: boolean
+          subject: string | null
+          template_key: string
+          updated_at: string
+          variables: Json | null
+          version: number
+        }
+        Insert: {
+          body: string
+          channel?: string
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          name: string
+          sms_enabled?: boolean
+          subject?: string | null
+          template_key: string
+          updated_at?: string
+          variables?: Json | null
+          version?: number
+        }
+        Update: {
+          body?: string
+          channel?: string
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          is_active?: boolean
+          name?: string
+          sms_enabled?: boolean
+          subject?: string | null
+          template_key?: string
+          updated_at?: string
+          variables?: Json | null
+          version?: number
         }
         Relationships: []
       }
@@ -1698,6 +2071,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer_email: string | null
+          customer_id: string | null
           customer_name: string | null
           customer_notes: string | null
           customer_phone: string | null
@@ -1716,6 +2090,7 @@ export type Database = {
           pickup_contact_name: string | null
           pickup_contact_phone: string | null
           pickup_location_id: string | null
+          preferred_sms_phone: string | null
           promo_code_id: string | null
           promo_snapshot: Json | null
           recipient_email: string | null
@@ -1747,6 +2122,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_notes?: string | null
           customer_phone?: string | null
@@ -1765,6 +2141,7 @@ export type Database = {
           pickup_contact_name?: string | null
           pickup_contact_phone?: string | null
           pickup_location_id?: string | null
+          preferred_sms_phone?: string | null
           promo_code_id?: string | null
           promo_snapshot?: Json | null
           recipient_email?: string | null
@@ -1796,6 +2173,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer_email?: string | null
+          customer_id?: string | null
           customer_name?: string | null
           customer_notes?: string | null
           customer_phone?: string | null
@@ -1814,6 +2192,7 @@ export type Database = {
           pickup_contact_name?: string | null
           pickup_contact_phone?: string | null
           pickup_location_id?: string | null
+          preferred_sms_phone?: string | null
           promo_code_id?: string | null
           promo_snapshot?: Json | null
           recipient_email?: string | null
@@ -1837,6 +2216,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "team_store_orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_store_orders_promo_code_id_fkey"
             columns: ["promo_code_id"]

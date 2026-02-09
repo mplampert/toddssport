@@ -75,6 +75,7 @@ import SSBrandProducts from "./pages/SSBrandProducts";
 import SSBrandCategoryProducts from "./pages/SSBrandCategoryProducts";
 import SSProductDetail from "./pages/SSProductDetail";
 import TeamStorePreview from "./pages/TeamStorePreview";
+import AdminNotifications from "./pages/admin/AdminNotifications";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -132,6 +133,7 @@ const App = () => (
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
+          <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
