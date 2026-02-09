@@ -1802,6 +1802,7 @@ export type Database = {
           display_name: string | null
           dtf_enabled: boolean
           embroidery_enabled: boolean
+          extra_image_types: string[]
           extra_image_urls: Json | null
           fundraising_amount_per_unit: number | null
           fundraising_enabled: boolean
@@ -1813,6 +1814,7 @@ export type Database = {
           personalization_enabled: boolean
           personalization_price: number | null
           price_override: number | null
+          primary_image_type: string
           primary_image_url: string | null
           screen_print_enabled: boolean
           sort_order: number
@@ -1830,6 +1832,7 @@ export type Database = {
           display_name?: string | null
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          extra_image_types?: string[]
           extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
@@ -1841,6 +1844,7 @@ export type Database = {
           personalization_enabled?: boolean
           personalization_price?: number | null
           price_override?: number | null
+          primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
           sort_order?: number
@@ -1858,6 +1862,7 @@ export type Database = {
           display_name?: string | null
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          extra_image_types?: string[]
           extra_image_urls?: Json | null
           fundraising_amount_per_unit?: number | null
           fundraising_enabled?: boolean
@@ -1869,6 +1874,7 @@ export type Database = {
           personalization_enabled?: boolean
           personalization_price?: number | null
           price_override?: number | null
+          primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
           sort_order?: number
