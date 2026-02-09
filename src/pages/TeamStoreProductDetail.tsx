@@ -200,11 +200,17 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
-    // Priority: variant images for selected color > product overrides > SS images
+    // If variant images exist for the selected color, show ONLY those
     if (selectedColor) {
       const colorGallery = getGalleryForColor(variantImages, selectedColor);
       if (colorGallery.length > 0) return colorGallery;
     }
+    // If the product has variant images for ANY color, don't mix in SS/override images
+    // — this means a color without uploaded images shows the default product image only
+    if (variantImages.length > 0) {
+      return getProductGallery(storeProduct ?? {}, []);
+    }
+    // No variant images at all — use SS catalog images as before
     const ssImgs = activeColor
       ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
