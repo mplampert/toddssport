@@ -22,6 +22,7 @@ const FULFILLMENT_OPTIONS = [
   { value: "ship_to_customer", label: "Ship to Customer" },
   { value: "organization_pickup", label: "Organization Pickup" },
   { value: "deliver_to_organization", label: "Deliver to Organization" },
+  { value: "local_pickup", label: "Local Pickup" },
 ];
 
 export default function TeamStoresSettings() {
@@ -45,6 +46,7 @@ export default function TeamStoresSettings() {
     default_fulfillment_method: "ship_to_customer",
     default_flat_rate_shipping: "0",
     default_org_tax_exempt: false,
+    default_pickup_location: "",
   });
 
   useEffect(() => {
@@ -54,6 +56,7 @@ export default function TeamStoresSettings() {
         default_fulfillment_method: settings.default_fulfillment_method ?? "ship_to_customer",
         default_flat_rate_shipping: String(settings.default_flat_rate_shipping ?? 0),
         default_org_tax_exempt: settings.default_org_tax_exempt ?? false,
+        default_pickup_location: (settings as any).default_pickup_location ?? "",
       });
     }
   }, [settings]);
@@ -68,6 +71,7 @@ export default function TeamStoresSettings() {
           default_fulfillment_method: form.default_fulfillment_method,
           default_flat_rate_shipping: parseFloat(form.default_flat_rate_shipping) || 0,
           default_org_tax_exempt: form.default_org_tax_exempt,
+          default_pickup_location: form.default_pickup_location || null,
         })
         .eq("id", settings.id);
       if (error) throw error;
@@ -151,6 +155,16 @@ export default function TeamStoresSettings() {
                   </div>
                 ))}
               </RadioGroup>
+              {form.default_fulfillment_method === "local_pickup" && (
+                <div className="space-y-2 ml-6 mt-2">
+                  <Label>Default Pickup Location / Address</Label>
+                  <Input
+                    value={form.default_pickup_location}
+                    onChange={(e) => setForm((f) => ({ ...f, default_pickup_location: e.target.value }))}
+                    placeholder="e.g. 123 Main St, Suite 4, Springfield IL 62701"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Flat Rate Shipping */}

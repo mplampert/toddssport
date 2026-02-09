@@ -22,6 +22,7 @@ const FULFILLMENT_OPTIONS = [
   { value: "ship_to_customer", label: "Ship to Customer" },
   { value: "organization_pickup", label: "Organization Pickup" },
   { value: "deliver_to_organization", label: "Deliver to Organization" },
+  { value: "local_pickup", label: "Local Pickup" },
 ];
 
 export default function StoreSettings() {
@@ -52,6 +53,7 @@ export default function StoreSettings() {
     fulfillment_method: (store as any).fulfillment_method ?? "",
     flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
     org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
+    pickup_location: (store as any).pickup_location ?? "",
   });
 
   useEffect(() => {
@@ -65,6 +67,7 @@ export default function StoreSettings() {
       fulfillment_method: (store as any).fulfillment_method ?? "",
       flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
       org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
+      pickup_location: (store as any).pickup_location ?? "",
     });
   }, [store]);
 
@@ -116,6 +119,7 @@ export default function StoreSettings() {
           fulfillment_method: form.fulfillment_method || null,
           flat_rate_shipping: form.flat_rate_shipping !== "" ? parseFloat(form.flat_rate_shipping) : null,
           org_tax_exempt: form.org_tax_exempt,
+          pickup_location: form.pickup_location || null,
         })
         .eq("id", store.id);
       if (error) throw error;
@@ -236,6 +240,19 @@ export default function StoreSettings() {
                   </div>
                 ))}
               </RadioGroup>
+              {(form.fulfillment_method === "local_pickup" || (!form.fulfillment_method && globalDefaults?.default_fulfillment_method === "local_pickup")) && (
+                <div className="space-y-2 ml-6 mt-2">
+                  <Label>Pickup Location / Address</Label>
+                  <Input
+                    value={form.pickup_location}
+                    onChange={(e) => setForm((f) => ({ ...f, pickup_location: e.target.value }))}
+                    placeholder={globalDefaults?.default_pickup_location || "e.g. 123 Main St, Suite 4, Springfield IL 62701"}
+                  />
+                  {!form.pickup_location && globalDefaults?.default_pickup_location && (
+                    <p className="text-xs text-muted-foreground">Using global default: {globalDefaults.default_pickup_location}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Flat Rate Shipping */}
