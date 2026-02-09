@@ -148,6 +148,40 @@ export function ProductLogosTab({ item, storeId }: Props) {
     return new Set(placements.map((p) => p.store_logo_id));
   }, [placements]);
 
+  // Per-logo view usage across ALL views (from raw DB data, not just current view)
+  const logoViewUsage = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    if (!existingPlacements) return map;
+    for (const p of existingPlacements as any[]) {
+      const key = p.store_logo_id;
+      if (!map.has(key)) map.set(key, new Set());
+      map.get(key)!.add(p.view || "front");
+    }
+    return map;
+  }, [existingPlacements]);
+
+  function getUsageLabel(logoId: string): string {
+    const views = logoViewUsage.get(logoId);
+    if (!views || views.size === 0) return "Not placed";
+    const parts: string[] = [];
+    if (views.has("front")) parts.push("Front");
+    if (views.has("back")) parts.push("Back");
+    if (views.has("left_sleeve") || views.has("right_sleeve")) {
+      if (views.has("left_sleeve") && views.has("right_sleeve")) parts.push("L/R Sleeve");
+      else if (views.has("left_sleeve")) parts.push("L Sleeve");
+      else parts.push("R Sleeve");
+    }
+    return parts.length > 0 ? parts.join(" + ") : "Not placed";
+  }
+
+  function getFirstView(logoId: string): "front" | "back" | undefined {
+    const views = logoViewUsage.get(logoId);
+    if (!views) return undefined;
+    if (views.has("front")) return "front";
+    if (views.has("back")) return "back";
+    return undefined;
+  }
+
   // Fetch color variants from S&S API
   useEffect(() => {
     let cancelled = false;
@@ -739,28 +773,51 @@ export function ProductLogosTab({ item, storeId }: Props) {
           <div className="space-y-1.5">
             <Label className="text-xs font-semibold">Assigned Logos ({placements.length})</Label>
             <div className="flex flex-wrap gap-1.5">
-              {placements.map((p, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setActivePlacementIdx(idx)}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
-                    !p.active ? "opacity-40" : ""
-                  } ${
-                    activePlacementIdx === idx
-                      ? "border-accent bg-accent/10 text-accent-foreground font-medium"
-                      : "border-border bg-card text-muted-foreground hover:bg-muted"
-                  }`}
-                >
-                  {p._logo_url && <img src={p._logo_url} alt="" className="w-4 h-4 object-contain rounded" />}
-                  <span className="truncate max-w-[100px]">{p._logo_name || "Logo"}</span>
-                  <span className="text-muted-foreground text-[10px]">
-                    {presetMap.get(p.position)?.label || p.position}
-                  </span>
-                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 capitalize">{p.role}</Badge>
-                  {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
-                  {!p.active && <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Off</Badge>}
-                </button>
-              ))}
+              {placements.map((p, idx) => {
+                const usage = getUsageLabel(p.store_logo_id);
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => setActivePlacementIdx(idx)}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
+                      !p.active ? "opacity-40" : ""
+                    } ${
+                      activePlacementIdx === idx
+                        ? "border-accent bg-accent/10 text-accent-foreground font-medium"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {p._logo_url && <img src={p._logo_url} alt="" className="w-4 h-4 object-contain rounded" />}
+                    <span className="truncate max-w-[100px]">{p._logo_name || "Logo"}</span>
+                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 capitalize">{p.role}</Badge>
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const firstView = getFirstView(p.store_logo_id);
+                        if (firstView && firstView !== activeView) {
+                          setActiveView(firstView);
+                          setActivePlacementIdx(null);
+                          if (existingPlacements) {
+                            const all = JSON.parse(savedSnapshot) as LogoPlacement[];
+                            const hasColorOverrides = all.some((pl) => pl.variant_color != null);
+                            setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, firstView));
+                          }
+                        }
+                      }}
+                      className={`text-[8px] px-1.5 py-0 h-3.5 inline-flex items-center rounded-full cursor-pointer ${
+                        usage === "Not placed"
+                          ? "bg-destructive/10 text-destructive"
+                          : "bg-accent/10 text-accent-foreground hover:bg-accent/20"
+                      }`}
+                      title="Click to jump to first view"
+                    >
+                      {usage}
+                    </span>
+                    {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
+                    {!p.active && <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Off</Badge>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
