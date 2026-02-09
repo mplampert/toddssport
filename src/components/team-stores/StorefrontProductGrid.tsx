@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 import { handleImageError } from "@/lib/productImages";
+import { getDisplayName } from "@/lib/productIdentity";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStoreVariantImages } from "@/hooks/useVariantImages";
 import { useStoreFlatImages } from "@/hooks/useStoreFlatImages";
@@ -35,6 +36,7 @@ interface StorefrontProduct {
     brand_name: string;
     style_image: string | null;
     description: string | null;
+    title?: string | null;
   } | null;
 }
 
@@ -231,7 +233,7 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
               const ssFlatImg = flatImageMap?.get(item.id);
               const { heroImageUrl: fallbackImg } = getStorefrontHero(item, productVariantImgs);
               const imgSrc = ssFlatImg || fallbackImg;
-              const name = item.display_name || style?.style_name || "Product";
+              const name = getDisplayName(item);
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
                 <Link key={item.id} to={productUrl}>

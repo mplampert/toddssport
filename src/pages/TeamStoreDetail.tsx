@@ -76,7 +76,7 @@ export default function TeamStoreDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, sort_order, notes, price_override, active, category_id, store_category_override_id, display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types, allowed_colors, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
+        .select("id, sort_order, notes, price_override, active, category_id, store_category_override_id, display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types, allowed_colors, catalog_styles(id, style_id, style_name, brand_name, style_image, description, title)")
         .eq("team_store_id", store!.id)
         .eq("active", true)
         .order("sort_order");

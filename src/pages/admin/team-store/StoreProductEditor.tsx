@@ -18,6 +18,7 @@ import { ProductEditorOverviewTab } from "@/components/admin/team-stores/Product
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
 import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import { getInternalIdentity } from "@/lib/productIdentity";
 import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import type { StoreProduct } from "@/components/admin/team-stores/ProductListPane";
 
@@ -46,7 +47,7 @@ export default function StoreProductEditor() {
           display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types,
           internal_notes, allowed_colors,
           team_roster_id, number_lock_rule,
-          catalog_styles(id, style_id, style_name, brand_name, style_image, description, part_number),
+          catalog_styles(id, style_id, style_name, brand_name, style_image, description, part_number, title),
           team_store_categories(id, name)
         `)
         .eq("id", productId!)
@@ -126,12 +127,7 @@ export default function StoreProductEditor() {
   }
 
   const style = item.catalog_styles;
-  // Prefer SS name when catalog style_name is just a number (SKU stored as name)
-  // Treat catalog name as a SKU if it's a short alphanumeric code (e.g. "5000B", "18000", "G200")
-  const catalogNameIsSku = style?.style_name && /^\d+[A-Za-z]?$|^[A-Za-z]\d+/.test(style.style_name);
-  const resolvedName = item.display_name || ssStyle?.styleName || (!catalogNameIsSku ? style?.style_name : null) || `Style #${item.style_id}`;
-  const resolvedBrand = ssStyle?.brandName || style?.brand_name;
-  const resolvedSku = style?.style_name || ssStyle?.partNumber || style?.style_id || ssStyle?.styleID;
+  const identity = getInternalIdentity(item);
   const resolvedImage = getProductImage(item) || ssStyle?.styleImage;
 
   return (
@@ -151,10 +147,11 @@ export default function StoreProductEditor() {
             />
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground truncate">{resolvedName}</h2>
+            <h2 className="text-lg font-bold text-foreground truncate">{identity.catalogName}</h2>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-              {resolvedSku && <span>SKU: {resolvedSku}</span>}
-              {resolvedBrand && <span>Vendor: {resolvedBrand}</span>}
+              <span>SKU: {identity.catalogSku}</span>
+              <span>Vendor: {identity.brand}</span>
+              {identity.storefrontTitle && <span>Storefront: {identity.storefrontTitle}</span>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-1">

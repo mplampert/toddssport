@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { getInternalIdentity } from "@/lib/productIdentity";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -36,7 +37,8 @@ export function InlineProductRow({
   onUpdate,
 }: Props) {
   const style = item.catalog_styles;
-  const name = item.display_name || style?.style_name || `Style #${item.style_id}`;
+  const identity = getInternalIdentity(item);
+  const name = identity.catalogName;
 
   const [priceVal, setPriceVal] = useState(
     item.price_override != null ? String(item.price_override) : ""
@@ -117,7 +119,7 @@ export function InlineProductRow({
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium truncate">{name}</p>
           <p className="text-[10px] text-muted-foreground truncate">
-            {style?.brand_name}
+            {identity.catalogSku} · {identity.brand}
           </p>
         </div>
       </div>

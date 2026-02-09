@@ -41,6 +41,8 @@ export interface StoreProduct {
     brand_name: string;
     style_image: string | null;
     description: string | null;
+    title?: string | null;
+    part_number?: string | null;
   } | null;
   team_store_categories?: { id: string; name: string } | null;
 }
@@ -107,10 +109,10 @@ export function ProductListPane({
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((p) => {
-        const name = (p.display_name || p.catalog_styles?.style_name || "").toLowerCase();
+        const name = (p.display_name || p.catalog_styles?.title || p.catalog_styles?.style_name || "").toLowerCase();
         const brand = (p.catalog_styles?.brand_name || "").toLowerCase();
-        const sid = String(p.catalog_styles?.style_id || "");
-        return name.includes(q) || brand.includes(q) || sid.includes(q);
+        const sku = (p.catalog_styles?.style_name || "").toLowerCase();
+        return name.includes(q) || brand.includes(q) || sku.includes(q);
       });
     }
     if (categoryFilter === "uncategorized") {

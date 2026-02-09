@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import { getInternalIdentity } from "@/lib/productIdentity";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -35,6 +36,7 @@ interface Props {
 export function ProductDetailPane({ item, storeId, categories }: Props) {
   const queryClient = useQueryClient();
   const style = item.catalog_styles;
+  const identity = getInternalIdentity(item);
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -50,9 +52,12 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
         )}
         <div className="min-w-0">
           <h3 className="font-semibold text-sm truncate">
-            {item.display_name || style?.style_name || `Style #${item.style_id}`}
+            {identity.catalogName}
           </h3>
-          <p className="text-xs text-muted-foreground">{style?.brand_name} · #{style?.style_id}</p>
+          <p className="text-xs text-muted-foreground">{identity.catalogSku} · {identity.brand}</p>
+          {identity.storefrontTitle && (
+            <p className="text-[10px] text-muted-foreground">Storefront: {identity.storefrontTitle}</p>
+          )}
         </div>
         <Badge variant={item.active ? "default" : "secondary"} className="ml-auto shrink-0 text-xs">
           {item.active ? "Active" : "Hidden"}
@@ -102,6 +107,7 @@ export function ProductDetailPane({ item, storeId, categories }: Props) {
 function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeId: string; categories: Props["categories"] }) {
   const queryClient = useQueryClient();
   const style = item.catalog_styles;
+  const identity = getInternalIdentity(item);
 
   const [displayName, setDisplayName] = useState(item.display_name ?? "");
   const [active, setActive] = useState(item.active);
@@ -155,9 +161,9 @@ function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeI
       <div className="p-3 bg-muted/30 rounded-lg border space-y-1">
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Catalog Info (read-only)</p>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div><span className="text-muted-foreground">Name:</span> {style?.style_name}</div>
+          <div><span className="text-muted-foreground">Catalog Name:</span> {style?.title || style?.style_name}</div>
           <div><span className="text-muted-foreground">Brand:</span> {style?.brand_name}</div>
-          <div><span className="text-muted-foreground">Style ID:</span> {style?.style_id}</div>
+          <div><span className="text-muted-foreground">Style ID:</span> {style?.style_name}</div>
         </div>
         {style?.style_image && (
           <img src={style.style_image} alt="" className="w-16 h-16 object-contain rounded mt-1" />
@@ -169,8 +175,8 @@ function OverviewTab({ item, storeId, categories }: { item: StoreProduct; storeI
       {/* Editable fields */}
       <div className="space-y-3">
         <div className="space-y-1">
-          <Label className="text-xs">Display Name (override)</Label>
-          <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={style?.style_name || "Product name"} className="text-xs h-8" />
+          <Label className="text-xs">Display Name (storefront override)</Label>
+          <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={identity.catalogName} className="text-xs h-8" />
         </div>
 
         <div className="flex items-center gap-3">
