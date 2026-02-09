@@ -2,10 +2,10 @@ import { useState, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Trash2, Eye, EyeOff, Package } from "lucide-react";
-import { getProductImage, handleImageError } from "@/lib/productImages";
+import { Search, Trash2, Eye, EyeOff, Package, DollarSign, Percent, ToggleRight } from "lucide-react";
+import { getProductImage } from "@/lib/productImages";
+import { InlineProductRow } from "./InlineProductRow";
 import type { VariantImage } from "@/hooks/useVariantImages";
 import type { EffectiveCategory } from "./StoreCategoryManager";
 
@@ -54,6 +54,8 @@ interface Props {
   onToggleSelect: (id: string) => void;
   onSelectAll: (ids: string[]) => void;
   onBulkAction: (action: "show" | "hide" | "delete", ids: string[]) => void;
+  onBulkEdit?: (mode: "price" | "fundraising" | "personalization") => void;
+  onUpdate?: (id: string, fields: Record<string, any>) => Promise<void>;
   isLoading: boolean;
   initialSearch?: string;
   initialCategory?: string;
@@ -70,6 +72,8 @@ export function ProductListPane({
   onToggleSelect,
   onSelectAll,
   onBulkAction,
+  onBulkEdit,
+  onUpdate,
   isLoading,
   initialSearch = "",
   initialCategory = "all",
@@ -81,8 +85,6 @@ export function ProductListPane({
 
   const filtered = useMemo(() => {
     let list = products;
-
-    // Search
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter((p) => {
@@ -92,8 +94,6 @@ export function ProductListPane({
         return name.includes(q) || brand.includes(q) || sid.includes(q);
       });
     }
-
-    // Category
     if (categoryFilter === "uncategorized") {
       list = list.filter((p) => !p.category_id && !p.store_category_override_id);
     } else if (categoryFilter !== "all") {
@@ -101,16 +101,31 @@ export function ProductListPane({
         (p) => p.category_id === categoryFilter || p.store_category_override_id === categoryFilter
       );
     }
-
-    // Status
     if (statusFilter === "active") list = list.filter((p) => p.active);
     if (statusFilter === "hidden") list = list.filter((p) => !p.active);
-
     return list;
   }, [products, search, categoryFilter, statusFilter]);
 
   const allFilteredIds = filtered.map((p) => p.id);
   const allSelected = filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id));
+
+  // Resolve variant image for a product
+  const resolveImage = (item: StoreProduct): string | null => {
+    const itemVariants = variantImages.filter((v) => v.team_store_product_id === item.id);
+    if (itemVariants.length > 0) {
+      const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
+      const firstName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
+      if (firstName) {
+        const colorImgs = itemVariants.filter((v) => v.color === firstName);
+        const found = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
+        if (found) return found;
+      }
+      return (itemVariants.find((v) => v.is_primary) || itemVariants[0])?.image_url ?? null;
+    }
+    return getProductImage(item);
+  };
+
+  const noopUpdate = async () => {};
 
   return (
     <div className="flex flex-col h-full">
@@ -153,7 +168,7 @@ export function ProductListPane({
 
       {/* Bulk Actions */}
       {selectedIds.size > 0 && (
-        <div className="px-3 py-2 border-b bg-muted/50 flex items-center gap-2 text-xs">
+        <div className="px-3 py-2 border-b bg-muted/50 flex flex-wrap items-center gap-2 text-xs">
           <span className="font-medium">{selectedIds.size} selected</span>
           <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkAction("show", Array.from(selectedIds))}>
             <Eye className="w-3 h-3 mr-1" /> Show
@@ -161,6 +176,19 @@ export function ProductListPane({
           <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkAction("hide", Array.from(selectedIds))}>
             <EyeOff className="w-3 h-3 mr-1" /> Hide
           </Button>
+          {onBulkEdit && (
+            <>
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkEdit("price")}>
+                <DollarSign className="w-3 h-3 mr-1" /> Price
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkEdit("fundraising")}>
+                <Percent className="w-3 h-3 mr-1" /> Fund %
+              </Button>
+              <Button size="sm" variant="outline" className="h-6 text-xs px-2" onClick={() => onBulkEdit("personalization")}>
+                <ToggleRight className="w-3 h-3 mr-1" /> Pers
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="outline" className="h-6 text-xs px-2 text-destructive" onClick={() => onBulkAction("delete", Array.from(selectedIds))}>
             <Trash2 className="w-3 h-3 mr-1" /> Delete
           </Button>
@@ -168,7 +196,7 @@ export function ProductListPane({
       )}
 
       {/* Product List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overflow-x-auto">
         {isLoading ? (
           <div className="p-6 text-center text-sm text-muted-foreground">Loading…</div>
         ) : filtered.length === 0 ? (
@@ -177,74 +205,33 @@ export function ProductListPane({
             <p className="text-sm text-muted-foreground">No products match your filters.</p>
           </div>
         ) : (
-          <div>
-            {/* Select all header */}
+          <div className="min-w-[600px]">
+            {/* Header */}
             <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
               <Checkbox
                 checked={allSelected}
                 onCheckedChange={(v) => onSelectAll(v ? allFilteredIds : [])}
-                className="h-3.5 w-3.5"
+                className="h-3.5 w-3.5 shrink-0"
               />
               <span className="flex-1">Product</span>
-              <span className="w-16 text-right">Price</span>
-              <span className="w-14 text-center">Status</span>
+              <span className="w-20 text-right shrink-0">Price $</span>
+              <span className="w-16 text-right shrink-0">Fund %</span>
+              <span className="w-10 text-center shrink-0">Pers</span>
+              <span className="w-14 text-center shrink-0">Status</span>
+              <span className="w-6 shrink-0" />
             </div>
-            {filtered.map((item) => {
-              const style = item.catalog_styles;
-              const name = item.display_name || style?.style_name || `Style #${item.style_id}`;
-              const isActive = selectedId === item.id;
-              // Resolve image: prefer variant image for first allowed color
-              let img: string | null = null;
-              const itemVariants = variantImages.filter((v) => v.team_store_product_id === item.id);
-              if (itemVariants.length > 0) {
-                const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
-                const firstName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
-                if (firstName) {
-                  const colorImgs = itemVariants.filter((v) => v.color === firstName);
-                  img = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
-                }
-                if (!img) {
-                  img = (itemVariants.find((v) => v.is_primary) || itemVariants[0])?.image_url ?? null;
-                }
-              }
-              if (!img) img = getProductImage(item);
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => onSelect(item.id)}
-                  className={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer transition-colors hover:bg-muted/50 ${
-                    isActive ? "bg-accent/10 border-l-2 border-l-accent" : ""
-                  }`}
-                >
-                  <Checkbox
-                    checked={selectedIds.has(item.id)}
-                    onCheckedChange={(e) => {
-                      e; // prevent row click
-                      onToggleSelect(item.id);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="h-3.5 w-3.5"
-                  />
-                  {img && (
-                    <img src={img} alt="" className="w-8 h-8 object-contain rounded shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{style?.brand_name}</p>
-                  </div>
-                  <span className="w-16 text-right text-xs tabular-nums">
-                    {item.price_override != null ? `$${Number(item.price_override).toFixed(2)}` : "—"}
-                  </span>
-                  <span className="w-14 text-center">
-                    {item.active ? (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-green-50 text-green-700 border-green-200">Active</Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted text-muted-foreground">Hidden</Badge>
-                    )}
-                  </span>
-                </div>
-              );
-            })}
+            {filtered.map((item) => (
+              <InlineProductRow
+                key={item.id}
+                item={item}
+                imgSrc={resolveImage(item)}
+                isChecked={selectedIds.has(item.id)}
+                isHighlighted={selectedId === item.id}
+                onNavigate={() => onSelect(item.id)}
+                onToggleCheck={() => onToggleSelect(item.id)}
+                onUpdate={onUpdate ?? noopUpdate}
+              />
+            ))}
           </div>
         )}
       </div>

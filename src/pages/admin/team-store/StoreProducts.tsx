@@ -3,12 +3,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
-import { useStoreVariantImages, type VariantImage } from "@/hooks/useVariantImages";
+import { useStoreVariantImages } from "@/hooks/useVariantImages";
 import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCategoryManager";
 import { StoreCategoryManager } from "@/components/admin/team-stores/StoreCategoryManager";
 import { AddProductsWizard } from "@/components/admin/team-stores/AddProductsWizard";
 import { ProductListPane, type StoreProduct } from "@/components/admin/team-stores/ProductListPane";
 import { BulkAssignLogosDialog } from "@/components/admin/team-stores/BulkAssignLogosDialog";
+import { BulkEditDialog, type BulkEditMode } from "@/components/admin/team-stores/BulkEditDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -25,6 +26,7 @@ export default function StoreProducts() {
   const [addSingleOpen, setAddSingleOpen] = useState(false);
   const [bulkLogosOpen, setBulkLogosOpen] = useState(false);
   const [singleSearch, setSingleSearch] = useState("");
+  const [bulkEditMode, setBulkEditMode] = useState<BulkEditMode | null>(null);
 
   const { visible: visibleCategories } = useEffectiveCategories(store.id);
 
@@ -71,6 +73,13 @@ export default function StoreProducts() {
     enabled: singleSearch.length >= 2,
   });
 
+  const invalidateAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ["team-store-products", store.id] });
+    // Also invalidate storefront queries so customer view updates
+    queryClient.invalidateQueries({ queryKey: ["team-store-detail"] });
+    queryClient.invalidateQueries({ queryKey: ["team-store-preview"] });
+  }, [queryClient, store.id]);
+
   const attachMutation = useMutation({
     mutationFn: async (styleId: number) => {
       const { error } = await supabase.from("team_store_products").insert({
@@ -81,7 +90,7 @@ export default function StoreProducts() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["team-store-products", store.id] });
+      invalidateAll();
       toast.success("Product added");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -101,14 +110,57 @@ export default function StoreProducts() {
       }
     },
     onSuccess: (_, { action, ids }) => {
-      queryClient.invalidateQueries({ queryKey: ["team-store-products", store.id] });
+      invalidateAll();
       setSelectedIds(new Set());
       toast.success(action === "delete" ? `${ids.length} product(s) removed` : `${ids.length} product(s) updated`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Navigate to product editor, preserving list filters in query params
+  // Inline update: single product field(s)
+  const handleInlineUpdate = useCallback(async (id: string, fields: Record<string, any>) => {
+    const { error } = await supabase
+      .from("team_store_products")
+      .update(fields)
+      .eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      throw error;
+    }
+    invalidateAll();
+  }, [invalidateAll]);
+
+  // Bulk edit apply
+  const handleBulkEditApply = useCallback(async (value: any) => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+
+    let fields: Record<string, any> = {};
+    if (bulkEditMode === "price") {
+      fields = { price_override: value };
+    } else if (bulkEditMode === "fundraising") {
+      fields = { fundraising_percentage: value };
+      if (value != null && value > 0) {
+        fields.fundraising_enabled = true;
+      }
+    } else if (bulkEditMode === "personalization") {
+      fields = { personalization_enabled: value };
+    }
+
+    const { error } = await supabase
+      .from("team_store_products")
+      .update(fields)
+      .in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    invalidateAll();
+    setSelectedIds(new Set());
+    toast.success(`${ids.length} product(s) updated`);
+  }, [selectedIds, bulkEditMode, invalidateAll]);
+
+  // Navigate to product editor
   const handleSelect = useCallback((id: string) => {
     const params = new URLSearchParams();
     const s = searchParams.get("search");
@@ -165,8 +217,8 @@ export default function StoreProducts() {
 
       {/* Full-width Product List */}
       <div className="border rounded-lg overflow-hidden bg-card">
-          <ProductListPane
-            variantImages={variantImages}
+        <ProductListPane
+          variantImages={variantImages}
           products={products}
           categories={visibleCategories}
           selectedId={null}
@@ -175,6 +227,8 @@ export default function StoreProducts() {
           onToggleSelect={handleToggleSelect}
           onSelectAll={handleSelectAll}
           onBulkAction={handleBulkAction}
+          onBulkEdit={(mode) => setBulkEditMode(mode)}
+          onUpdate={handleInlineUpdate}
           isLoading={isLoading}
           initialSearch={searchParams.get("search") || ""}
           initialCategory={searchParams.get("category") || "all"}
@@ -242,6 +296,17 @@ export default function StoreProducts() {
         open={bulkLogosOpen}
         onOpenChange={setBulkLogosOpen}
       />
+
+      {/* Bulk Edit Dialog */}
+      {bulkEditMode && (
+        <BulkEditDialog
+          mode={bulkEditMode}
+          selectedCount={selectedIds.size}
+          open={!!bulkEditMode}
+          onOpenChange={(v) => { if (!v) setBulkEditMode(null); }}
+          onApply={handleBulkEditApply}
+        />
+      )}
     </div>
   );
 }
