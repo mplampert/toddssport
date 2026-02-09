@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -488,31 +487,29 @@ function SendLogTab() {
 /* ========== MAIN PAGE ========== */
 export default function AdminNotifications() {
   return (
-    <AdminLayout>
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <Bell className="w-6 h-6" /> Notifications & Messaging
-          </h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Global notification settings, templates, customer opt-outs, and messaging.
-          </p>
-        </div>
-
-        <Tabs defaultValue="settings">
-          <TabsList>
-            <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1" /> Settings</TabsTrigger>
-            <TabsTrigger value="templates"><Mail className="w-4 h-4 mr-1" /> Templates</TabsTrigger>
-            <TabsTrigger value="customers"><Users className="w-4 h-4 mr-1" /> Customers</TabsTrigger>
-            <TabsTrigger value="log"><Eye className="w-4 h-4 mr-1" /> Send Log</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="settings" className="mt-4"><GlobalSettingsTab /></TabsContent>
-          <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
-          <TabsContent value="customers" className="mt-4"><CustomersTab /></TabsContent>
-          <TabsContent value="log" className="mt-4"><SendLogTab /></TabsContent>
-        </Tabs>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Bell className="w-6 h-6" /> Notifications & Messaging
+        </h1>
+        <p className="text-muted-foreground text-sm mt-1">
+          Global notification settings, templates, customer opt-outs, and messaging.
+        </p>
       </div>
-    </AdminLayout>
+
+      <Tabs defaultValue="settings">
+        <TabsList>
+          <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1" /> Settings</TabsTrigger>
+          <TabsTrigger value="templates"><Mail className="w-4 h-4 mr-1" /> Templates</TabsTrigger>
+          <TabsTrigger value="customers"><Users className="w-4 h-4 mr-1" /> Customers</TabsTrigger>
+          <TabsTrigger value="log"><Eye className="w-4 h-4 mr-1" /> Send Log</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="settings" className="mt-4"><GlobalSettingsTab /></TabsContent>
+        <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
+        <TabsContent value="customers" className="mt-4"><CustomersTab /></TabsContent>
+        <TabsContent value="log" className="mt-4"><SendLogTab /></TabsContent>
+      </Tabs>
+    </div>
   );
 }
