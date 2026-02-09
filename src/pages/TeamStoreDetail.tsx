@@ -39,7 +39,7 @@ export default function TeamStoreDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_stores")
-        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active, hero_image_url, hero_title, hero_subtitle")
+        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active, hero_image_url, hero_title, hero_subtitle, fundraising_percent")
         .eq("slug", slug!)
         .single();
       if (error) throw error;
@@ -76,7 +76,7 @@ export default function TeamStoreDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_products")
-        .select("id, sort_order, notes, price_override, active, category_id, store_category_override_id, display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types, allowed_colors, catalog_styles(id, style_id, style_name, brand_name, style_image, description, title)")
+        .select("id, sort_order, notes, price_override, active, category_id, store_category_override_id, display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types, allowed_colors, fundraising_enabled, fundraising_amount_per_unit, fundraising_percentage, catalog_styles(id, style_id, style_name, brand_name, style_image, description, title)")
         .eq("team_store_id", store!.id)
         .eq("active", true)
         .order("sort_order");
@@ -283,6 +283,7 @@ export default function TeamStoreDetail() {
               storeId={store!.id}
               slug={slug!}
               products={products as any}
+              storeFundraisingPct={(storePublic as any)?.fundraising_percent ?? null}
             />
           </div>
         </section>

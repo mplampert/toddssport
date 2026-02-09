@@ -13,6 +13,7 @@ import {
   ChevronLeft, ChevronRight, Eye,
 } from "lucide-react";
 import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
+import { effectiveFundraisingPerItem } from "@/lib/pricingUtils";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -140,7 +141,7 @@ export default function TeamStoreProductDetail() {
       if (!storeData) {
         const { data } = await supabase
           .from("team_stores")
-          .select("id, name, slug, status, primary_color, secondary_color, logo_url, preview_token")
+          .select("id, name, slug, status, primary_color, secondary_color, logo_url, preview_token, fundraising_percent")
           .eq("id", product.team_store_id)
           .maybeSingle();
         storeData = data;
@@ -515,8 +516,18 @@ export default function TeamStoreProductDetail() {
     setQuantity(1);
   };
 
-  // Store price override takes precedence
-  const displayPrice = storeProduct?.price_override;
+  // Store price override takes precedence; add fundraising if enabled
+  const basePriceRaw = storeProduct?.price_override;
+  const fundraisingPerItem = useMemo(() => {
+    if (!storeProduct?.fundraising_enabled) return 0;
+    return effectiveFundraisingPerItem({
+      priceOverride: storeProduct?.price_override ?? null,
+      productFundraisingPct: storeProduct?.fundraising_percentage ?? null,
+      storeFundraisingPct: store?.fundraising_percent ?? null,
+      fundraisingAmountPerUnit: storeProduct?.fundraising_amount_per_unit ?? null,
+    });
+  }, [storeProduct, store]);
+  const displayPrice = basePriceRaw != null ? basePriceRaw + fundraisingPerItem : null;
 
   const backUrl = isPreview
     ? `/preview/team-store/${slug}${previewToken ? `?token=${previewToken}` : ""}`
@@ -785,9 +796,10 @@ export default function TeamStoreProductDetail() {
                       <span className="text-3xl font-bold text-foreground">
                         ${(Number(displayPrice) + currentSizeUpcharge + decoUpcharge + persUpcharge).toFixed(2)}
                       </span>
-                      {(currentSizeUpcharge > 0 || decoUpcharge > 0 || persUpcharge > 0) && (
+                      {(currentSizeUpcharge > 0 || decoUpcharge > 0 || persUpcharge > 0 || fundraisingPerItem > 0) && (
                         <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
-                          <p>Base: ${Number(displayPrice).toFixed(2)}</p>
+                          <p>Base: ${Number(basePriceRaw).toFixed(2)}</p>
+                          {fundraisingPerItem > 0 && <p>Fundraising: +${fundraisingPerItem.toFixed(2)}</p>}
                           {currentSizeUpcharge > 0 && <p>Size upcharge: +${currentSizeUpcharge.toFixed(2)}</p>}
                           {decoUpcharge > 0 && <p>Decoration: +${decoUpcharge.toFixed(2)}</p>}
                           {persUpcharge > 0 && <p>Personalization: +${persUpcharge.toFixed(2)}</p>}

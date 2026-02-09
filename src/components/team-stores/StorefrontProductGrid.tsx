@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { effectiveFundraisingPerItem } from "@/lib/pricingUtils";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 import { handleImageError } from "@/lib/productImages";
@@ -21,6 +22,9 @@ interface StorefrontProduct {
   price_override: number | null;
   active: boolean;
   category_id: string | null;
+  fundraising_enabled?: boolean;
+  fundraising_amount_per_unit?: number | null;
+  fundraising_percentage?: number | null;
   store_category_override_id: string | null;
   display_name: string | null;
   display_color: string | null;
@@ -50,13 +54,15 @@ interface Props {
   storeId: string;
   slug: string;
   products: StorefrontProduct[];
+  /** Store-level fundraising percent fallback */
+  storeFundraisingPct?: number | null;
   /** If provided, appended to product URLs (e.g. for preview token) */
   urlSuffix?: string;
   /** Base path for product links. Defaults to /team-stores/:slug */
   basePath?: string;
 }
 
-export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "", basePath }: Props) {
+export function StorefrontProductGrid({ storeId, slug, products, storeFundraisingPct, urlSuffix = "", basePath }: Props) {
   const base = basePath ?? `/team-stores/${slug}`;
 
   // Fetch logo assignments for all products in this store
@@ -272,9 +278,21 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                       {item.display_color && (
                         <p className="text-xs text-muted-foreground mt-0.5">{item.display_color}</p>
                       )}
-                      {item.price_override != null && (
-                        <p className="text-sm font-semibold text-foreground mt-2">${Number(item.price_override).toFixed(2)}</p>
-                      )}
+                      {(() => {
+                        if (item.price_override == null) return null;
+                        const fundraising = item.fundraising_enabled
+                          ? effectiveFundraisingPerItem({
+                              priceOverride: item.price_override,
+                              productFundraisingPct: item.fundraising_percentage ?? null,
+                              storeFundraisingPct: storeFundraisingPct ?? null,
+                              fundraisingAmountPerUnit: item.fundraising_amount_per_unit ?? null,
+                            })
+                          : 0;
+                        const total = Number(item.price_override) + fundraising;
+                        return (
+                          <p className="text-sm font-semibold text-foreground mt-2">${total.toFixed(2)}</p>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
                 </Link>
