@@ -12,11 +12,13 @@ import { Search, X } from "lucide-react";
 
 interface OrderRow {
   id: string;
-  po: string;
+  order_number: string;
   status: string;
+  customer_name: string | null;
   customer_email: string | null;
+  total: number;
   created_at: string;
-  team_store_id: string | null;
+  store_id: string;
   storeName: string;
 }
 
@@ -26,7 +28,6 @@ export function AllOrdersTable() {
   const [statusFilter, setStatusFilter] = useState("");
   const [storeFilter, setStoreFilter] = useState("");
 
-  // Fetch stores for filter dropdown
   const { data: storeMap = new Map<string, string>() } = useQuery({
     queryKey: ["team-store-names-map"],
     queryFn: async () => {
@@ -41,70 +42,46 @@ export function AllOrdersTable() {
     queryKey: ["team-store-all-orders"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("champro_orders")
-        .select("id, po, status, customer_email, created_at, request_payload")
+        .from("team_store_orders")
+        .select("id, order_number, status, customer_name, customer_email, total, created_at, store_id")
         .order("created_at", { ascending: false });
       if (error) throw error;
-
-      // Filter to only team store orders
-      return (data ?? [])
-        .filter((o: any) => o.request_payload?.team_store_id)
-        .map((o: any) => ({
-          id: o.id,
-          po: o.po,
-          status: o.status,
-          customer_email: o.customer_email,
-          created_at: o.created_at,
-          team_store_id: o.request_payload.team_store_id,
-          storeName: "",
-        }));
+      return (data ?? []).map((o: any) => ({ ...o, storeName: "" }));
     },
   });
 
-  // Enrich with store names
   const enriched = useMemo(() => {
     return orders.map((o) => ({
       ...o,
-      storeName: storeMap.get(o.team_store_id ?? "") ?? "Unknown",
+      storeName: storeMap.get(o.store_id) ?? "Unknown",
     }));
   }, [orders, storeMap]);
 
-  // Unique statuses for filter
   const statuses = useMemo(() => {
     const set = new Set(enriched.map((o) => o.status));
     return Array.from(set).sort();
   }, [enriched]);
 
-  // Unique stores for filter
   const storeOptions = useMemo(() => {
     const map = new Map<string, string>();
-    enriched.forEach((o) => {
-      if (o.team_store_id) map.set(o.team_store_id, o.storeName);
-    });
+    enriched.forEach((o) => map.set(o.store_id, o.storeName));
     return Array.from(map.entries());
   }, [enriched]);
 
   const filtered = useMemo(() => {
     let result = enriched;
-
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (o) =>
-          o.po.toLowerCase().includes(q) ||
+          o.order_number.toLowerCase().includes(q) ||
           (o.customer_email ?? "").toLowerCase().includes(q) ||
+          (o.customer_name ?? "").toLowerCase().includes(q) ||
           o.storeName.toLowerCase().includes(q)
       );
     }
-
-    if (statusFilter) {
-      result = result.filter((o) => o.status === statusFilter);
-    }
-
-    if (storeFilter) {
-      result = result.filter((o) => o.team_store_id === storeFilter);
-    }
-
+    if (statusFilter) result = result.filter((o) => o.status === statusFilter);
+    if (storeFilter) result = result.filter((o) => o.store_id === storeFilter);
     return result;
   }, [enriched, search, statusFilter, storeFilter]);
 
@@ -173,6 +150,7 @@ export function AllOrdersTable() {
                   <TableHead>Order #</TableHead>
                   <TableHead>Store</TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -181,9 +159,10 @@ export function AllOrdersTable() {
               <TableBody>
                 {filtered.map((o) => (
                   <TableRow key={o.id}>
-                    <TableCell className="font-mono text-sm">{o.po}</TableCell>
+                    <TableCell className="font-mono text-sm">{o.order_number}</TableCell>
                     <TableCell className="text-sm">{o.storeName}</TableCell>
-                    <TableCell className="text-sm">{o.customer_email ?? "—"}</TableCell>
+                    <TableCell className="text-sm">{o.customer_name || o.customer_email || "—"}</TableCell>
+                    <TableCell className="text-sm font-medium">${Number(o.total).toFixed(2)}</TableCell>
                     <TableCell>
                       <Badge variant={o.status === "completed" ? "default" : "secondary"}>
                         {o.status}
@@ -193,15 +172,13 @@ export function AllOrdersTable() {
                       {new Date(o.created_at).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-right">
-                      {o.team_store_id && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate(`/admin/team-stores/${o.team_store_id}/orders`)}
-                        >
-                          View
-                        </Button>
-                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/admin/team-stores/${o.store_id}/orders/${o.id}`)}
+                      >
+                        View
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
