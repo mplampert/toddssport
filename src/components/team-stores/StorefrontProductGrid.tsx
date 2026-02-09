@@ -5,14 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 
-interface LogoAssignment {
-  id: string;
-  x: number;
-  y: number;
-  scale: number;
-  is_primary: boolean;
-  store_logos: { name: string; file_url: string } | null;
+interface RawLogoAssignment extends LogoAssignment {
+  team_store_item_id: string;
 }
 
 interface StorefrontProduct {
@@ -64,10 +60,10 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, team_store_item_id, x, y, scale, is_primary, store_logos(name, file_url)")
+        .select("id, team_store_item_id, x, y, scale, is_primary, position, variant_color, variant_size, store_logos(name, file_url)")
         .in("team_store_item_id", productIds);
       if (error) throw error;
-      return data as (LogoAssignment & { team_store_item_id: string })[];
+      return data as RawLogoAssignment[];
     },
     enabled: productIds.length > 0,
   });
@@ -220,7 +216,9 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                         <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" onError={handleImageError} />
                         {/* Primary logo overlay only */}
                         {(() => {
-                          const primaryLogo = itemLogos.find((l) => l.is_primary) || itemLogos[0];
+                          // Use variant-aware matching (grid shows global/primary only)
+                          const matched = matchLogosForVariant(itemLogos);
+                          const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
                           if (!primaryLogo) return null;
                           const logoUrl = primaryLogo.store_logos?.file_url;
                           if (!logoUrl) return null;

@@ -16,6 +16,7 @@ import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, 
 import { toast } from "sonner";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { getProductGallery, handleImageError } from "@/lib/productImages";
+import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 
 interface ColorOption {
   name: string;
@@ -50,7 +51,7 @@ export default function TeamStoreProductDetail() {
       // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, position, x, y, scale, is_primary, store_logos(name, file_url))")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -85,8 +86,13 @@ export default function TeamStoreProductDetail() {
   const store = storeProduct?._store;
   const catalogStyle = storeProduct?.catalog_styles;
   const ssStyleId = catalogStyle?.style_id;
-  const assignedLogos: any[] = (storeProduct as any)?.team_store_item_logos ?? [];
+  const allLogos: LogoAssignment[] = (storeProduct as any)?.team_store_item_logos ?? [];
 
+  // Match logos for the currently selected color variant
+  const assignedLogos = useMemo(
+    () => matchLogosForVariant(allLogos, selectedColor || undefined),
+    [allLogos, selectedColor]
+  );
   const isPreview = store?.status !== "open";
 
   // Fetch full product data from SS API
