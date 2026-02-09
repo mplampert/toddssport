@@ -25,10 +25,14 @@ export interface LogoPlacement {
   x: number;
   y: number;
   scale: number;
+  rotation: number;
   is_primary: boolean;
+  role: string; // "primary" | "secondary" | "sponsor" | "league_patch" | "number_zone" | "other"
+  sort_order: number;
+  active: boolean;
   variant_color: string | null;
   variant_size: string | null;
-  view: string; // "front" | "back"
+  view: string; // "front" | "back" | "left_sleeve" | "right_sleeve"
   _logo_name?: string;
   _logo_url?: string;
 }
