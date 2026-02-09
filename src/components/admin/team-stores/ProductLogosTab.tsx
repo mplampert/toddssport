@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,49 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
+import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { handleImageError } from "@/lib/productImages";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
+import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
+import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
 
 /* ─── Types ─── */
-
-interface DecorationPlacement {
-  id: string;
-  code: string;
-  label: string;
-  garment_type: string;
-  max_width_in: number;
-  max_height_in: number;
-  default_x: number;
-  default_y: number;
-  default_scale: number;
-  sort_order: number;
-}
-
-interface LogoPlacement {
-  id?: string;
-  store_logo_id: string;
-  store_logo_variant_id: string | null;
-  position: string;
-  x: number;
-  y: number;
-  scale: number;
-  is_primary: boolean;
-  variant_color: string | null;
-  variant_size: string | null;
-  _logo_name?: string;
-  _logo_url?: string;
-}
-
-interface StoreLogo {
-  id: string;
-  name: string;
-  file_url: string;
-  placement: string | null;
-  is_primary: boolean;
-  method: string;
-}
 
 interface ColorOption {
   code: string;
@@ -148,6 +112,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
     },
   });
 
+  // Set of store_logo_ids currently assigned to this product (across all placements being edited)
+  const assignedLogoIds = useMemo(() => {
+    return new Set(placements.map((p) => p.store_logo_id));
+  }, [placements]);
+
   // Fetch color variants from S&S API
   useEffect(() => {
     let cancelled = false;
@@ -208,11 +177,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
       _logo_url: p.store_logos?.file_url,
     }));
 
-    // Check if there are any color-specific overrides
     const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
     setApplyToAllColors(!hasColorOverrides);
 
-    // Filter to what we should edit
     const filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides);
     setPlacements(filtered);
     setSavedSnapshot(JSON.stringify(all));
@@ -222,45 +189,39 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   function filterPlacementsForEditing(all: LogoPlacement[], color: string | null, allColors: boolean): LogoPlacement[] {
     if (allColors) {
-      // Show global placements only
       return all.filter((p) => !p.variant_color);
     }
-    // Show color-specific if they exist, else show globals (as template)
     const colorSpecific = all.filter((p) => p.variant_color === color);
     if (colorSpecific.length > 0) return colorSpecific;
-    // Copy globals as templates for this color
     return all.filter((p) => !p.variant_color).map((p) => ({
       ...p,
-      id: undefined, // new record
+      id: undefined,
       variant_color: color,
     }));
   }
 
-  const addPlacement = () => {
-    if (storeLogos.length === 0) {
-      toast.error("Add logos to this store first (Logos tab)");
-      return;
-    }
-    const firstLogo = storeLogos[0];
+  // Add a store logo to this product with default placement
+  const addLogoToProduct = (logo: StoreLogo) => {
     const defaultPreset = presets.find((p) => p.code === "left_chest") || presets[0];
     setPlacements((prev) => [
       ...prev,
       {
-        store_logo_id: firstLogo.id,
+        store_logo_id: logo.id,
         store_logo_variant_id: null,
         position: defaultPreset?.code || "left_chest",
         x: defaultPreset?.default_x ?? 0.35,
         y: defaultPreset?.default_y ?? 0.25,
         scale: defaultPreset?.default_scale ?? 0.15,
-        is_primary: prev.length === 0,
+        is_primary: placements.length === 0,
         variant_color: applyToAllColors ? null : selectedColor,
         variant_size: null,
-        _logo_name: firstLogo.name,
-        _logo_url: firstLogo.file_url,
+        _logo_name: logo.name,
+        _logo_url: logo.file_url,
       },
     ]);
     setActivePlacementIdx(placements.length);
     setDirty(true);
+    toast.success(`Added "${logo.name}" — adjust placement on the canvas`);
   };
 
   const removePlacement = (idx: number) => {
@@ -331,7 +292,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (applyToAllColors) {
-        // Delete ALL for this product and save globals
         await supabase.from("team_store_item_logos").delete().eq("team_store_item_id", item.id);
         if (placements.length > 0) {
           const rows = placements.map((p) => ({
@@ -350,8 +310,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
           if (error) throw error;
         }
       } else {
-        // Delete only records for this specific color, plus globals if we're overriding
-        // Keep other colors' overrides intact
         const { error: delErr } = await supabase
           .from("team_store_item_logos")
           .delete()
@@ -359,8 +317,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
           .or(`variant_color.eq.${selectedColor},variant_color.is.null`);
         if (delErr) throw delErr;
 
-        // Re-insert globals that aren't being overridden by other colors
-        // plus the current color-specific placements
         if (placements.length > 0) {
           const rows = placements.map((p) => ({
             team_store_item_id: item.id,
@@ -381,6 +337,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["store-logos", storeId] });
       queryClient.invalidateQueries({ queryKey: ["storefront-product-logos"] });
       queryClient.invalidateQueries({ queryKey: ["ts-product-detail"] });
       toast.success("Logo placements saved");
@@ -412,6 +369,13 @@ export function ProductLogosTab({ item, storeId }: Props) {
     <div className="flex flex-col" style={{ minHeight: "calc(100vh - 220px)" }}>
       <div className="flex-1 space-y-4 pb-20">
 
+        {/* ─── Store Logo Picker ─── */}
+        <StoreLogoPicker
+          storeLogos={storeLogos}
+          assignedLogoIds={assignedLogoIds}
+          onAdd={addLogoToProduct}
+        />
+
         {/* ─── Variant Selector ─── */}
         {colorOptions.length > 0 && (
           <div className="border rounded-lg p-3 bg-card space-y-3">
@@ -423,7 +387,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   onCheckedChange={(v) => {
                     setApplyToAllColors(v);
                     setDirty(true);
-                    // Re-filter placements based on new scope
                     if (existingPlacements) {
                       const all = JSON.parse(savedSnapshot) as LogoPlacement[];
                       setPlacements(filterPlacementsForEditing(all, selectedColor, v));
@@ -485,14 +448,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         )}
 
-        {/* Placement Canvas */}
+        {/* ─── Placement Canvas ─── */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">Placement Canvas</Label>
-            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addPlacement}>
-              <Plus className="w-3 h-3 mr-1" /> Add Logo
-            </Button>
-          </div>
+          <Label className="text-sm font-semibold">Placement Canvas</Label>
           <PlacementCanvas
             image={canvasImage}
             placements={placements}
@@ -593,10 +551,10 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         )}
 
-        {/* ─── Placement list chips ─── */}
+        {/* ─── Assigned Logos list ─── */}
         {placements.length > 0 && (
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">All Placements ({placements.length})</Label>
+            <Label className="text-xs font-semibold">Assigned Logos ({placements.length})</Label>
             <div className="flex flex-wrap gap-1.5">
               {placements.map((p, idx) => (
                 <button
@@ -609,7 +567,10 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   }`}
                 >
                   {p._logo_url && <img src={p._logo_url} alt="" className="w-4 h-4 object-contain rounded" />}
-                  {presetMap.get(p.position)?.label || p.position}
+                  <span className="truncate max-w-[100px]">{p._logo_name || "Logo"}</span>
+                  <span className="text-muted-foreground text-[10px]">
+                    {presetMap.get(p.position)?.label || p.position}
+                  </span>
                   {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
                 </button>
               ))}
@@ -618,12 +579,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
         )}
 
         {placements.length === 0 && (
-          <div className="text-center py-8 border border-dashed rounded-lg">
+          <div className="text-center py-6 border border-dashed rounded-lg">
             <ImageIcon className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
-            <p className="text-sm text-muted-foreground">No logos assigned to this product.</p>
-            <Button size="sm" variant="outline" className="mt-3 text-xs" onClick={addPlacement}>
-              <Plus className="w-3 h-3 mr-1" /> Add Logo
-            </Button>
+            <p className="text-sm text-muted-foreground">No logos assigned yet. Pick one from the library above.</p>
           </div>
         )}
       </div>
@@ -656,212 +614,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
           <Save className="w-3 h-3 mr-1" /> Save Placements
         </Button>
       </div>
-    </div>
-  );
-}
-
-/* ─── Placement Canvas with Drag ─── */
-
-interface CanvasProps {
-  image: string;
-  placements: LogoPlacement[];
-  presetMap: Map<string, DecorationPlacement>;
-  activeIdx: number | null;
-  maxScaleFn: (code: string) => number;
-  onSelectPlacement: (idx: number) => void;
-  onMovePlacement: (idx: number, x: number, y: number) => void;
-  onScalePlacement: (idx: number, scale: number) => void;
-}
-
-function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, onSelectPlacement, onMovePlacement, onScalePlacement }: CanvasProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const interactionRef = useRef<
-    | { type: "drag"; idx: number; offsetX: number; offsetY: number }
-    | { type: "resize"; idx: number; startScale: number; startDist: number }
-    | null
-  >(null);
-
-  const handlePointerDown = useCallback((e: React.PointerEvent, idx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onSelectPlacement(idx);
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const p = placements[idx];
-
-    const pointerX = (e.clientX - rect.left) / rect.width;
-    const pointerY = (e.clientY - rect.top) / rect.height;
-    interactionRef.current = {
-      type: "drag",
-      idx,
-      offsetX: pointerX - p.x,
-      offsetY: pointerY - p.y,
-    };
-
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [onSelectPlacement, placements]);
-
-  const handleResizeDown = useCallback((e: React.PointerEvent, idx: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const p = placements[idx];
-    const centerPx = { x: p.x * rect.width, y: p.y * rect.height };
-    const dist = Math.hypot(e.clientX - rect.left - centerPx.x, e.clientY - rect.top - centerPx.y);
-
-    interactionRef.current = {
-      type: "resize",
-      idx,
-      startScale: p.scale,
-      startDist: dist,
-    };
-
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-  }, [placements]);
-
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    if (!interactionRef.current || !containerRef.current) return;
-    const rect = containerRef.current.getBoundingClientRect();
-    const interaction = interactionRef.current;
-
-    if (interaction.type === "drag") {
-      const rawX = (e.clientX - rect.left) / rect.width - interaction.offsetX;
-      const rawY = (e.clientY - rect.top) / rect.height - interaction.offsetY;
-      const x = Math.max(0.02, Math.min(0.98, rawX));
-      const y = Math.max(0.02, Math.min(0.98, rawY));
-      onMovePlacement(interaction.idx, x, y);
-    } else if (interaction.type === "resize") {
-      const p = placements[interaction.idx];
-      const centerPx = { x: p.x * rect.width, y: p.y * rect.height };
-      const dist = Math.hypot(e.clientX - rect.left - centerPx.x, e.clientY - rect.top - centerPx.y);
-      const ratio = dist / interaction.startDist;
-      const maxScale = maxScaleFn(p.position);
-      const newScale = Math.max(0.03, Math.min(maxScale, interaction.startScale * ratio));
-      onScalePlacement(interaction.idx, newScale);
-    }
-  }, [onMovePlacement, onScalePlacement, placements, maxScaleFn]);
-
-  const handlePointerUp = useCallback(() => {
-    interactionRef.current = null;
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className="relative w-full bg-muted/20 border-2 border-dashed border-muted-foreground/15 rounded-xl overflow-hidden select-none"
-      style={{ aspectRatio: "4/5", maxHeight: "420px" }}
-      onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
-    >
-      {/* Garment image */}
-      {image ? (
-        <img
-          src={image}
-          alt="Garment"
-          className="w-full h-full object-contain p-6 pointer-events-none"
-          draggable={false}
-          onError={handleImageError}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <ImageIcon className="w-20 h-20 text-muted-foreground/10" />
-        </div>
-      )}
-
-      {/* Placement zone hint for active placement */}
-      {activeIdx !== null && placements[activeIdx] && (() => {
-        const preset = presetMap.get(placements[activeIdx].position);
-        if (!preset) return null;
-        const zoneW = (preset.max_width_in / 16) * 100;
-        const zoneH = (preset.max_height_in / 20) * 100;
-        return (
-          <div
-            className="absolute border border-dashed border-accent/30 rounded-md pointer-events-none"
-            style={{
-              left: `${preset.default_x * 100}%`,
-              top: `${preset.default_y * 100}%`,
-              width: `${zoneW}%`,
-              height: `${zoneH}%`,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            <span className="absolute -top-4 left-1/2 -translate-x-1/2 text-[9px] text-accent/50 whitespace-nowrap">
-              {preset.label}
-            </span>
-          </div>
-        );
-      })()}
-
-      {/* Logo overlays */}
-      {placements.map((p, idx) => {
-        if (!p._logo_url) return null;
-        const size = p.scale * 100;
-        const isActive = activeIdx === idx;
-        return (
-          <div
-            key={idx}
-            onPointerDown={(e) => handlePointerDown(e, idx)}
-            className={`absolute cursor-grab active:cursor-grabbing rounded ${
-              isActive
-                ? "ring-2 ring-accent shadow-lg z-10"
-                : "z-0 hover:ring-1 hover:ring-muted-foreground/30 opacity-80 hover:opacity-100"
-            }`}
-            style={{
-              left: `${p.x * 100}%`,
-              top: `${p.y * 100}%`,
-              width: `${size}%`,
-              transform: "translate(-50%, -50%)",
-            }}
-          >
-            <img
-              src={p._logo_url}
-              alt={p._logo_name || "Logo"}
-              className="w-full h-auto object-contain pointer-events-none"
-              draggable={false}
-            />
-            {/* Resize handles — only on active logo */}
-            {isActive && (
-              <>
-                {(["nw", "ne", "se", "sw"] as const).map((corner) => {
-                  const pos: Record<string, React.CSSProperties> = {
-                    nw: { top: -4, left: -4, cursor: "nwse-resize" },
-                    ne: { top: -4, right: -4, cursor: "nesw-resize" },
-                    se: { bottom: -4, right: -4, cursor: "nwse-resize" },
-                    sw: { bottom: -4, left: -4, cursor: "nesw-resize" },
-                  };
-                  return (
-                    <div
-                      key={corner}
-                      onPointerDown={(e) => handleResizeDown(e, idx)}
-                      className="absolute w-3 h-3 bg-accent border-2 border-background rounded-sm z-20"
-                      style={pos[corner]}
-                    />
-                  );
-                })}
-                {/* Label */}
-                <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">
-                  {presetMap.get(p.position)?.label || p.position}
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })}
-
-      {/* Empty state overlay */}
-      {placements.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <p className="text-sm text-muted-foreground/40">Add a logo to start designing</p>
-        </div>
-      )}
     </div>
   );
 }
