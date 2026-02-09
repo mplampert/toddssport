@@ -1579,6 +1579,42 @@ export type Database = {
         }
         Relationships: []
       }
+      size_charts: {
+        Row: {
+          brand: string | null
+          category: string | null
+          content_html: string | null
+          content_type: string
+          created_at: string
+          file_url: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          content_html?: string | null
+          content_type?: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          content_html?: string | null
+          content_type?: string
+          created_at?: string
+          file_url?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       store_logo_variants: {
         Row: {
           background_rule: string
@@ -2671,6 +2707,7 @@ export type Database = {
           created_at: string
           decoration_prices_override: Json | null
           decoration_pricing_override_enabled: boolean
+          description_override: string | null
           display_color: string | null
           display_name: string | null
           dtf_enabled: boolean
@@ -2693,6 +2730,9 @@ export type Database = {
           primary_image_type: string
           primary_image_url: string | null
           screen_print_enabled: boolean
+          short_description_override: string | null
+          size_chart_display_mode: string
+          size_chart_override_id: string | null
           size_upcharges: Json | null
           sort_order: number
           store_category_override_id: string | null
@@ -2708,6 +2748,7 @@ export type Database = {
           created_at?: string
           decoration_prices_override?: Json | null
           decoration_pricing_override_enabled?: boolean
+          description_override?: string | null
           display_color?: string | null
           display_name?: string | null
           dtf_enabled?: boolean
@@ -2730,6 +2771,9 @@ export type Database = {
           primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
+          short_description_override?: string | null
+          size_chart_display_mode?: string
+          size_chart_override_id?: string | null
           size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
@@ -2745,6 +2789,7 @@ export type Database = {
           created_at?: string
           decoration_prices_override?: Json | null
           decoration_pricing_override_enabled?: boolean
+          description_override?: string | null
           display_color?: string | null
           display_name?: string | null
           dtf_enabled?: boolean
@@ -2767,6 +2812,9 @@ export type Database = {
           primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
+          short_description_override?: string | null
+          size_chart_display_mode?: string
+          size_chart_override_id?: string | null
           size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
@@ -2781,6 +2829,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "team_store_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_products_size_chart_override_id_fkey"
+            columns: ["size_chart_override_id"]
+            isOneToOne: false
+            referencedRelation: "size_charts"
             referencedColumns: ["id"]
           },
           {
