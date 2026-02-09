@@ -45,10 +45,10 @@ export default function TeamStoreProductDetail() {
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
     queryKey: ["ts-product-detail", itemId, slug, previewToken],
     queryFn: async () => {
-      // Fetch product + catalog info
+      // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description)")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, position, x, y, scale, is_primary, store_logos(name, file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -83,6 +83,7 @@ export default function TeamStoreProductDetail() {
   const store = storeProduct?._store;
   const catalogStyle = storeProduct?.catalog_styles;
   const ssStyleId = catalogStyle?.style_id;
+  const assignedLogos: any[] = (storeProduct as any)?.team_store_item_logos ?? [];
 
   const isPreview = store?.status !== "open";
 
@@ -292,6 +293,26 @@ export default function TeamStoreProductDetail() {
                   ) : (
                     <Package className="w-24 h-24 text-muted-foreground/20" />
                   )}
+
+                  {/* Logo overlays from assigned logos */}
+                  {assignedLogos.map((logo: any) => {
+                    const logoUrl = logo.store_logos?.file_url;
+                    if (!logoUrl) return null;
+                    return (
+                      <img
+                        key={logo.id}
+                        src={logoUrl}
+                        alt={logo.store_logos?.name || "Logo"}
+                        className="absolute pointer-events-none object-contain"
+                        style={{
+                          left: `${(logo.x ?? 0.5) * 100}%`,
+                          top: `${(logo.y ?? 0.2) * 100}%`,
+                          width: `${(logo.scale ?? 0.3) * 100}%`,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      />
+                    );
+                  })}
 
                   {galleryImages.length > 1 && (
                     <>

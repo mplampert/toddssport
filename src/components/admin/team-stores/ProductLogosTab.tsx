@@ -194,6 +194,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-products-public"] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-products-preview"] });
+      queryClient.invalidateQueries({ queryKey: ["ts-product-detail"] });
       toast.success("Logo placements saved");
       setDirty(false);
     },
@@ -346,6 +349,25 @@ export function ProductLogosTab({ item, storeId }: Props) {
           {saveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
           <Save className="w-3 h-3 mr-1" /> Save Placements
         </Button>
+      )}
+
+      {/* Debug: raw saved logo assignments */}
+      {placements.length > 0 && !dirty && (
+        <div className="mt-4 p-3 bg-muted/30 rounded-lg border space-y-1">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+            Saved Assignments (debug)
+          </p>
+          {placements.map((p, idx) => (
+            <div key={idx} className="text-[10px] text-muted-foreground font-mono break-all">
+              <span className="text-foreground font-medium">{p._logo_name || "?"}</span>
+              {" · "}id: {p.id || "unsaved"}
+              {" · "}logo: {p.store_logo_id?.slice(0, 8)}…
+              {" · "}pos: {p.position}
+              {" · "}x:{p.x.toFixed(2)} y:{p.y.toFixed(2)} s:{p.scale.toFixed(2)}
+              {" · "}url: {p._logo_url ? "✓" : "✗"}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );
