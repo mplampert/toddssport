@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
 import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
+import { pickBestVariant, type LogoVariantOption } from "@/lib/logoVariantPicker";
 
 /* ─── Types ─── */
 
@@ -98,6 +99,33 @@ export function ProductLogosTab({ item, storeId }: Props) {
       return data;
     },
   });
+
+  // Fetch all logo variants for this store's logos
+  const storeLogoIds = useMemo(() => storeLogos.map((l) => l.id), [storeLogos]);
+  const { data: allVariants = [] } = useQuery<LogoVariantOption[]>({
+    queryKey: ["store-logo-variants", storeId],
+    queryFn: async () => {
+      if (storeLogoIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("store_logo_variants")
+        .select("id, store_logo_id, name, colorway, file_url, background_rule, is_default")
+        .in("store_logo_id", storeLogoIds);
+      if (error) throw error;
+      return data as any;
+    },
+    enabled: storeLogoIds.length > 0,
+  });
+
+  // Group variants by store_logo_id
+  const variantsByLogo = useMemo(() => {
+    const map = new Map<string, (LogoVariantOption & { store_logo_id: string })[]>();
+    for (const v of allVariants as any[]) {
+      const arr = map.get(v.store_logo_id) || [];
+      arr.push(v);
+      map.set(v.store_logo_id, arr);
+    }
+    return map;
+  }, [allVariants]);
 
   // Fetch ALL logo assignments for this product (all variants)
   const { data: existingPlacements, isLoading } = useQuery({
@@ -200,14 +228,21 @@ export function ProductLogosTab({ item, storeId }: Props) {
     }));
   }
 
-  // Add a store logo to this product with default placement
+  // Add a store logo to this product with default placement + auto-pick variant
   const addLogoToProduct = (logo: StoreLogo) => {
     const defaultPreset = presets.find((p) => p.code === "left_chest") || presets[0];
+    const logoVariants = variantsByLogo.get(logo.id) || [];
+    // Auto-pick best variant based on currently selected garment color
+    const garmentColor = selectedColor
+      ? colorOptions.find((c) => c.code === selectedColor)?.color1
+      : undefined;
+    const bestVariant = pickBestVariant(logoVariants, garmentColor);
+
     setPlacements((prev) => [
       ...prev,
       {
         store_logo_id: logo.id,
-        store_logo_variant_id: null,
+        store_logo_variant_id: bestVariant?.id || null,
         position: defaultPreset?.code || "left_chest",
         x: defaultPreset?.default_x ?? 0.35,
         y: defaultPreset?.default_y ?? 0.25,
@@ -216,7 +251,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
         variant_color: applyToAllColors ? null : selectedColor,
         variant_size: null,
         _logo_name: logo.name,
-        _logo_url: logo.file_url,
+        _logo_url: bestVariant?.file_url || logo.file_url,
       },
     ]);
     setActivePlacementIdx(placements.length);
@@ -491,7 +526,19 @@ export function ProductLogosTab({ item, storeId }: Props) {
               {/* Logo select */}
               <div className="space-y-1">
                 <Label className="text-[11px] text-muted-foreground">Logo</Label>
-                <Select value={active.store_logo_id} onValueChange={(v) => updatePlacement(activePlacementIdx, { store_logo_id: v })}>
+                <Select value={active.store_logo_id} onValueChange={(v) => {
+                  const logo = storeLogos.find((l) => l.id === v);
+                  const variants = variantsByLogo.get(v) || [];
+                  const garmentColor = selectedColor
+                    ? colorOptions.find((c) => c.code === selectedColor)?.color1
+                    : undefined;
+                  const best = pickBestVariant(variants, garmentColor);
+                  updatePlacement(activePlacementIdx, {
+                    store_logo_id: v,
+                    store_logo_variant_id: best?.id || null,
+                    _logo_url: best?.file_url || logo?.file_url,
+                  });
+                }}>
                   <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {storeLogos.map((l) => (
@@ -531,6 +578,41 @@ export function ProductLogosTab({ item, storeId }: Props) {
                 </Select>
               </div>
             </div>
+
+            {/* Logo Variant selector */}
+            {(() => {
+              const variants = variantsByLogo.get(active.store_logo_id) || [];
+              if (variants.length <= 1) return null;
+              return (
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">Logo Variant</Label>
+                  <Select
+                    value={active.store_logo_variant_id || ""}
+                    onValueChange={(v) => {
+                      const variant = variants.find((vr) => vr.id === v);
+                      updatePlacement(activePlacementIdx, {
+                        store_logo_variant_id: v,
+                        _logo_url: variant?.file_url || active._logo_url,
+                      });
+                    }}
+                  >
+                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select variant" /></SelectTrigger>
+                    <SelectContent>
+                      {variants.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          <span className="flex items-center gap-2">
+                            <img src={v.file_url} alt="" className="w-4 h-4 object-contain" />
+                            {v.name}
+                            <span className="text-muted-foreground capitalize text-[10px]">({v.colorway})</span>
+                            {v.is_default && <span className="text-[9px] text-muted-foreground">[Default]</span>}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
 
             {/* Scale readout */}
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">

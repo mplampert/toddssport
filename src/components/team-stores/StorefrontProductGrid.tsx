@@ -60,10 +60,10 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, team_store_item_id, x, y, scale, is_primary, position, variant_color, variant_size, store_logos(name, file_url)")
+        .select("id, team_store_item_id, x, y, scale, is_primary, position, variant_color, variant_size, store_logo_id, store_logo_variant_id, store_logos(name, file_url), store_logo_variants(file_url)")
         .in("team_store_item_id", productIds);
       if (error) throw error;
-      return data as RawLogoAssignment[];
+      return data as (RawLogoAssignment & { store_logo_variants?: { file_url: string } | null })[];
     },
     enabled: productIds.length > 0,
   });
@@ -220,7 +220,8 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                           const matched = matchLogosForVariant(itemLogos);
                           const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
                           if (!primaryLogo) return null;
-                          const logoUrl = primaryLogo.store_logos?.file_url;
+                          // Prefer variant file_url over master logo file_url
+                          const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
                           if (!logoUrl) return null;
                           return (
                             <img
