@@ -1,6 +1,5 @@
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingCart, Trash2, Minus, Plus } from "lucide-react";
 import { useTeamStoreCart, type TeamStoreCartItem } from "@/hooks/useTeamStoreCart";
@@ -92,16 +91,6 @@ export function TeamStoreCartDrawer({ storeId }: Props) {
       <div aria-live="assertive" aria-atomic="true" className="sr-only" id="cart-live-region" />
 
       <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger asChild>
-          <button className="fixed bottom-6 left-6 z-50 bg-accent text-accent-foreground rounded-full p-4 shadow-lg hover:shadow-xl transition-all hover:scale-105">
-            <ShoppingCart className="w-6 h-6" />
-            {displayCount > 0 && (
-              <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-destructive text-destructive-foreground">
-                {displayCount}
-              </Badge>
-            )}
-          </button>
-        </SheetTrigger>
         <SheetContent className="w-full sm:max-w-md flex flex-col">
           <SheetHeader>
             <SheetTitle
