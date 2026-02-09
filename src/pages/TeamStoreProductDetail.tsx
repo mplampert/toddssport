@@ -350,12 +350,9 @@ export default function TeamStoreProductDetail() {
     };
 
     const viewHasDecoration = (v: ViewEnum): boolean => {
+      // Only show a view if it has a logo assigned to it
       const hasLogos = allLogos.some((l: any) => (l.view || "front") === v);
-      if (hasLogos) return true;
-      const hasText = allTextLayers.some((t) => (t.view || "front") === v);
-      if (hasText) return true;
-      if (v === "back" && (persSettings.enable_name || persSettings.enable_number)) return true;
-      return false;
+      return hasLogos;
     };
 
     for (const v of VIEW_ORDER) {
