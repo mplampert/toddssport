@@ -14,6 +14,8 @@ import TeamStores from "./pages/TeamStores";
 import TeamStoresListing from "./pages/TeamStoresListing";
 import TeamStoreDetail from "./pages/TeamStoreDetail";
 import TeamStoreProductDetail from "./pages/TeamStoreProductDetail";
+import TeamStoreCart from "./pages/TeamStoreCart";
+import TeamStoreCheckout from "./pages/TeamStoreCheckout";
 import Fanwear from "./pages/Fanwear";
 import Corporate from "./pages/Corporate";
 import PromotionalProducts from "./pages/PromotionalProducts";
@@ -94,6 +96,8 @@ const App = () => (
           <Route path="/team-stores/browse" element={<TeamStoresListing />} />
           <Route path="/team-stores/:slug" element={<TeamStoreDetail />} />
           <Route path="/team-stores/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
+          <Route path="/team-stores/:slug/cart" element={<TeamStoreCart />} />
+          <Route path="/team-stores/:slug/checkout" element={<TeamStoreCheckout />} />
           <Route path="/fanwear" element={<Fanwear />} />
           <Route path="/corporate" element={<Corporate />} />
           <Route path="/promotional-products" element={<PromotionalProducts />} />
