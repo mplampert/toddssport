@@ -11,11 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, RotateCcw } from "lucide-react";
+import { DecoratedThumbnail } from "./DecoratedThumbnail";
 import type { StoreProduct } from "./ProductListPane";
 
 interface Props {
   item: StoreProduct;
   imgSrc: string | null;
+  logoOverlays?: { logo_url: string; x: number; y: number; scale: number }[];
   isChecked: boolean;
   isHighlighted: boolean;
   onNavigate: () => void;
@@ -26,6 +28,7 @@ interface Props {
 export function InlineProductRow({
   item,
   imgSrc,
+  logoOverlays = [],
   isChecked,
   isHighlighted,
   onNavigate,
@@ -106,11 +109,11 @@ export function InlineProductRow({
         className="flex items-center gap-2 min-w-0 flex-1"
         onClick={onNavigate}
       >
-        {imgSrc && (
-          <img
-            src={imgSrc}
-            alt=""
-            className="w-8 h-8 object-contain rounded shrink-0"
+        {(imgSrc || logoOverlays.length > 0) && (
+          <DecoratedThumbnail
+            imgSrc={imgSrc}
+            logos={logoOverlays}
+            size={32}
           />
         )}
         <div className="min-w-0 flex-1">
