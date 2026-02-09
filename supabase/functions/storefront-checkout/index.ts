@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     const productIds = [...new Set(items.map((i: any) => i.productId))];
     const { data: dbProducts } = await supabase
       .from("team_store_products")
-      .select("id, price_override, display_name, catalog_styles(style_name, brand_name)")
+      .select("id, price_override, display_name, catalog_styles(style_name, brand_name, part_number, style_id)")
       .in("id", productIds);
 
     const productMap = new Map((dbProducts || []).map((p: any) => [p.id, p]));
@@ -134,9 +134,16 @@ Deno.serve(async (req: Request) => {
         })),
       } : null;
 
+      const catalogName = dbProduct?.catalog_styles?.style_name || "Product";
+      const catalogSku = dbProduct?.catalog_styles?.part_number || dbProduct?.catalog_styles?.style_id?.toString() || null;
+      const storeDisplayName = dbProduct?.display_name || null;
+
       orderItems.push({
         team_store_product_id: item.productId,
-        product_name_snapshot: item.productName || dbProduct?.display_name || dbProduct?.catalog_styles?.style_name || "Product",
+        product_name_snapshot: item.productName || storeDisplayName || catalogName,
+        catalog_product_name: catalogName,
+        catalog_sku: catalogSku,
+        store_display_name: storeDisplayName,
         variant_snapshot: {
           color: item.color,
           colorCode: item.colorCode,

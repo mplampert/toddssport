@@ -2137,6 +2137,8 @@ export type Database = {
       }
       team_store_order_items: {
         Row: {
+          catalog_product_name: string | null
+          catalog_sku: string | null
           created_at: string
           decoration_snapshot: Json | null
           id: string
@@ -2147,6 +2149,7 @@ export type Database = {
           pricing_snapshot: Json | null
           product_name_snapshot: string
           quantity: number
+          store_display_name: string | null
           team_roster_player_id: string | null
           team_store_product_id: string | null
           unit_price: number
@@ -2154,6 +2157,8 @@ export type Database = {
           variant_snapshot: Json | null
         }
         Insert: {
+          catalog_product_name?: string | null
+          catalog_sku?: string | null
           created_at?: string
           decoration_snapshot?: Json | null
           id?: string
@@ -2164,6 +2169,7 @@ export type Database = {
           pricing_snapshot?: Json | null
           product_name_snapshot: string
           quantity?: number
+          store_display_name?: string | null
           team_roster_player_id?: string | null
           team_store_product_id?: string | null
           unit_price?: number
@@ -2171,6 +2177,8 @@ export type Database = {
           variant_snapshot?: Json | null
         }
         Update: {
+          catalog_product_name?: string | null
+          catalog_sku?: string | null
           created_at?: string
           decoration_snapshot?: Json | null
           id?: string
@@ -2181,6 +2189,7 @@ export type Database = {
           pricing_snapshot?: Json | null
           product_name_snapshot?: string
           quantity?: number
+          store_display_name?: string | null
           team_roster_player_id?: string | null
           team_store_product_id?: string | null
           unit_price?: number

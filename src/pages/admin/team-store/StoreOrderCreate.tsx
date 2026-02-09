@@ -48,7 +48,7 @@ export default function StoreOrderCreate() {
     queryFn: async () => {
       const { data } = await supabase
         .from("team_store_products")
-        .select("id, display_name, price_override, style_id, allowed_colors, catalog_styles(style_name, style_image, style_id)")
+        .select("id, display_name, price_override, style_id, allowed_colors, catalog_styles(style_name, style_image, style_id, part_number)")
         .eq("team_store_id", store.id)
         .eq("active", true)
         .order("sort_order");
@@ -83,16 +83,26 @@ export default function StoreOrderCreate() {
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
   const handleCreate = async (payAfter = false) => {
-    const orderItems = items.map((i) => ({
-      team_store_product_id: i.team_store_product_id || null,
-      product_name_snapshot: i.product_name_snapshot,
-      variant_snapshot: i.variant_snapshot,
-      quantity: i.quantity,
-      unit_price: i.unit_price,
-      line_total: i.quantity * i.unit_price,
-      personalization_name: i.personalization_name || null,
-      personalization_number: i.personalization_number || null,
-    }));
+    const orderItems = items.map((i) => {
+      // Look up catalog info for snapshot
+      const sp = storeProducts.find((p: any) => p.id === i.team_store_product_id);
+      const catalogName = (sp as any)?.catalog_styles?.style_name || i.product_name_snapshot;
+      const catalogSku = (sp as any)?.catalog_styles?.part_number || (sp as any)?.catalog_styles?.style_id?.toString() || null;
+      const storeDisplayName = (sp as any)?.display_name || null;
+      return {
+        team_store_product_id: i.team_store_product_id || null,
+        product_name_snapshot: i.product_name_snapshot,
+        catalog_product_name: catalogName,
+        catalog_sku: catalogSku,
+        store_display_name: storeDisplayName,
+        variant_snapshot: i.variant_snapshot,
+        quantity: i.quantity,
+        unit_price: i.unit_price,
+        line_total: i.quantity * i.unit_price,
+        personalization_name: i.personalization_name || null,
+        personalization_number: i.personalization_number || null,
+      };
+    });
 
     const result = await createOrder.mutateAsync({
       source: "manual",
