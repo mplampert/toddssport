@@ -1,8 +1,8 @@
 /**
  * Centralized product image utilities for team store products.
  *
- * Precedence rules (lifestyle-first):
- *   hero   = best lifestyle image from primary/extras/catalog, else best flat
+ * Precedence rules (flat-first — no model/person):
+ *   hero   = best flat/mockup image from primary/extras/catalog
  *   gallery = [primary_image_url?, ...extra_image_urls?, ...catalog images?]
  *
  * All URLs get a cache-busting `?v=<updated_at>` suffix when an updatedAt
@@ -20,7 +20,7 @@ export function bustCache(url: string | null | undefined, updatedAt?: string | n
   return `${url}${sep}v=${new Date(updatedAt).getTime()}`;
 }
 
-/* ─── Hero image (single best image, preferring lifestyle) ─── */
+/* ─── Hero image (single best image, preferring flat/mockup — no model) ─── */
 
 export interface ProductImageSource {
   primary_image_url?: string | null;
@@ -32,15 +32,15 @@ export interface ProductImageSource {
 }
 
 /**
- * Returns the best single display image for a product, preferring lifestyle
- * images over flat/mockup.
+ * Returns the best single display image for a product, preferring flat/mockup
+ * images over lifestyle (no model/person).
  *
  * Priority:
- *   1. primary_image_url if lifestyle
- *   2. first extra_image_url that is lifestyle
- *   3. primary_image_url (any type)
- *   4. first extra_image_url (any type)
- *   5. catalog_styles.style_image
+ *   1. primary_image_url if flat/mockup
+ *   2. first extra_image_url that is flat/mockup
+ *   3. catalog_styles.style_image (always flat)
+ *   4. primary_image_url (any type — lifestyle as last resort)
+ *   5. first extra_image_url (any type)
  */
 export function getProductImage(product: ProductImageSource): string {
   const ts = product.updated_at;
@@ -50,35 +50,39 @@ export function getProductImage(product: ProductImageSource): string {
   const extras = Array.isArray(product.extra_image_urls) ? product.extra_image_urls : [];
   const extraTypes = Array.isArray(product.extra_image_types) ? product.extra_image_types : [];
 
-  // 1. primary if lifestyle
-  if (primaryUrl && primaryType === "lifestyle") {
+  // 1. primary if flat/mockup
+  if (primaryUrl && (primaryType === "flat" || primaryType === "mockup")) {
     return bustCache(primaryUrl, ts);
   }
 
-  // 2. first lifestyle extra
+  // 2. first flat/mockup extra
   for (let i = 0; i < extras.length; i++) {
     const url = extras[i];
     const type = (extraTypes[i] as ImageType) || "lifestyle";
-    if (typeof url === "string" && url && type === "lifestyle") {
+    if (typeof url === "string" && url && (type === "flat" || type === "mockup")) {
       return bustCache(url, ts);
     }
   }
 
-  // 3. primary (any type)
+  // 3. catalog flat image
+  const catalogUrl = product.catalog_styles?.style_image;
+  if (catalogUrl) {
+    return bustCache(catalogUrl, ts);
+  }
+
+  // 4. primary (any type — lifestyle as last resort)
   if (primaryUrl) {
     return bustCache(primaryUrl, ts);
   }
 
-  // 4. first extra (any type)
+  // 5. first extra (any type)
   for (const url of extras) {
     if (typeof url === "string" && url) {
       return bustCache(url, ts);
     }
   }
 
-  // 5. catalog fallback
-  const catalogUrl = product.catalog_styles?.style_image;
-  return bustCache(catalogUrl, ts) || "";
+  return "";
 }
 
 /* ─── Gallery (ordered list of all available images) ─── */
