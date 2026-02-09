@@ -169,7 +169,7 @@ export default function StoreProductEditor() {
       {/* Full-width tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start bg-transparent border-b rounded-none px-0 h-auto py-0 overflow-x-auto">
-          {["Overview", "Description", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
+          {["Overview", "Description", "Mockups", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -187,7 +187,7 @@ export default function StoreProductEditor() {
           <TabsContent value="description" className="m-0">
             <ProductDescriptionTab item={item} storeId={store.id} />
           </TabsContent>
-          <TabsContent value="logos" className="m-0">
+          <TabsContent value="mockups" className="m-0">
             <div className="max-w-2xl">
               <ProductLogosTab item={item} storeId={store.id} />
             </div>
