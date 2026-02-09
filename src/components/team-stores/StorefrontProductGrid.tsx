@@ -251,28 +251,28 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
                         ) : (
                           <ShoppingBag className="w-12 h-12 text-muted-foreground/40" />
                         )}
+                        {/* Primary logo overlay — inside inset-0 so % positioning works */}
+                        {(() => {
+                          const matched = matchLogosForVariant(itemLogos);
+                          const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
+                          if (!primaryLogo) return null;
+                          const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
+                          if (!logoUrl) return null;
+                          return (
+                            <img
+                              src={logoUrl}
+                              alt=""
+                              className="absolute pointer-events-none object-contain"
+                              style={{
+                                left: `${(primaryLogo.x ?? 0.5) * 100}%`,
+                                top: `${(primaryLogo.y ?? 0.2) * 100}%`,
+                                width: `${(primaryLogo.scale ?? 0.3) * 100}%`,
+                                transform: "translate(-50%, -50%)",
+                              }}
+                            />
+                          );
+                        })()}
                       </div>
-                      {/* Primary logo overlay only */}
-                      {(() => {
-                        const matched = matchLogosForVariant(itemLogos);
-                        const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
-                        if (!primaryLogo) return null;
-                        const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
-                        if (!logoUrl) return null;
-                        return (
-                          <img
-                            src={logoUrl}
-                            alt=""
-                            className="absolute pointer-events-none object-contain"
-                            style={{
-                              left: `${(primaryLogo.x ?? 0.5) * 100}%`,
-                              top: `${(primaryLogo.y ?? 0.2) * 100}%`,
-                              width: `${(primaryLogo.scale ?? 0.3) * 100}%`,
-                              transform: "translate(-50%, -50%)",
-                            }}
-                          />
-                        );
-                      })()}
                     </div>
                     <CardContent className="p-4 flex-1">
                       <h3 className="font-semibold text-foreground">{name}</h3>
