@@ -238,7 +238,8 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                   firstColorImg = (productVariantImgs.find((v) => v.is_primary) || productVariantImgs[0])?.image_url ?? null;
                 }
               }
-              const imgSrc = firstColorImg || getProductImage(item);
+              // Prefer the catalog flat image (same as admin placement canvas) over lifestyle
+              const imgSrc = firstColorImg || item.catalog_styles?.style_image || getProductImage(item);
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
