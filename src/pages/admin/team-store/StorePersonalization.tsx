@@ -44,7 +44,7 @@ export default function StorePersonalization() {
         .upsert({
           store_id: store.id,
           ...form,
-        });
+        } as any);
       if (error) throw error;
     },
     onSuccess: () => {
