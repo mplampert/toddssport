@@ -6,13 +6,23 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const STYLE_DESCRIPTORS: Record<string, string> = {
+  clean_minimal: "Clean, modern, minimal design with geometric shapes, soft gradients, and generous whitespace. Professional and sleek.",
+  grunge: "Gritty, textured, raw grunge aesthetic with distressed surfaces, scratches, and urban decay. Edgy and intense.",
+  neon: "Vibrant neon glow effects on dark backgrounds. Electric energy, light trails, futuristic sports aesthetic.",
+  stadium: "Dramatic stadium lighting with beautiful bokeh effects, floodlights cutting through atmosphere, game-day energy.",
+  retro: "Vintage sports aesthetic with warm tones, worn textures, retro typography feel, nostalgic Americana.",
+  dynamic: "High-energy composition with motion blur, speed lines, dynamic angles, explosive movement frozen in time.",
+  corporate: "Sleek, polished, business-professional aesthetic. Clean lines, sophisticated color palette, premium feel.",
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { storeName, storeType, level, brandColors, sport } = await req.json();
+    const { storeName, storeType, sport, mascotName, heroStyle, brandColors } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
@@ -20,25 +30,71 @@ serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    console.log("Generating hero image for store:", storeName, { storeType, level, sport, brandColors });
+    console.log("Generating hero image for store:", storeName, { storeType, sport, mascotName, heroStyle, brandColors });
 
-    // Build a descriptive prompt
+    // Build style description
+    const styleDesc = STYLE_DESCRIPTORS[heroStyle] || STYLE_DESCRIPTORS["clean_minimal"];
+
+    // Build color instruction
     const colorDesc = brandColors?.length
-      ? `Use these brand colors as accents: ${brandColors.join(", ")}.`
+      ? `Use these brand colors prominently as the dominant color palette: ${brandColors.join(", ")}.`
       : "";
 
-    const contextParts: string[] = [];
-    if (sport) contextParts.push(`for ${sport}`);
-    if (level) contextParts.push(`at the ${level} level`);
-    if (storeType === "corporate") contextParts.push("for a corporate/company store");
+    // Build sport/context
+    const sportParts: string[] = [];
+    if (sport && sport !== "general athletics") {
+      sportParts.push(`The sport is ${sport}`);
+      const sportTextures: Record<string, string> = {
+        baseball: "diamond dirt texture, stitching patterns, chalk lines",
+        basketball: "hardwood court texture, rim silhouettes, arena lighting",
+        cheerleading: "confetti, pom-pom textures, spirit energy",
+        football: "field turf texture, yard lines, helmet silhouettes",
+        golf: "rolling greens, pin flag silhouettes, morning dew",
+        hockey: "ice texture, rink boards, puck trails, cold atmosphere",
+        lacrosse: "mesh patterns, turf, stick silhouettes",
+        soccer: "pitch texture, net patterns, goal posts",
+        softball: "infield dirt, stitching, batting cage netting",
+        swimming: "water ripples, lane markers, splash effects",
+        tennis: "court surface texture, net patterns, ball fuzz",
+        track: "track surface lanes, starting blocks, motion streaks",
+        volleyball: "net texture, sand or court, dynamic spikes",
+        wrestling: "mat texture, spotlights, intensity",
+      };
+      if (sportTextures[sport]) {
+        sportParts.push(`incorporate subtle sport-specific elements like ${sportTextures[sport]}`);
+      }
+    }
+    const sportStr = sportParts.length > 0 ? sportParts.join(". ") + "." : "";
 
-    const contextStr = contextParts.length > 0 ? contextParts.join(" ") : "for a team/school spirit store";
+    // Build mascot/team context
+    const mascotStr = mascotName
+      ? `The team is called "${mascotName}". You may incorporate abstract shapes or energy that evoke the team identity, but do NOT include any text, words, letters, numbers, or logos.`
+      : "";
 
-    const prompt = `Generate a wide cinematic hero banner image ${contextStr}. The image should be a dramatic, high-quality sports or team-themed background suitable for an online team store called "${storeName || 'Team Store'}". Think stadium lights, athletic fields, team spirit, or professional corporate branding depending on context. No text or logos in the image. Wide 16:9 aspect ratio. ${colorDesc} Ultra high resolution.`;
+    // Build context for store type
+    const typeStr = storeType === "corporate"
+      ? "This is for a corporate/company merchandise store."
+      : "This is for a school/youth/club team spirit store.";
+
+    const prompt = `Create a wide cinematic hero banner image for an online team store called "${storeName || "Team Store"}".
+
+Art direction: ${styleDesc}
+
+${typeStr}
+${sportStr}
+${mascotStr}
+${colorDesc}
+
+CRITICAL RULES:
+- Absolutely NO text, NO words, NO letters, NO numbers, NO logos, NO brand marks anywhere in the image.
+- The image must work as a background with HTML text overlaid on top.
+- Create visual depth with layers so a dark gradient overlay can sit naturally on the left side.
+- Wide 16:9 aspect ratio composition.
+- Ultra high resolution, photorealistic or highly stylized depending on the art direction above.
+- The image should feel premium, professional, and energetic.`;
 
     console.log("AI prompt:", prompt);
 
-    // Call Lovable AI with image generation model
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -47,9 +103,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
-        messages: [
-          { role: "user", content: prompt },
-        ],
+        messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
     });

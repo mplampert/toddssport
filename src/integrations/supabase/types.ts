@@ -3046,10 +3046,12 @@ export type Database = {
           fundraising_goal_amount: number | null
           fundraising_percent: number | null
           hero_image_url: string | null
+          hero_style: string | null
           hero_subtitle: string | null
           hero_title: string | null
           id: string
           logo_url: string | null
+          mascot_name: string | null
           name: string
           open_at: string | null
           org_tax_exempt: boolean | null
@@ -3063,6 +3065,7 @@ export type Database = {
           recurring_batch_time: string | null
           secondary_color: string | null
           slug: string
+          sport: string | null
           start_date: string | null
           status: string
           store_pin: string | null
@@ -3084,10 +3087,12 @@ export type Database = {
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
           hero_image_url?: string | null
+          hero_style?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           logo_url?: string | null
+          mascot_name?: string | null
           name: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
@@ -3101,6 +3106,7 @@ export type Database = {
           recurring_batch_time?: string | null
           secondary_color?: string | null
           slug: string
+          sport?: string | null
           start_date?: string | null
           status?: string
           store_pin?: string | null
@@ -3122,10 +3128,12 @@ export type Database = {
           fundraising_goal_amount?: number | null
           fundraising_percent?: number | null
           hero_image_url?: string | null
+          hero_style?: string | null
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
           logo_url?: string | null
+          mascot_name?: string | null
           name?: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
@@ -3139,6 +3147,7 @@ export type Database = {
           recurring_batch_time?: string | null
           secondary_color?: string | null
           slug?: string
+          sport?: string | null
           start_date?: string | null
           status?: string
           store_pin?: string | null
