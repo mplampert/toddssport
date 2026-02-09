@@ -44,10 +44,25 @@ export interface StoreProduct {
   team_store_categories?: { id: string; name: string } | null;
 }
 
+export interface ItemLogoRow {
+  team_store_item_id: string;
+  store_logo_id: string;
+  store_logo_variant_id: string | null;
+  x: number;
+  y: number;
+  scale: number;
+  view: string | null;
+  variant_color: string | null;
+  active: boolean;
+  store_logos: { file_url: string } | null;
+  store_logo_variants: { file_url: string } | null;
+}
+
 interface Props {
   products: StoreProduct[];
   categories: EffectiveCategory[];
   variantImages?: VariantImage[];
+  itemLogos?: ItemLogoRow[];
   selectedId: string | null;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
@@ -66,6 +81,7 @@ export function ProductListPane({
   products,
   categories,
   variantImages = [],
+  itemLogos = [],
   selectedId,
   selectedIds,
   onSelect,
@@ -126,6 +142,27 @@ export function ProductListPane({
     }
     return getProductImage(item);
   };
+
+  // Build logo overlays per product (front view, no variant_color filter — show defaults)
+  const logoOverlaysMap = useMemo(() => {
+    const map = new Map<string, { logo_url: string; x: number; y: number; scale: number }[]>();
+    for (const logo of itemLogos) {
+      if (!logo.active) continue;
+      if ((logo.view || "front") !== "front") continue;
+      if (logo.variant_color) continue; // only show default/all-color logos
+      const productId = logo.team_store_item_id;
+      if (!map.has(productId)) map.set(productId, []);
+      const fileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url || "";
+      if (!fileUrl) continue;
+      map.get(productId)!.push({
+        logo_url: fileUrl,
+        x: logo.x ?? 0.5,
+        y: logo.y ?? 0.2,
+        scale: logo.scale ?? 0.15,
+      });
+    }
+    return map;
+  }, [itemLogos]);
 
   const noopUpdate = async () => {};
 
@@ -227,6 +264,7 @@ export function ProductListPane({
                 key={item.id}
                 item={item}
                 imgSrc={resolveImage(item)}
+                logoOverlays={logoOverlaysMap.get(item.id) || []}
                 isChecked={selectedIds.has(item.id)}
                 isHighlighted={selectedId === item.id}
                 onNavigate={() => onSelect(item.id)}

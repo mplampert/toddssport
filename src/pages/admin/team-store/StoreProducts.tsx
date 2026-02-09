@@ -56,6 +56,23 @@ export default function StoreProducts() {
   const productIds = products.map((p) => p.id);
   const { data: variantImages = [] } = useStoreVariantImages(productIds);
 
+  // Fetch primary logo placements for all products (for decorated thumbnails)
+  const { data: allItemLogos = [] } = useQuery({
+    queryKey: ["team-store-item-logos-all", store.id],
+    queryFn: async () => {
+      if (productIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("team_store_item_logos")
+        .select("team_store_item_id, store_logo_id, store_logo_variant_id, x, y, scale, view, variant_color, active, store_logos(file_url), store_logo_variants(file_url)")
+        .in("team_store_item_id", productIds)
+        .eq("active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+    enabled: productIds.length > 0,
+  });
+
   const attachedStyleIds = new Set(products.map((p) => p.style_id));
 
   const { data: searchResults = [], isFetching: searching } = useQuery({
@@ -219,6 +236,7 @@ export default function StoreProducts() {
       <div className="border rounded-lg overflow-hidden bg-card">
         <ProductListPane
           variantImages={variantImages}
+          itemLogos={allItemLogos}
           products={products}
           categories={visibleCategories}
           selectedId={null}
