@@ -133,7 +133,6 @@ const App = () => (
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
-          <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
@@ -141,6 +140,7 @@ const App = () => (
             <Route path="fundraising" element={<TeamStoresFundraising />} />
             <Route path="reports" element={<TeamStoresReports />} />
             <Route path="logos" element={<TeamStoresLogos />} />
+            <Route path="notifications" element={<AdminNotifications />} />
             <Route path="settings" element={<TeamStoresSettings />} />
             <Route path="new" element={<NewTeamStoreWizard />} />
             <Route path=":id/*" element={<AdminTeamStoreDetail />}>
