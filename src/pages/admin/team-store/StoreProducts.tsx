@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { useStoreVariantImages } from "@/hooks/useVariantImages";
+import { useFirstColorImages } from "@/hooks/useFirstColorImages";
 import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCategoryManager";
 import { StoreCategoryManager } from "@/components/admin/team-stores/StoreCategoryManager";
 import { AddProductsWizard } from "@/components/admin/team-stores/AddProductsWizard";
@@ -55,6 +56,7 @@ export default function StoreProducts() {
 
   const productIds = products.map((p) => p.id);
   const { data: variantImages = [] } = useStoreVariantImages(productIds);
+  const { data: firstColorImages } = useFirstColorImages(products);
 
   // Fetch primary logo placements for all products (for decorated thumbnails)
   const { data: allItemLogos = [] } = useQuery({
@@ -237,6 +239,7 @@ export default function StoreProducts() {
         <ProductListPane
           variantImages={variantImages}
           itemLogos={allItemLogos}
+          firstColorImages={firstColorImages}
           products={products}
           categories={visibleCategories}
           selectedId={null}

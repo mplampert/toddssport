@@ -64,6 +64,7 @@ interface Props {
   categories: EffectiveCategory[];
   variantImages?: VariantImage[];
   itemLogos?: ItemLogoRow[];
+  firstColorImages?: Map<string, string>;
   selectedId: string | null;
   selectedIds: Set<string>;
   onSelect: (id: string) => void;
@@ -83,6 +84,7 @@ export function ProductListPane({
   categories,
   variantImages = [],
   itemLogos = [],
+  firstColorImages,
   selectedId,
   selectedIds,
   onSelect,
@@ -126,8 +128,13 @@ export function ProductListPane({
   const allFilteredIds = filtered.map((p) => p.id);
   const allSelected = filtered.length > 0 && filtered.every((p) => selectedIds.has(p.id));
 
-  // Resolve image using the same hero logic as the storefront
+  // Resolve image: first allowed color from SS API > variant images > catalog fallback
   const resolveImage = (item: StoreProduct): string | null => {
+    // 1. SS API color-specific image for the first allowed color
+    const ssColorImg = firstColorImages?.get(item.id);
+    if (ssColorImg) return ssColorImg;
+
+    // 2. Uploaded variant images
     const itemVariants = variantImages.filter(
       (v) => v.team_store_product_id === item.id
     );
