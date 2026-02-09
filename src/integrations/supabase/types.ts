@@ -695,6 +695,7 @@ export type Database = {
           max_width_in: number
           sort_order: number
           updated_at: string
+          view: string
         }
         Insert: {
           code: string
@@ -710,6 +711,7 @@ export type Database = {
           max_width_in: number
           sort_order?: number
           updated_at?: string
+          view?: string
         }
         Update: {
           code?: string
@@ -725,6 +727,7 @@ export type Database = {
           max_width_in?: number
           sort_order?: number
           updated_at?: string
+          view?: string
         }
         Relationships: []
       }
@@ -1822,6 +1825,7 @@ export type Database = {
           team_store_item_id: string
           variant_color: string | null
           variant_size: string | null
+          view: string
           x: number
           y: number
         }
@@ -1836,6 +1840,7 @@ export type Database = {
           team_store_item_id: string
           variant_color?: string | null
           variant_size?: string | null
+          view?: string
           x?: number
           y?: number
         }
@@ -1850,6 +1855,7 @@ export type Database = {
           team_store_item_id?: string
           variant_color?: string | null
           variant_size?: string | null
+          view?: string
           x?: number
           y?: number
         }
@@ -2001,6 +2007,7 @@ export type Database = {
       team_store_order_items: {
         Row: {
           created_at: string
+          decoration_snapshot: Json | null
           id: string
           line_total: number
           order_id: string
@@ -2016,6 +2023,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          decoration_snapshot?: Json | null
           id?: string
           line_total?: number
           order_id: string
@@ -2031,6 +2039,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          decoration_snapshot?: Json | null
           id?: string
           line_total?: number
           order_id?: string
@@ -2370,6 +2379,7 @@ export type Database = {
           sort_order: number
           team_store_product_id: string
           updated_at: string
+          view: string
         }
         Insert: {
           color: string
@@ -2381,6 +2391,7 @@ export type Database = {
           sort_order?: number
           team_store_product_id: string
           updated_at?: string
+          view?: string
         }
         Update: {
           color?: string
@@ -2392,6 +2403,7 @@ export type Database = {
           sort_order?: number
           team_store_product_id?: string
           updated_at?: string
+          view?: string
         }
         Relationships: [
           {

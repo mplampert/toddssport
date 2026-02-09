@@ -18,6 +18,7 @@ export interface LogoAssignment {
   position?: string | null;
   variant_color?: string | null;
   variant_size?: string | null;
+  view?: string | null; // "front" | "back"
   store_logos: { name: string; file_url: string } | null;
 }
 

@@ -31,6 +31,14 @@ const IMAGE_TYPE_OPTIONS = [
   { value: "mockup", label: "Mockup" },
 ];
 
+const VIEW_OPTIONS = [
+  { value: "front", label: "Front" },
+  { value: "back", label: "Back" },
+  { value: "left", label: "Left" },
+  { value: "right", label: "Right" },
+  { value: "detail", label: "Detail" },
+];
+
 export function ProductVariantImagesTab({ item, storeId }: Props) {
   const queryClient = useQueryClient();
   const fileRefs = useRef<Map<string, HTMLInputElement>>(new Map());
@@ -79,8 +87,9 @@ export function ProductVariantImagesTab({ item, storeId }: Props) {
           team_store_product_id: item.id,
           color,
           image_url: url,
-          image_type: "lifestyle",
-          is_primary: existing.length === 0, // First image is primary
+          image_type: "flat",
+          view: "front",
+          is_primary: existing.length === 0,
           sort_order: existing.length,
         } as any);
       if (error) throw error;
@@ -212,6 +221,12 @@ export function ProductVariantImagesTab({ item, storeId }: Props) {
                             className="w-full h-full object-contain"
                           />
                         </div>
+                        {/* View badge */}
+                        <div className="absolute top-1 right-1">
+                          <Badge variant="secondary" className="text-[8px] px-1 h-4 capitalize">
+                            {(img as any).view || "front"}
+                          </Badge>
+                        </div>
                         {/* Primary star */}
                         {img.is_primary && (
                           <div className="absolute top-1 left-1">
@@ -241,8 +256,30 @@ export function ProductVariantImagesTab({ item, storeId }: Props) {
                             <X className="w-3 h-3" />
                           </Button>
                         </div>
-                        {/* Type selector */}
-                        <div className="px-1 pb-1">
+                        {/* Type + View selectors */}
+                        <div className="px-1 pb-1 space-y-1">
+                          <Select
+                            value={(img as any).view || "front"}
+                            onValueChange={async (v) => {
+                              const { error } = await supabase
+                                .from("team_store_product_variant_images")
+                                .update({ view: v } as any)
+                                .eq("id", img.id);
+                              if (error) toast.error(error.message);
+                              else queryClient.invalidateQueries({ queryKey: ["variant-images", item.id] });
+                            }}
+                          >
+                            <SelectTrigger className="h-6 text-[10px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {VIEW_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <Select
                             value={img.image_type}
                             onValueChange={(v) => handleTypeChange(img, v)}

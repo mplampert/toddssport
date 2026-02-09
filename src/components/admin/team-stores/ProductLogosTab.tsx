@@ -19,6 +19,7 @@ interface ColorOption {
   code: string;
   name: string;
   frontImage?: string;
+  backImage?: string;
   swatchImage?: string;
   color1?: string;
   color2?: string;
@@ -64,6 +65,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [applyToAllColors, setApplyToAllColors] = useState(true);
   const [loadingVariants, setLoadingVariants] = useState(true);
+  const [activeView, setActiveView] = useState<"front" | "back">("front");
 
   // ── Placement state ──
   const [placements, setPlacements] = useState<LogoPlacement[]>([]);
@@ -133,7 +135,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, store_logos(name, file_url)")
+        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url)")
         .eq("team_store_item_id", item.id);
       if (error) throw error;
       return data;
@@ -168,6 +170,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             code: p.colorCode,
             name: p.colorName,
             frontImage: p.colorFrontImage,
+            backImage: p.colorBackImage,
             swatchImage: p.colorSwatchImage,
             color1: p.color1,
             color2: p.color2,
@@ -201,6 +204,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
       is_primary: p.is_primary ?? false,
       variant_color: p.variant_color ?? null,
       variant_size: p.variant_size ?? null,
+      view: p.view ?? "front",
       _logo_name: p.store_logos?.name,
       _logo_url: p.store_logos?.file_url,
     }));
@@ -208,20 +212,22 @@ export function ProductLogosTab({ item, storeId }: Props) {
     const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
     setApplyToAllColors(!hasColorOverrides);
 
-    const filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides);
+    const filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, activeView);
     setPlacements(filtered);
     setSavedSnapshot(JSON.stringify(all));
     setDirty(false);
     setActivePlacementIdx(null);
-  }, [existingPlacements, selectedColor]);
+  }, [existingPlacements, selectedColor, activeView]);
 
-  function filterPlacementsForEditing(all: LogoPlacement[], color: string | null, allColors: boolean): LogoPlacement[] {
+  function filterPlacementsForEditing(all: LogoPlacement[], color: string | null, allColors: boolean, view: string): LogoPlacement[] {
+    // Filter by view first
+    const viewFiltered = all.filter((p) => (p.view || "front") === view);
     if (allColors) {
-      return all.filter((p) => !p.variant_color);
+      return viewFiltered.filter((p) => !p.variant_color);
     }
-    const colorSpecific = all.filter((p) => p.variant_color === color);
+    const colorSpecific = viewFiltered.filter((p) => p.variant_color === color);
     if (colorSpecific.length > 0) return colorSpecific;
-    return all.filter((p) => !p.variant_color).map((p) => ({
+    return viewFiltered.filter((p) => !p.variant_color).map((p) => ({
       ...p,
       id: undefined,
       variant_color: color,
@@ -230,9 +236,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   // Add a store logo to this product with default placement + auto-pick variant
   const addLogoToProduct = (logo: StoreLogo) => {
-    const defaultPreset = presets.find((p) => p.code === "left_chest") || presets[0];
+    const defaultPreset = presets.find((p) => p.code === (activeView === "back" ? "upper_back" : "left_chest")) || presets[0];
     const logoVariants = variantsByLogo.get(logo.id) || [];
-    // Auto-pick best variant based on currently selected garment color
     const garmentColor = selectedColor
       ? colorOptions.find((c) => c.code === selectedColor)?.color1
       : undefined;
@@ -250,13 +255,14 @@ export function ProductLogosTab({ item, storeId }: Props) {
         is_primary: placements.length === 0,
         variant_color: applyToAllColors ? null : selectedColor,
         variant_size: null,
+        view: activeView,
         _logo_name: logo.name,
         _logo_url: bestVariant?.file_url || logo.file_url,
       },
     ]);
     setActivePlacementIdx(placements.length);
     setDirty(true);
-    toast.success(`Added "${logo.name}" — adjust placement on the canvas`);
+    toast.success(`Added "${logo.name}" to ${activeView} view — adjust placement on the canvas`);
   };
 
   const removePlacement = (idx: number) => {
@@ -318,7 +324,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     if (savedSnapshot && existingPlacements) {
       const all = JSON.parse(savedSnapshot) as LogoPlacement[];
       const hasColorOverrides = all.some((p) => p.variant_color != null);
-      setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides));
+      setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, activeView));
       setDirty(false);
       setActivePlacementIdx(null);
     }
@@ -326,8 +332,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      // Save only placements for the current view — delete existing for this view + color scope, then insert
       if (applyToAllColors) {
-        await supabase.from("team_store_item_logos").delete().eq("team_store_item_id", item.id);
+        // Delete all placements for this view (all colors)
+        await supabase.from("team_store_item_logos").delete()
+          .eq("team_store_item_id", item.id)
+          .eq("view", activeView);
         if (placements.length > 0) {
           const rows = placements.map((p) => ({
             team_store_item_id: item.id,
@@ -340,15 +350,18 @@ export function ProductLogosTab({ item, storeId }: Props) {
             is_primary: p.is_primary,
             variant_color: null,
             variant_size: null,
+            view: activeView,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
         }
       } else {
+        // Delete placements for this view + specific color
         const { error: delErr } = await supabase
           .from("team_store_item_logos")
           .delete()
           .eq("team_store_item_id", item.id)
+          .eq("view", activeView)
           .or(`variant_color.eq.${selectedColor},variant_color.is.null`);
         if (delErr) throw delErr;
 
@@ -364,6 +377,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             is_primary: p.is_primary,
             variant_color: selectedColor,
             variant_size: null,
+            view: activeView,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
@@ -381,14 +395,15 @@ export function ProductLogosTab({ item, storeId }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Determine canvas image based on selected color
+  // Determine canvas image based on selected color + active view
   const canvasImage = useMemo(() => {
     if (selectedColor) {
       const color = colorOptions.find((c) => c.code === selectedColor);
+      if (activeView === "back" && color?.backImage) return color.backImage;
       if (color?.frontImage) return color.frontImage;
     }
     return item.primary_image_url || item.catalog_styles?.style_image || "";
-  }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image]);
+  }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image, activeView]);
 
   const active = activePlacementIdx !== null ? placements[activePlacementIdx] : null;
 
@@ -424,7 +439,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     setDirty(true);
                     if (existingPlacements) {
                       const all = JSON.parse(savedSnapshot) as LogoPlacement[];
-                      setPlacements(filterPlacementsForEditing(all, selectedColor, v));
+                      setPlacements(filterPlacementsForEditing(all, selectedColor, v, activeView));
                     }
                   }}
                 />
@@ -444,7 +459,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     setActivePlacementIdx(null);
                     if (!applyToAllColors && existingPlacements) {
                       const all = JSON.parse(savedSnapshot) as LogoPlacement[];
-                      setPlacements(filterPlacementsForEditing(all, c.code, false));
+                      setPlacements(filterPlacementsForEditing(all, c.code, false, activeView));
                     }
                   }}
                   className={`relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border transition-colors ${
@@ -483,9 +498,37 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         )}
 
+        {/* ─── Front / Back View Toggle ─── */}
+        <div className="flex items-center gap-2">
+          <Label className="text-sm font-semibold">View:</Label>
+          <div className="flex rounded-lg border overflow-hidden">
+            {(["front", "back"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => {
+                  setActiveView(v);
+                  setActivePlacementIdx(null);
+                  if (existingPlacements) {
+                    const all = JSON.parse(savedSnapshot) as LogoPlacement[];
+                    const hasColorOverrides = all.some((p) => p.variant_color != null);
+                    setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, v));
+                  }
+                }}
+                className={`px-4 py-1.5 text-xs font-medium capitalize transition-colors ${
+                  activeView === v
+                    ? "bg-accent text-accent-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* ─── Placement Canvas ─── */}
         <div className="space-y-1.5">
-          <Label className="text-sm font-semibold">Placement Canvas</Label>
+          <Label className="text-sm font-semibold">Placement Canvas — {activeView === "front" ? "Front" : "Back"}</Label>
           <PlacementCanvas
             image={canvasImage}
             placements={placements}
