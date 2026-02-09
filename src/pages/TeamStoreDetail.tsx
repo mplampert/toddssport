@@ -233,7 +233,7 @@ export default function TeamStoreDetail() {
       <main className="flex-1">
         {/* Hero */}
         <section
-          className="relative py-16 px-4 min-h-[240px] md:min-h-[320px] flex items-center"
+          className="relative py-16 px-4 min-h-[240px] md:min-h-[320px] flex items-center aspect-[1200/630]"
           style={{
             background: storePublic?.hero_image_url
               ? undefined
