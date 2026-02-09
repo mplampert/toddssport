@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Settings, Save, Globe, Truck, DollarSign } from "lucide-react";
 import { toast } from "sonner";
@@ -41,9 +41,11 @@ export default function TeamStoresSettings() {
     },
   });
 
+  const parseMethods = (val: string) => val ? val.split(",").filter(Boolean) : [];
+
   const [form, setForm] = useState({
     default_country: "US",
-    default_fulfillment_method: "ship_to_customer",
+    default_fulfillment_methods: ["ship_to_customer"] as string[],
     default_flat_rate_shipping: "0",
     default_org_tax_exempt: false,
     default_pickup_location: "",
@@ -53,7 +55,7 @@ export default function TeamStoresSettings() {
     if (settings) {
       setForm({
         default_country: settings.default_country ?? "US",
-        default_fulfillment_method: settings.default_fulfillment_method ?? "ship_to_customer",
+        default_fulfillment_methods: parseMethods(settings.default_fulfillment_method ?? "ship_to_customer"),
         default_flat_rate_shipping: String(settings.default_flat_rate_shipping ?? 0),
         default_org_tax_exempt: settings.default_org_tax_exempt ?? false,
         default_pickup_location: (settings as any).default_pickup_location ?? "",
@@ -68,7 +70,7 @@ export default function TeamStoresSettings() {
         .from("team_store_settings")
         .update({
           default_country: form.default_country,
-          default_fulfillment_method: form.default_fulfillment_method,
+          default_fulfillment_method: form.default_fulfillment_methods.join(",") || "ship_to_customer",
           default_flat_rate_shipping: parseFloat(form.default_flat_rate_shipping) || 0,
           default_org_tax_exempt: form.default_org_tax_exempt,
           default_pickup_location: form.default_pickup_location || null,
@@ -136,26 +138,34 @@ export default function TeamStoresSettings() {
               </Select>
             </div>
 
-            {/* Fulfillment Method */}
+            {/* Fulfillment Methods */}
             <div className="space-y-3">
               <Label className="flex items-center gap-2">
-                <Truck className="w-4 h-4" /> Default Fulfillment Method
+                <Truck className="w-4 h-4" /> Default Fulfillment Methods
               </Label>
-              <RadioGroup
-                value={form.default_fulfillment_method}
-                onValueChange={(v) => setForm((f) => ({ ...f, default_fulfillment_method: v }))}
-                className="space-y-2"
-              >
+              <p className="text-xs text-muted-foreground">Select one or more options customers can choose from at checkout.</p>
+              <div className="space-y-2">
                 {FULFILLMENT_OPTIONS.map((opt) => (
                   <div key={opt.value} className="flex items-center gap-2">
-                    <RadioGroupItem value={opt.value} id={`global-${opt.value}`} />
+                    <Checkbox
+                      id={`global-${opt.value}`}
+                      checked={form.default_fulfillment_methods.includes(opt.value)}
+                      onCheckedChange={(checked) => {
+                        setForm((f) => ({
+                          ...f,
+                          default_fulfillment_methods: checked
+                            ? [...f.default_fulfillment_methods, opt.value]
+                            : f.default_fulfillment_methods.filter((m) => m !== opt.value),
+                        }));
+                      }}
+                    />
                     <Label htmlFor={`global-${opt.value}`} className="font-normal cursor-pointer">
                       {opt.label}
                     </Label>
                   </div>
                 ))}
-              </RadioGroup>
-              {form.default_fulfillment_method === "local_pickup" && (
+              </div>
+              {form.default_fulfillment_methods.includes("local_pickup") && (
                 <div className="space-y-2 ml-6 mt-2">
                   <Label>Default Pickup Location / Address</Label>
                   <Input
