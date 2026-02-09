@@ -242,26 +242,44 @@ export default function TeamStoreProductDetail() {
     [colorOptions, selectedColor]
   );
 
-  // Compute which views are active (have at least one image)
+  // Compute which views are active
+  // Front: always shown if it has an image.
+  // Back/Sleeves: shown only if they have BOTH an image AND a decoration element
+  //   (logo placement or, for back, personalization name/number).
   const activeViews = useMemo<ViewEnum[]>(() => {
     const views: ViewEnum[] = [];
+
+    const viewHasImage = (v: ViewEnum): boolean => {
+      if (selectedColor && hasImagesForView(variantImages, selectedColor, v)) return true;
+      if (v === "front" && activeColor?.frontImage) return true;
+      if (v === "back" && activeColor?.backImage) return true;
+      if ((v === "left_sleeve" || v === "right_sleeve") && activeColor?.sideImage) return true;
+      return false;
+    };
+
+    const viewHasDecoration = (v: ViewEnum): boolean => {
+      // Logo placements on this view
+      const hasLogos = allLogos.some((l: any) => (l.view || "front") === v);
+      if (hasLogos) return true;
+      // Personalization (name/number) counts as back decoration
+      if (v === "back" && (persSettings.enable_name || persSettings.enable_number)) return true;
+      return false;
+    };
+
     for (const v of VIEW_ORDER) {
-      if (selectedColor && hasImagesForView(variantImages, selectedColor, v)) {
-        views.push(v);
-        continue;
-      }
-      if (v === "front" && activeColor?.frontImage) { views.push(v); continue; }
-      if (v === "back" && activeColor?.backImage) { views.push(v); continue; }
-      if ((v === "left_sleeve" || v === "right_sleeve") && activeColor?.sideImage) { views.push(v); continue; }
-      // Also show sleeve views if they have logo placements
-      if ((v === "left_sleeve" || v === "right_sleeve")) {
-        const hasLogos = allLogos.some((l: any) => (l.view || "front") === v);
-        if (hasLogos) { views.push(v); continue; }
+      if (v === "front") {
+        // Front is always shown if it has an image
+        if (viewHasImage(v)) views.push(v);
+      } else if (v !== "other") {
+        // Back/sleeves: require both image AND decoration
+        if (viewHasImage(v) && viewHasDecoration(v)) views.push(v);
       }
     }
+
+    // Ensure front is always present as first entry
     if (!views.includes("front")) views.unshift("front");
     return views;
-  }, [selectedColor, variantImages, activeColor]);
+  }, [selectedColor, variantImages, activeColor, allLogos, persSettings.enable_name, persSettings.enable_number]);
 
   const galleryImages = useMemo(() => {
     const baseUrl = (u: string) => u.split("?")[0];
