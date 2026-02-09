@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
+import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle, Upload, Replace } from "lucide-react";
 import { toast } from "sonner";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
@@ -68,7 +68,6 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [applyToAllColors, setApplyToAllColors] = useState(true);
   const [loadingVariants, setLoadingVariants] = useState(true);
   const [activeView, setActiveView] = useState<"front" | "back" | "left_sleeve" | "right_sleeve">("front");
-  const [sleeveUploading, setSleeveUploading] = useState(false);
   const [reuseSleeveForAllColors, setReuseSleeveForAllColors] = useState(true);
 
   // ── Placement state ──
@@ -477,39 +476,45 @@ export function ProductLogosTab({ item, storeId }: Props) {
   });
 
   // Determine canvas image based on selected color + active view
-  const canvasImage = useMemo(() => {
+  // Also track whether the image comes from a variant record (manageable) vs SS API
+  const canvasImageInfo = useMemo(() => {
     const colorName = selectedColor
       ? colorOptions.find((c) => c.code === selectedColor)?.name
       : undefined;
 
-    // For sleeve views, check variant images first
-    if (activeView === "left_sleeve" || activeView === "right_sleeve") {
-      if (colorName) {
-        const sleeveImg = variantImages.find(
-          (img) => img.view === activeView && img.color === colorName
-        );
-        if (sleeveImg) return sleeveImg.image_url;
-      }
-      // Check for any sleeve image (any color) as fallback
-      const anySleeveImg = variantImages.find((img) => img.view === activeView);
-      if (anySleeveImg) return anySleeveImg.image_url;
-      // No sleeve image found — return empty to trigger upload prompt
-      return "";
+    // Check variant images for this view + color first
+    if (colorName) {
+      const viewImg = variantImages.find(
+        (img) => img.view === activeView && img.color === colorName
+      );
+      if (viewImg) return { url: viewImg.image_url, source: "variant" as const, variantImageId: viewImg.id };
     }
+    // Check variant images for this view (any color) as fallback
+    const anyViewImg = variantImages.find((img) => img.view === activeView);
+    if (anyViewImg) return { url: anyViewImg.image_url, source: "variant" as const, variantImageId: anyViewImg.id };
 
+    // SS API images (not deletable from here)
     if (selectedColor) {
       const color = colorOptions.find((c) => c.code === selectedColor);
-      if (activeView === "back" && color?.backImage) return color.backImage;
-      if (color?.frontImage) return color.frontImage;
+      if (activeView === "back" && color?.backImage) return { url: color.backImage, source: "ss" as const, variantImageId: null };
+      if (activeView === "front" && color?.frontImage) return { url: color.frontImage, source: "ss" as const, variantImageId: null };
     }
-    return item.primary_image_url || item.catalog_styles?.style_image || "";
+    // Fallback
+    const fallback = item.primary_image_url || item.catalog_styles?.style_image || "";
+    return { url: fallback, source: "catalog" as const, variantImageId: null };
   }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image, activeView, variantImages]);
 
-  const isSleeveView = activeView === "left_sleeve" || activeView === "right_sleeve";
-  const sleeveViewLabel = activeView === "left_sleeve" ? "Left Sleeve" : "Right Sleeve";
+  const canvasImage = canvasImageInfo.url;
 
-  // Handle sleeve image upload
-  const handleSleeveUpload = useCallback(async (file: File) => {
+  const isSleeveView = activeView === "left_sleeve" || activeView === "right_sleeve";
+  const activeViewLabel = activeView === "front" ? "Front" : activeView === "back" ? "Back"
+    : activeView === "left_sleeve" ? "Left Sleeve" : "Right Sleeve";
+
+  // Handle view image upload (works for any view, not just sleeves)
+  const viewImageFileRef = useRef<HTMLInputElement>(null);
+  const [viewImageUploading, setViewImageUploading] = useState(false);
+
+  const handleViewImageUpload = useCallback(async (file: File) => {
     const colorName = selectedColor
       ? colorOptions.find((c) => c.code === selectedColor)?.name
       : null;
@@ -518,7 +523,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
       return;
     }
 
-    setSleeveUploading(true);
+    setViewImageUploading(true);
     try {
       const ext = file.name.split(".").pop() || "jpg";
       const path = `${storeId}/${item.id}/variants/${colorName.replace(/\s+/g, "-")}/${activeView}-${Date.now()}.${ext}`;
@@ -545,9 +550,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
           .from("team_store_product_variant_images")
           .insert(rows as any);
         if (error) throw error;
-        toast.success(`${sleeveViewLabel} image applied to all ${enabledColors.length} colors`);
+        toast.success(`${activeViewLabel} image applied to all ${enabledColors.length} colors`);
       } else {
-        // Insert for just this color
         const { error } = await supabase
           .from("team_store_product_variant_images")
           .insert({
@@ -560,16 +564,53 @@ export function ProductLogosTab({ item, storeId }: Props) {
             sort_order: 0,
           } as any);
         if (error) throw error;
-        toast.success(`${sleeveViewLabel} image uploaded for ${colorName}`);
+        toast.success(`${activeViewLabel} image uploaded for ${colorName}`);
       }
 
       queryClient.invalidateQueries({ queryKey: ["variant-images", item.id] });
     } catch (err: any) {
       toast.error("Upload failed: " + err.message);
     } finally {
-      setSleeveUploading(false);
+      setViewImageUploading(false);
     }
-  }, [selectedColor, colorOptions, storeId, item.id, activeView, reuseSleeveForAllColors, sleeveViewLabel, queryClient]);
+  }, [selectedColor, colorOptions, storeId, item.id, activeView, reuseSleeveForAllColors, activeViewLabel, queryClient]);
+
+  // Handle deleting a variant image for this view
+  const handleDeleteViewImage = useCallback(async () => {
+    const colorName = selectedColor
+      ? colorOptions.find((c) => c.code === selectedColor)?.name
+      : null;
+
+    // Delete all variant images for this view + color (or all colors if reuse is on)
+    try {
+      if (reuseSleeveForAllColors) {
+        const { error } = await supabase
+          .from("team_store_product_variant_images")
+          .delete()
+          .eq("team_store_product_id", item.id)
+          .eq("view", activeView);
+        if (error) throw error;
+        toast.success(`${activeViewLabel} image removed for all colors`);
+      } else if (colorName) {
+        const { error } = await supabase
+          .from("team_store_product_variant_images")
+          .delete()
+          .eq("team_store_product_id", item.id)
+          .eq("view", activeView)
+          .eq("color", colorName);
+        if (error) throw error;
+        toast.success(`${activeViewLabel} image removed for ${colorName}`);
+      }
+      queryClient.invalidateQueries({ queryKey: ["variant-images", item.id] });
+    } catch (err: any) {
+      toast.error("Delete failed: " + err.message);
+    }
+  }, [selectedColor, colorOptions, item.id, activeView, reuseSleeveForAllColors, activeViewLabel, queryClient]);
+
+  // Keep sleeve upload handler for PlacementCanvas empty-state upload prompt
+  const handleSleeveUpload = isSleeveView ? handleViewImageUpload : undefined;
+  const sleeveUploading = viewImageUploading;
+  const sleeveViewLabel = activeViewLabel;
 
   const active = activePlacementIdx !== null ? placements[activePlacementIdx] : null;
 
@@ -694,23 +735,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         </div>
 
-        {/* ─── Reuse sleeve checkbox (only visible for sleeve views without image) ─── */}
-        {isSleeveView && !canvasImage && colorOptions.length > 1 && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground px-1">
-            <Checkbox
-              checked={reuseSleeveForAllColors}
-              onCheckedChange={(v) => setReuseSleeveForAllColors(!!v)}
-            />
-            Reuse this sleeve image for all colors
-          </label>
-        )}
+        {/* Reuse checkbox moved into image management strip below canvas */}
 
         {/* ─── Placement Canvas ─── */}
         <div className="space-y-1.5">
-          <Label className="text-sm font-semibold">Placement Canvas — {
-            activeView === "front" ? "Front" : activeView === "back" ? "Back"
-            : activeView === "left_sleeve" ? "Left Sleeve" : "Right Sleeve"
-          }</Label>
+          <Label className="text-sm font-semibold">Placement Canvas — {activeViewLabel}</Label>
           <PlacementCanvas
             image={canvasImage}
             placements={placements}
@@ -725,6 +754,93 @@ export function ProductLogosTab({ item, storeId }: Props) {
             sleeveUploading={sleeveUploading}
             sleeveViewLabel={sleeveViewLabel}
           />
+
+          {/* ─── View Image Management ─── */}
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              ref={viewImageFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) handleViewImageUpload(f);
+                e.target.value = "";
+              }}
+            />
+            {canvasImageInfo.source === "variant" ? (
+              <>
+                <Badge variant="secondary" className="text-[10px]">Custom image</Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={viewImageUploading}
+                  onClick={() => viewImageFileRef.current?.click()}
+                >
+                  {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Replace className="w-3 h-3 mr-1" />}
+                  Replace
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs text-destructive hover:text-destructive"
+                  onClick={handleDeleteViewImage}
+                >
+                  <Trash2 className="w-3 h-3 mr-1" /> Delete
+                </Button>
+              </>
+            ) : canvasImageInfo.source === "ss" ? (
+              <>
+                <Badge variant="secondary" className="text-[10px]">Catalog image</Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={viewImageUploading}
+                  onClick={() => viewImageFileRef.current?.click()}
+                >
+                  {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                  Upload Custom Image
+                </Button>
+              </>
+            ) : canvasImage ? (
+              <>
+                <Badge variant="secondary" className="text-[10px]">Fallback image</Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  disabled={viewImageUploading}
+                  onClick={() => viewImageFileRef.current?.click()}
+                >
+                  {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                  Upload {activeViewLabel} Image
+                </Button>
+              </>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={viewImageUploading}
+                onClick={() => viewImageFileRef.current?.click()}
+              >
+                {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                Upload {activeViewLabel} Image
+              </Button>
+            )}
+            {colorOptions.length > 1 && (
+              <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-auto">
+                <Checkbox
+                  checked={reuseSleeveForAllColors}
+                  onCheckedChange={(v) => setReuseSleeveForAllColors(!!v)}
+                  className="h-3.5 w-3.5"
+                />
+                Apply to all colors
+              </label>
+            )}
+          </div>
         </div>
 
         {/* ─── Controls for active placement ─── */}
