@@ -500,25 +500,39 @@ export default function TeamStoreProductDetail() {
                   </div>
                 )}
 
-                {/* Front / Back toggle — shown when back logos or back images exist */}
+                {/* Front / Back toggle thumbnails — shown when back logos or back images exist */}
                 {(hasBackLogos || activeColor?.backImage) && (
-                  <div className="flex items-center gap-2 justify-center">
-                    {(["front", "back"] as const).map((v) => (
-                      <button
-                        key={v}
-                        onClick={() => {
-                          setActiveProductView(v);
-                          setActiveImageIdx(0);
-                        }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium capitalize border-2 transition-all ${
-                          activeProductView === v
-                            ? "border-accent bg-accent/10 text-accent-foreground"
-                            : "border-border text-muted-foreground hover:bg-muted"
-                        }`}
-                      >
-                        {v} View
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-3 justify-center">
+                    {(["front", "back"] as const).map((v) => {
+                      const thumbSrc = v === "front"
+                        ? (activeColor?.frontImage || catalogStyle?.style_image)
+                        : (activeColor?.backImage || activeColor?.frontImage || catalogStyle?.style_image);
+                      return (
+                        <button
+                          key={v}
+                          onClick={() => {
+                            setActiveProductView(v);
+                            setActiveImageIdx(0);
+                          }}
+                          className={`w-16 h-16 rounded-lg border-2 overflow-hidden transition-all flex flex-col items-center ${
+                            activeProductView === v
+                              ? "border-accent ring-2 ring-accent/20"
+                              : "border-border hover:border-muted-foreground/50"
+                          }`}
+                        >
+                          {thumbSrc ? (
+                            <img
+                              src={thumbSrc}
+                              alt={`${v} view`}
+                              className="w-full h-full object-contain p-1"
+                              onError={handleImageError}
+                            />
+                          ) : (
+                            <span className="text-[10px] text-muted-foreground capitalize m-auto">{v}</span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
