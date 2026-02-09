@@ -58,14 +58,16 @@ export default function StoreProductEditor() {
     enabled: !!productId,
   });
 
-  // Fallback: fetch style info from SS Activewear when catalog_styles is missing
+  // Always fetch from SS Activewear to get rich product info
+  // Use catalog_styles.style_id (the real SS styleID) when available, otherwise item.style_id
+  const ssLookupId = item?.catalog_styles?.style_id ?? item?.style_id;
   const { data: ssStyle } = useQuery<SSStyle | null>({
-    queryKey: ["ss-style-info", item?.style_id],
+    queryKey: ["ss-style-info", ssLookupId],
     queryFn: async () => {
-      const styles = await getStyles({ style: String(item!.style_id) });
+      const styles = await getStyles({ style: String(ssLookupId) });
       return styles?.[0] ?? null;
     },
-    enabled: !!item && !item.catalog_styles,
+    enabled: !!ssLookupId,
     staleTime: 1000 * 60 * 30,
   });
 
@@ -124,9 +126,11 @@ export default function StoreProductEditor() {
   }
 
   const style = item.catalog_styles;
-  const resolvedName = item.display_name || style?.style_name || ssStyle?.styleName || `Style #${item.style_id}`;
-  const resolvedBrand = style?.brand_name || ssStyle?.brandName;
-  const resolvedSku = style?.style_id || ssStyle?.partNumber || ssStyle?.styleID;
+  // Prefer SS name when catalog style_name is just a number (SKU stored as name)
+  const catalogNameIsNumeric = style?.style_name && /^\d+$/.test(style.style_name);
+  const resolvedName = item.display_name || ssStyle?.styleName || (!catalogNameIsNumeric ? style?.style_name : null) || `Style #${item.style_id}`;
+  const resolvedBrand = ssStyle?.brandName || style?.brand_name;
+  const resolvedSku = ssStyle?.partNumber || style?.style_id || ssStyle?.styleID;
   const resolvedImage = getProductImage(item) || ssStyle?.styleImage;
 
   return (
