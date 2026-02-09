@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
   Loader2, ArrowLeft, Package, ShoppingCart,
-  ChevronLeft, ChevronRight, Truck, Eye,
+  ChevronLeft, ChevronRight, Eye,
 } from "lucide-react";
 import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
@@ -760,14 +760,6 @@ export default function TeamStoreProductDetail() {
                   </Button>
                 </div>
 
-                {/* Shipping info */}
-                <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50 border border-border">
-                  <Truck className="w-5 h-5 text-accent flex-shrink-0" />
-                  <div className="text-sm">
-                    <p className="font-medium text-foreground">Shipping</p>
-                    <p className="text-muted-foreground">Ships directly to you or your organization</p>
-                  </div>
-                </div>
               </div>
             </div>
           )}
