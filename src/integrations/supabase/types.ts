@@ -1815,11 +1815,15 @@ export type Database = {
       }
       team_store_item_logos: {
         Row: {
+          active: boolean
           created_at: string
           id: string
           is_primary: boolean
           position: string | null
+          role: string
+          rotation: number
           scale: number
+          sort_order: number
           store_logo_id: string
           store_logo_variant_id: string | null
           team_store_item_id: string
@@ -1830,11 +1834,15 @@ export type Database = {
           y: number
         }
         Insert: {
+          active?: boolean
           created_at?: string
           id?: string
           is_primary?: boolean
           position?: string | null
+          role?: string
+          rotation?: number
           scale?: number
+          sort_order?: number
           store_logo_id: string
           store_logo_variant_id?: string | null
           team_store_item_id: string
@@ -1845,11 +1853,15 @@ export type Database = {
           y?: number
         }
         Update: {
+          active?: boolean
           created_at?: string
           id?: string
           is_primary?: boolean
           position?: string | null
+          role?: string
+          rotation?: number
           scale?: number
+          sort_order?: number
           store_logo_id?: string
           store_logo_variant_id?: string | null
           team_store_item_id?: string

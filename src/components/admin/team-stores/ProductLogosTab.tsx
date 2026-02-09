@@ -135,8 +135,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url)")
-        .eq("team_store_item_id", item.id);
+        .select("id, store_logo_id, store_logo_variant_id, position, x, y, scale, rotation, is_primary, role, sort_order, active, variant_color, variant_size, view, store_logos(name, file_url)")
+        .eq("team_store_item_id", item.id)
+        .order("sort_order");
       if (error) throw error;
       return data;
     },
@@ -201,7 +202,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
       x: p.x ?? 0.5,
       y: p.y ?? 0.2,
       scale: p.scale ?? 0.3,
+      rotation: p.rotation ?? 0,
       is_primary: p.is_primary ?? false,
+      role: p.role || "primary",
+      sort_order: p.sort_order ?? 0,
+      active: p.active ?? true,
       variant_color: p.variant_color ?? null,
       variant_size: p.variant_size ?? null,
       view: p.view ?? "front",
@@ -269,7 +274,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
         x: defaultPreset?.default_x ?? 0.35,
         y: defaultPreset?.default_y ?? 0.25,
         scale: defaultPreset?.default_scale ?? 0.15,
+        rotation: 0,
         is_primary: placements.length === 0,
+        role: placements.length === 0 ? "primary" : "secondary",
+        sort_order: placements.length,
+        active: true,
         variant_color: applyToAllColors ? null : selectedColor,
         variant_size: null,
         view: activeView,
@@ -356,7 +365,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
           .eq("team_store_item_id", item.id)
           .eq("view", activeView);
         if (placements.length > 0) {
-          const rows = placements.map((p) => ({
+          const rows = placements.map((p, i) => ({
             team_store_item_id: item.id,
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
@@ -364,7 +373,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
             x: p.x,
             y: p.y,
             scale: p.scale,
+            rotation: p.rotation,
             is_primary: p.is_primary,
+            role: p.role,
+            sort_order: i,
+            active: p.active,
             variant_color: null,
             variant_size: null,
             view: activeView,
@@ -383,7 +396,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
         if (delErr) throw delErr;
 
         if (placements.length > 0) {
-          const rows = placements.map((p) => ({
+          const rows = placements.map((p, i) => ({
             team_store_item_id: item.id,
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
@@ -391,7 +404,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
             x: p.x,
             y: p.y,
             scale: p.scale,
+            rotation: p.rotation,
             is_primary: p.is_primary,
+            role: p.role,
+            sort_order: i,
+            active: p.active,
             variant_color: selectedColor,
             variant_size: null,
             view: activeView,
@@ -579,7 +596,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
               </Button>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {/* Logo select */}
               <div className="space-y-1">
                 <Label className="text-[11px] text-muted-foreground">Logo</Label>
@@ -634,6 +651,26 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Role selector */}
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">Role</Label>
+                <Select value={active.role} onValueChange={(v) => updatePlacement(activePlacementIdx, { role: v })}>
+                  <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {[
+                      { value: "primary", label: "Primary" },
+                      { value: "secondary", label: "Secondary" },
+                      { value: "sponsor", label: "Sponsor" },
+                      { value: "league_patch", label: "League Patch" },
+                      { value: "number_zone", label: "Number Zone" },
+                      { value: "other", label: "Other" },
+                    ].map((r) => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Logo Variant selector */}
@@ -677,11 +714,17 @@ export function ProductLogosTab({ item, storeId }: Props) {
               <span>max {Math.round(getMaxScale(active.position) * 100)}%</span>
             </div>
 
-            {/* Primary toggle + debug coords */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Switch checked={active.is_primary} onCheckedChange={() => setPrimaryPlacement(activePlacementIdx)} />
-                <Label className="text-[11px]">Primary logo</Label>
+            {/* Primary + Active toggles + debug coords */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch checked={active.is_primary} onCheckedChange={() => setPrimaryPlacement(activePlacementIdx)} />
+                  <Label className="text-[11px]">Primary</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={active.active} onCheckedChange={(v) => updatePlacement(activePlacementIdx, { active: v })} />
+                  <Label className="text-[11px]">Active</Label>
+                </div>
               </div>
               <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
                 x:{active.x.toFixed(2)} y:{active.y.toFixed(2)}
@@ -700,6 +743,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   key={idx}
                   onClick={() => setActivePlacementIdx(idx)}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
+                    !p.active ? "opacity-40" : ""
+                  } ${
                     activePlacementIdx === idx
                       ? "border-accent bg-accent/10 text-accent-foreground font-medium"
                       : "border-border bg-card text-muted-foreground hover:bg-muted"
@@ -710,7 +755,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   <span className="text-muted-foreground text-[10px]">
                     {presetMap.get(p.position)?.label || p.position}
                   </span>
+                  <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 capitalize">{p.role}</Badge>
                   {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
+                  {!p.active && <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Off</Badge>}
                 </button>
               ))}
             </div>

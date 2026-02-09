@@ -82,8 +82,10 @@ Deno.serve(async (req: Request) => {
     // Fetch logo placements for all products in this order (for decoration_snapshot)
     const { data: allItemLogos } = await supabase
       .from("team_store_item_logos")
-      .select("team_store_item_id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url)")
-      .in("team_store_item_id", productIds);
+      .select("team_store_item_id, store_logo_id, store_logo_variant_id, position, x, y, scale, rotation, is_primary, role, sort_order, active, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url)")
+      .in("team_store_item_id", productIds)
+      .eq("active", true)
+      .order("sort_order");
 
     // Group logos by product id
     const logosByProduct = new Map<string, any[]>();
@@ -110,7 +112,7 @@ Deno.serve(async (req: Request) => {
       // Build decoration snapshot from logo placements
       const productLogos = logosByProduct.get(item.productId) || [];
       const decorationSnapshot = productLogos.length > 0 ? {
-        views: ["front", "back"].filter(v => productLogos.some(l => (l.view || "front") === v)).map(view => ({
+        views: ["front", "back", "left_sleeve", "right_sleeve"].filter(v => productLogos.some(l => (l.view || "front") === v)).map(view => ({
           view,
           placements: productLogos
             .filter((l: any) => (l.view || "front") === view)
@@ -120,7 +122,12 @@ Deno.serve(async (req: Request) => {
               x: l.x,
               y: l.y,
               scale: l.scale,
+              rotation: l.rotation ?? 0,
               is_primary: l.is_primary,
+              role: l.role || "primary",
+              sort_order: l.sort_order ?? 0,
+              logo_id: l.store_logo_id,
+              logo_variant_id: l.store_logo_variant_id,
               logo_name: l.store_logos?.name,
               logo_url: l.store_logo_variants?.file_url || l.store_logos?.file_url,
             })),

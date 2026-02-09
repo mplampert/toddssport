@@ -63,7 +63,7 @@ export default function TeamStoreProductDetail() {
       // Fetch product + catalog info + assigned logos
       const { data: product, error: prodErr } = await supabase
         .from("team_store_products")
-        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, is_primary, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url))")
+        .select("*, catalog_styles(id, style_id, style_name, brand_name, style_image, description), team_store_item_logos(id, store_logo_id, store_logo_variant_id, position, x, y, scale, rotation, is_primary, role, sort_order, active, variant_color, variant_size, view, store_logos(name, file_url), store_logo_variants(file_url))")
         .eq("id", itemId!)
         .maybeSingle();
       if (prodErr) throw prodErr;
@@ -98,7 +98,9 @@ export default function TeamStoreProductDetail() {
   const store = storeProduct?._store;
   const catalogStyle = storeProduct?.catalog_styles;
   const ssStyleId = catalogStyle?.style_id;
-  const allLogos: LogoAssignment[] = (storeProduct as any)?.team_store_item_logos ?? [];
+  const allLogos: LogoAssignment[] = ((storeProduct as any)?.team_store_item_logos ?? [])
+    .filter((l: any) => l.active !== false)
+    .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   // Match logos for the currently selected color variant, filtered by active view
   const assignedLogos = useMemo(
