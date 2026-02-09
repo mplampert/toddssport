@@ -54,6 +54,7 @@ export default function TeamStoreProductDetail() {
   const [activeProductView, setActiveProductView] = useState<ViewEnum>("front");
   const [persName, setPersName] = useState("");
   const [persNumber, setPersNumber] = useState("");
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
   const { addItem } = useTeamStoreCart();
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
@@ -136,12 +137,22 @@ export default function TeamStoreProductDetail() {
     return calculateDecorationUpcharge(decoSettings, placements);
   }, [decoSettings, assignedLogos]);
 
+  const customFieldsUpcharge = useMemo(() => {
+    let total = 0;
+    for (const f of persSettings.custom_fields ?? []) {
+      const val = customFieldValues[f.id];
+      if (val && val.trim()) total += f.price;
+    }
+    return total;
+  }, [persSettings.custom_fields, customFieldValues]);
+
   const persUpcharge = useMemo(() => {
     let total = 0;
     if (persSettings.enable_name && persName) total += persSettings.name_price;
     if (persSettings.enable_number && persNumber) total += persSettings.number_price;
+    total += customFieldsUpcharge;
     return total;
-  }, [persSettings, persName, persNumber]);
+  }, [persSettings, persName, persNumber, customFieldsUpcharge]);
 
   // Determine deterministic default color from allowed_colors (same as grid)
   const determinedDefaultColor = useMemo(
@@ -332,8 +343,16 @@ export default function TeamStoreProductDetail() {
       toast.error(`${persSettings.number_label} is required.`);
       return;
     }
+    // Validate required custom fields
+    for (const f of persSettings.custom_fields ?? []) {
+      if (f.required && (!customFieldValues[f.id] || !customFieldValues[f.id].trim())) {
+        toast.error(`${f.label} is required.`);
+        return;
+      }
+    }
     const basePrice = Number(displayPrice) || 0;
     const totalUnit = basePrice + decoUpcharge + persUpcharge;
+    const hasCustomFields = Object.values(customFieldValues).some((v) => v?.trim());
     addItem({
       storeId: store?.id ?? "",
       storeSlug: slug ?? "",
@@ -352,17 +371,20 @@ export default function TeamStoreProductDetail() {
       decoUpcharge,
       persUpcharge,
       imageUrl: galleryImages[0] ?? catalogStyle?.style_image ?? null,
-      personalization: (persSettings.enable_name || persSettings.enable_number) ? {
+      personalization: (persSettings.enable_name || persSettings.enable_number || hasCustomFields) ? {
         name: persName || undefined,
         number: persNumber || undefined,
         namePrice: persSettings.name_price,
         numberPrice: persSettings.number_price,
+        customFields: hasCustomFields ? { ...customFieldValues } : undefined,
+        customFieldsUpcharge: hasCustomFields ? customFieldsUpcharge : undefined,
       } : undefined,
     });
     toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
     // Reset personalization after adding
     setPersName("");
     setPersNumber("");
+    setCustomFieldValues({});
     setQuantity(1);
   };
 
@@ -720,7 +742,7 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 {/* Personalization inputs */}
-                {(persSettings.enable_name || persSettings.enable_number) && (
+                {(persSettings.enable_name || persSettings.enable_number || (persSettings.custom_fields ?? []).length > 0) && (
                   <div className="mb-6 space-y-3">
                     <label className="text-sm font-semibold text-foreground block">Personalization</label>
                     {persSettings.instructions && (
@@ -757,6 +779,34 @@ export default function TeamStoreProductDetail() {
                           />
                         </div>
                       )}
+                      {(persSettings.custom_fields ?? []).map((field) => (
+                        <div key={field.id} className="space-y-1">
+                          <Label className="text-xs">
+                            {field.label}
+                            {field.required && <span className="text-destructive ml-0.5">*</span>}
+                            {field.price > 0 && <span className="text-muted-foreground ml-1">(+${field.price.toFixed(2)})</span>}
+                          </Label>
+                          {field.type === "dropdown" ? (
+                            <select
+                              value={customFieldValues[field.id] || ""}
+                              onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
+                              <option value="">Select {field.label}…</option>
+                              {field.options.map((opt) => (
+                                <option key={opt} value={opt}>{opt}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <Input
+                              value={customFieldValues[field.id] || ""}
+                              onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                              maxLength={field.max_length}
+                              placeholder={field.label}
+                            />
+                          )}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
