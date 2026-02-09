@@ -68,7 +68,9 @@ export default function StoreProductEditor() {
     queryKey: ["ss-style-info", ssLookupId],
     queryFn: async () => {
       const styles = await getStyles({ style: String(ssLookupId) });
-      return styles?.[0] ?? null;
+      // Match by exact styleID — the API may return many styles
+      const numId = Number(ssLookupId);
+      return styles?.find((s) => s.styleID === numId) ?? null;
     },
     enabled: !!ssLookupId,
     staleTime: 1000 * 60 * 30,
