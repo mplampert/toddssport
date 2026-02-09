@@ -11,7 +11,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Upload, Store, Trash2, Plus, ChevronDown, ChevronRight, Star, ImageIcon,
+  Upload, Store, Trash2, Plus, ChevronDown, ChevronRight, Star, ImageIcon, Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -113,6 +113,12 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
   const [decoName, setDecoName] = useState("");
   const [decoPlacement, setDecoPlacement] = useState("left_front");
   const [decoType, setDecoType] = useState("screen_print");
+
+  // Edit logo state
+  const [editDialog, setEditDialog] = useState<MasterLogo | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPlacement, setEditPlacement] = useState("left_front");
+  const [editDecoType, setEditDecoType] = useState("screen_print");
 
   const [variantDialog, setVariantDialog] = useState<{ logoId: string; logoName: string } | null>(null);
   const [variantName, setVariantName] = useState("");
@@ -272,6 +278,30 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateLogoMutation = useMutation({
+    mutationFn: async ({ id, name, placement, decoration_type }: { id: string; name: string; placement: string; decoration_type: string }) => {
+      const { error } = await supabase.from("store_logos").update({
+        name,
+        placement,
+        decoration_type,
+      } as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["store-logos-with-variants", storeId] });
+      toast.success("Logo updated");
+      setEditDialog(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const openEditDialog = (logo: MasterLogo) => {
+    setEditName(logo.name);
+    setEditPlacement(logo.placement || "left_front");
+    setEditDecoType(logo.decoration_type || "screen_print");
+    setEditDialog(logo);
+  };
 
   const addVariant = async (file: File) => {
     if (!variantDialog || !variantName.trim()) return;
@@ -500,6 +530,13 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
                     <Button
                       variant="ghost"
                       size="icon"
+                      onClick={() => openEditDialog(logo)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       onClick={() => {
                         if (confirm(`Delete "${logo.name}" and all its variants?`)) {
                           deleteLogoMutation.mutate(logo.id);
@@ -642,6 +679,66 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
             >
               <Upload className="w-4 h-4 mr-2" />
               {uploading ? "Uploading…" : "Upload Variant File"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Logo Dialog */}
+      <Dialog open={!!editDialog} onOpenChange={(v) => { if (!v) setEditDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Logo</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Logo Name</Label>
+              <Input
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Default Placement</Label>
+              <Select value={editPlacement} onValueChange={setEditPlacement}>
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PLACEMENTS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Decoration Type</Label>
+              <Select value={editDecoType} onValueChange={setEditDecoType}>
+                <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DECORATION_TYPES.map((d) => (
+                    <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialog(null)}>Cancel</Button>
+            <Button
+              className="btn-cta"
+              disabled={!editName.trim() || updateLogoMutation.isPending}
+              onClick={() => {
+                if (editDialog) {
+                  updateLogoMutation.mutate({
+                    id: editDialog.id,
+                    name: editName.trim(),
+                    placement: editPlacement,
+                    decoration_type: editDecoType,
+                  });
+                }
+              }}
+            >
+              {updateLogoMutation.isPending ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
