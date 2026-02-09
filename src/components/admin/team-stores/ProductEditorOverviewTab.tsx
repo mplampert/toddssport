@@ -1,0 +1,144 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import type { StoreProduct } from "./ProductListPane";
+
+interface Props {
+  item: StoreProduct;
+  storeId: string;
+  categories: { id: string; name: string; slug: string; overrideId?: string | null; isCustom?: boolean }[];
+}
+
+export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
+  const queryClient = useQueryClient();
+  const style = item.catalog_styles;
+
+  const [displayName, setDisplayName] = useState(item.display_name ?? "");
+  const [active, setActive] = useState(item.active);
+  const [internalNotes, setInternalNotes] = useState(item.internal_notes ?? "");
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [categoryId, setCategoryId] = useState<string | null>(item.category_id ?? item.store_category_override_id ?? null);
+  const [screenPrint, setScreenPrint] = useState(item.screen_print_enabled);
+  const [embroidery, setEmbroidery] = useState(item.embroidery_enabled);
+  const [dtf, setDtf] = useState(item.dtf_enabled);
+  const [dirty, setDirty] = useState(false);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      const selectedCat = categories.find((c) => c.id === categoryId);
+      const isCustom = selectedCat?.isCustom ?? false;
+      const { error } = await supabase
+        .from("team_store_products")
+        .update({
+          display_name: displayName.trim() || null,
+          active,
+          internal_notes: internalNotes.trim() || null,
+          notes: notes.trim() || null,
+          category_id: isCustom ? null : (categoryId || null),
+          store_category_override_id: isCustom ? (selectedCat?.overrideId ?? categoryId) : null,
+          screen_print_enabled: screenPrint,
+          embroidery_enabled: embroidery,
+          dtf_enabled: dtf,
+        })
+        .eq("id", item.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-product-editor", item.id] });
+      toast.success("Overview saved");
+      setDirty(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const m = () => setDirty(true);
+
+  return (
+    <div className="max-w-2xl space-y-6">
+      {/* Catalog Info */}
+      <div className="p-4 bg-muted/30 rounded-lg border space-y-1">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">Catalog Info (read-only)</p>
+        <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div><span className="text-muted-foreground">Name:</span> {style?.style_name}</div>
+          <div><span className="text-muted-foreground">Brand:</span> {style?.brand_name}</div>
+          <div><span className="text-muted-foreground">Style ID:</span> {style?.style_id}</div>
+        </div>
+        {style?.style_image && (
+          <img src={style.style_image} alt="" className="w-20 h-20 object-contain rounded mt-2" />
+        )}
+      </div>
+
+      <Separator />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Display Name (override)</Label>
+          <Input value={displayName} onChange={(e) => { setDisplayName(e.target.value); m(); }} placeholder={style?.style_name || "Product name"} />
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Switch checked={active} onCheckedChange={(v) => { setActive(v); m(); }} />
+          <Label>Active (visible on storefront)</Label>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Category</Label>
+          <Select value={categoryId ?? "none"} onValueChange={(v) => { setCategoryId(v === "none" ? null : v); m(); }}>
+            <SelectTrigger><SelectValue placeholder="Select category…" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No category</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Customer Notes (shown on storefront)</Label>
+          <Textarea value={notes} onChange={(e) => { setNotes(e.target.value); m(); }} placeholder='e.g. "Home jersey"' rows={2} />
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>Internal Notes (admin only)</Label>
+          <Textarea value={internalNotes} onChange={(e) => { setInternalNotes(e.target.value); m(); }} placeholder="Not shown to customers" rows={2} />
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-2">
+        <Label className="font-medium">Decoration Methods</Label>
+        <div className="flex gap-6">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={screenPrint} onCheckedChange={(v) => { setScreenPrint(!!v); m(); }} /> Screen Print
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={embroidery} onCheckedChange={(v) => { setEmbroidery(!!v); m(); }} /> Embroidery
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={dtf} onCheckedChange={(v) => { setDtf(!!v); m(); }} /> DTF
+          </label>
+        </div>
+      </div>
+
+      {dirty && (
+        <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+          {saveMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+          <Save className="w-4 h-4 mr-2" /> Save Overview
+        </Button>
+      )}
+    </div>
+  );
+}
