@@ -244,14 +244,16 @@ export default function TeamStoreProductDetail() {
       return fallback;
     }
     // No variant images — use SS catalog images for the SELECTED color
+    // Always prefer flat styleImage first (no model), then color-specific back/side
+    // colorFrontImage is typically a model shot — put it last
     const flatStyleImg = styleInfo?.styleImage;
     const ssColorImgs = activeColor
-      ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
+      ? [activeColor.backImage, activeColor.sideImage, activeColor.frontImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
-    // For non-default color, show that color's images first
-    const ssImgs = isDefaultColor && flatStyleImg
+    // Flat style image always goes first when available
+    const ssImgs = flatStyleImg
       ? [flatStyleImg, ...ssColorImgs.filter((u) => u !== flatStyleImg)]
       : ssColorImgs;
     const gallery = getProductGallery(storeProduct ?? {}, ssImgs);
