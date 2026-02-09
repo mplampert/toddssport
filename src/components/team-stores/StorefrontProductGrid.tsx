@@ -244,7 +244,7 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
               return (
                 <Link key={item.id} to={productUrl}>
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
-                    <div className="relative w-full overflow-hidden bg-muted" style={{ aspectRatio: "1 / 1" }}>
+                    <div className="relative w-full overflow-hidden bg-muted" style={{ paddingTop: "100%" }}>
                       <div className="absolute inset-0 flex items-center justify-center p-4">
                         {imgSrc ? (
                           <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" onError={handleImageError} />
