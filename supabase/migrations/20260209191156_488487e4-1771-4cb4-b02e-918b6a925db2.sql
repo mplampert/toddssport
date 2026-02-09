@@ -1,0 +1,1 @@
+ALTER TABLE public.team_store_products DROP CONSTRAINT team_store_products_team_store_id_style_id_key;
