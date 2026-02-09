@@ -5,17 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import type { StoreProduct } from "./ProductListPane";
-
-interface PersonalizationConfig {
-  allow_name?: boolean;
-  allow_number?: boolean;
-  max_chars?: number;
-}
 
 interface Props {
   item: StoreProduct;
@@ -29,9 +22,6 @@ export function ProductEditorPricingTab({ item, storeId }: Props) {
   const [fundraisingEnabled, setFundraisingEnabled] = useState(item.fundraising_enabled);
   const [fundraisingAmount, setFundraisingAmount] = useState(item.fundraising_amount_per_unit != null ? String(item.fundraising_amount_per_unit) : "");
   const [fundraisingPct, setFundraisingPct] = useState(item.fundraising_percentage != null ? String(item.fundraising_percentage) : "");
-  const [personalizationEnabled, setPersonalizationEnabled] = useState(item.personalization_enabled);
-  const [personalizationPrice, setPersonalizationPrice] = useState(item.personalization_price != null ? String(item.personalization_price) : "");
-  const [personalizationConfig, setPersonalizationConfig] = useState<PersonalizationConfig>(item.personalization_config ?? { allow_name: false, allow_number: false, max_chars: 20 });
   const [dirty, setDirty] = useState(false);
 
   const saveMutation = useMutation({
@@ -43,9 +33,6 @@ export function ProductEditorPricingTab({ item, storeId }: Props) {
           fundraising_enabled: fundraisingEnabled,
           fundraising_amount_per_unit: fundraisingAmount.trim() ? parseFloat(fundraisingAmount) : null,
           fundraising_percentage: fundraisingPct.trim() ? parseFloat(fundraisingPct) : null,
-          personalization_enabled: personalizationEnabled,
-          personalization_price: personalizationPrice.trim() ? parseFloat(personalizationPrice) : null,
-          personalization_config: personalizationConfig as any,
         })
         .eq("id", item.id);
       if (error) throw error;
@@ -84,37 +71,6 @@ export function ProductEditorPricingTab({ item, storeId }: Props) {
             <div className="space-y-1.5">
               <Label>Fundraising Percentage (%)</Label>
               <Input type="number" step="0.1" min="0" max="100" value={fundraisingPct} onChange={(e) => { setFundraisingPct(e.target.value); m(); }} placeholder="e.g. 15" className="w-40" />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <Switch checked={personalizationEnabled} onCheckedChange={(v) => { setPersonalizationEnabled(v); m(); }} />
-          <Label className="font-medium">Personalization</Label>
-        </div>
-        {personalizationEnabled && (
-          <div className="space-y-3 pl-12">
-            <div className="space-y-1.5">
-              <Label>Personalization Price ($)</Label>
-              <Input type="number" step="0.01" min="0" value={personalizationPrice} onChange={(e) => { setPersonalizationPrice(e.target.value); m(); }} placeholder="e.g. 8.00" className="w-40" />
-            </div>
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={personalizationConfig.allow_name ?? false} onCheckedChange={(v) => { setPersonalizationConfig((c) => ({ ...c, allow_name: !!v })); m(); }} />
-                Allow Name
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox checked={personalizationConfig.allow_number ?? false} onCheckedChange={(v) => { setPersonalizationConfig((c) => ({ ...c, allow_number: !!v })); m(); }} />
-                Allow Number
-              </label>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Max Characters</Label>
-              <Input type="number" min="1" max="100" value={personalizationConfig.max_chars ?? 20} onChange={(e) => { setPersonalizationConfig((c) => ({ ...c, max_chars: parseInt(e.target.value) || 20 })); m(); }} className="w-24" />
             </div>
           </div>
         )}
