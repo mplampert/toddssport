@@ -131,10 +131,7 @@ export function TeamStoreBasicsForm({ store }: Props) {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label>Logo URL</Label>
-            <Input value={form.logo_url} onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))} placeholder="https://..." />
-          </div>
+          {/* Logo URL moved to Branding tab */}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Palette, Save, Info, Plus, X, Wand2, Loader2 } from "lucide-react";
+import { Palette, Save, Info, Plus, X, Wand2, Loader2, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { HeroGenerator } from "@/components/admin/team-stores/HeroGenerator";
 
@@ -39,7 +40,7 @@ export default function StoreBranding() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_stores")
-        .select("id, name, brand_colors")
+        .select("id, name, brand_colors, logo_url")
         .eq("id", store.id)
         .single();
       if (error) throw error;
@@ -63,12 +64,14 @@ export default function StoreBranding() {
   });
 
   const [brandColors, setBrandColors] = useState<string[]>([]);
+  const [logoUrl, setLogoUrl] = useState("");
   const [hasChanges, setHasChanges] = useState(false);
   const [isExtracting, setIsExtracting] = useState(false);
 
   useEffect(() => {
     if (storeData) {
       setBrandColors(normalizeBrandColors(storeData.brand_colors));
+      setLogoUrl(storeData.logo_url ?? "");
       setHasChanges(false);
     }
   }, [storeData]);
@@ -77,20 +80,21 @@ export default function StoreBranding() {
 
   // Save mutation
   const saveMutation = useMutation({
-    mutationFn: async (colors: string[]) => {
+    mutationFn: async ({ colors, logo }: { colors: string[]; logo: string }) => {
       const normalized = colors.map((c) => c.toUpperCase());
       const { error } = await supabase
         .from("team_stores")
-        .update({ brand_colors: normalized })
+        .update({ brand_colors: normalized, logo_url: logo || null })
         .eq("id", store.id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["store-branding", store.id] });
-      toast.success("Brand colors saved for this team store");
+      queryClient.invalidateQueries({ queryKey: ["team-store"] });
+      toast.success("Branding saved");
       setHasChanges(false);
     },
-    onError: (e: Error) => toast.error(`Failed to save brand colors: ${e.message}`),
+    onError: (e: Error) => toast.error(`Failed to save: ${e.message}`),
   });
 
   const handleSave = () => {
@@ -98,7 +102,7 @@ export default function StoreBranding() {
       toast.error("Add at least one brand color before saving.");
       return;
     }
-    saveMutation.mutate(brandColors);
+    saveMutation.mutate({ colors: brandColors, logo: logoUrl });
   };
 
   const updateColor = (index: number, value: string) => {
@@ -189,6 +193,43 @@ export default function StoreBranding() {
           Set the colors and logos that make this team store feel like your school, club, or organization.
         </p>
       </div>
+
+      {/* Store Logo Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="w-5 h-5" />
+            Store Logo
+          </CardTitle>
+          <CardDescription>
+            The primary logo displayed on the storefront header and hero section. This is your school, club, or organization's main logo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-6">
+            {logoUrl ? (
+              <div className="w-24 h-24 rounded-lg border border-border bg-muted flex items-center justify-center p-2 shrink-0">
+                <img src={logoUrl} alt="Store logo" className="max-w-full max-h-full object-contain" />
+              </div>
+            ) : (
+              <div className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center shrink-0">
+                <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+              </div>
+            )}
+            <div className="flex-1 space-y-2">
+              <Label>Logo URL</Label>
+              <Input
+                value={logoUrl}
+                onChange={(e) => { setLogoUrl(e.target.value); setHasChanges(true); }}
+                placeholder="https://..."
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste a URL to your logo image. This appears on the store page and in marketing materials.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Brand Colors Card */}
       <Card>
