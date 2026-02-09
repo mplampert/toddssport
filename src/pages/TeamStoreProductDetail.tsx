@@ -220,16 +220,16 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
-    // Compute the hero image using the SAME resolver as the grid tile
+    // Only pin the hero image when showing the default color (grid consistency)
+    const isDefaultColor = !selectedColor || selectedColor === determinedDefaultColor;
     const heroResult = getStorefrontHero(storeProduct ?? {}, variantImages);
-    const heroUrl = heroResult.heroImageUrl;
+    const heroUrl = isDefaultColor ? heroResult.heroImageUrl : "";
 
     // If variant images exist for the selected color, show ONLY those
     if (selectedColor) {
       const colorGallery = getGalleryForColor(variantImages, selectedColor);
       if (colorGallery.length > 0) {
-        // If the selected color IS the default color, ensure hero is first
-        if (selectedColor === determinedDefaultColor && heroUrl && !colorGallery.includes(heroUrl)) {
+        if (heroUrl && !colorGallery.includes(heroUrl)) {
           return [heroUrl, ...colorGallery];
         }
         return colorGallery;
@@ -238,26 +238,23 @@ export default function TeamStoreProductDetail() {
     // If the product has variant images for ANY color, don't mix in SS/override images
     if (variantImages.length > 0) {
       const fallback = getProductGallery(storeProduct ?? {}, []);
-      // Ensure hero is first if it isn't already
       if (heroUrl && fallback[0] !== heroUrl) {
         return [heroUrl, ...fallback.filter((u) => u !== heroUrl)];
       }
       return fallback;
     }
-    // No variant images at all — use SS catalog images
-    // Prefer flat style image first (no model/person), then front/back/side
+    // No variant images — use SS catalog images for the SELECTED color
     const flatStyleImg = styleInfo?.styleImage;
     const ssColorImgs = activeColor
       ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
-    // Put flat style image first, then color-specific images
-    const ssImgs = flatStyleImg
+    // For non-default color, show that color's images first
+    const ssImgs = isDefaultColor && flatStyleImg
       ? [flatStyleImg, ...ssColorImgs.filter((u) => u !== flatStyleImg)]
       : ssColorImgs;
     const gallery = getProductGallery(storeProduct ?? {}, ssImgs);
-    // Ensure hero is first
     if (heroUrl && gallery[0] !== heroUrl) {
       return [heroUrl, ...gallery.filter((u) => u !== heroUrl)];
     }
