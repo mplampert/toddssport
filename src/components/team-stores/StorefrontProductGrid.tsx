@@ -7,6 +7,7 @@ import { ShoppingBag } from "lucide-react";
 import { handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStoreVariantImages } from "@/hooks/useVariantImages";
+import { useStoreFlatImages } from "@/hooks/useStoreFlatImages";
 import { getStorefrontHero } from "@/lib/storefrontHero";
 
 interface RawLogoAssignment extends LogoAssignment {
@@ -73,6 +74,9 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
 
   // Fetch variant images for all products
   const { data: allVariantImages = [] } = useStoreVariantImages(productIds);
+
+  // Fetch flat (no-model) images from S&S API for all products
+  const { data: flatImageMap } = useStoreFlatImages(products as any);
 
   // Build lookup: productId -> variant images
   const variantImagesByProduct = useMemo(() => {
@@ -222,9 +226,11 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
             {section.items.map((item) => {
               const style = item.catalog_styles;
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
-              // Use variant image for first enabled color if available
+              // Prefer flat (no-model) image from SS API, fall back to variant/catalog hero
               const productVariantImgs = variantImagesByProduct.get(item.id) || [];
-              const { heroImageUrl: imgSrc } = getStorefrontHero(item, productVariantImgs);
+              const ssFlatImg = flatImageMap?.get(item.id);
+              const { heroImageUrl: fallbackImg } = getStorefrontHero(item, productVariantImgs);
+              const imgSrc = ssFlatImg || fallbackImg;
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
               return (

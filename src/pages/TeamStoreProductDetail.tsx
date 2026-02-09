@@ -22,7 +22,7 @@ import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
 import { useProductVariantImages, getGalleryForColor } from "@/hooks/useVariantImages";
-import { getStorefrontHero, getDefaultColor } from "@/lib/storefrontHero";
+import { getDefaultColor } from "@/lib/storefrontHero";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 
@@ -220,10 +220,6 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
-    // The hero image is the single source of truth — same URL the grid tile shows.
-    const heroResult = getStorefrontHero(storeProduct ?? {}, variantImages);
-    const heroUrl = heroResult.heroImageUrl;
-
     // Helper: deduplicate by stripping cache-bust params for comparison
     const baseUrl = (u: string) => u.split("?")[0];
     const dedupe = (urls: string[]) => {
@@ -240,37 +236,28 @@ export default function TeamStoreProductDetail() {
     if (selectedColor) {
       const colorGallery = getGalleryForColor(variantImages, selectedColor);
       if (colorGallery.length > 0) {
-        // Pin hero first for default color, otherwise just show color gallery
-        const isDefault = selectedColor === determinedDefaultColor;
-        if (isDefault && heroUrl) {
-          return dedupe([heroUrl, ...colorGallery]);
-        }
         return colorGallery;
       }
     }
 
-    // No variant images for this color — build gallery from SS catalog data
-    // Hero (grid image) always goes first, then color-specific angles
+    // No variant images — build gallery from SS color-specific FLAT images
+    // colorFrontImage = flat product shot (no model), from /Images/Color/ path
+    // Never use styleImage here — it's always a model shot (/Images/Style/ path)
     const ssColorImgs = activeColor
-      ? [activeColor.backImage, activeColor.sideImage, activeColor.frontImage].filter(
+      ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
-
-    // Start with the hero URL (matches grid tile), then add color angles
-    const imgs = heroUrl
-      ? [heroUrl, ...ssColorImgs]
-      : ssColorImgs;
 
     // Add any override images from the product as additional gallery shots
     const overridePrimary = storeProduct?.primary_image_url;
     const overrideExtras = Array.isArray(storeProduct?.extra_image_urls)
       ? (storeProduct.extra_image_urls as string[]).filter((u): u is string => !!u)
       : [];
-    const allImgs = [...imgs, ...(overridePrimary ? [overridePrimary] : []), ...overrideExtras];
+    const allImgs = [...ssColorImgs, ...(overridePrimary ? [overridePrimary] : []), ...overrideExtras];
 
     return dedupe(allImgs.filter(Boolean));
-  }, [activeColor, storeProduct, selectedColor, variantImages, determinedDefaultColor]);
+  }, [activeColor, storeProduct, selectedColor, variantImages]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
