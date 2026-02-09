@@ -25,7 +25,9 @@ interface StorefrontProduct {
   display_name: string | null;
   display_color: string | null;
   primary_image_url: string | null;
+  primary_image_type: string | null;
   extra_image_urls: string[] | null;
+  extra_image_types: string[] | null;
   catalog_styles: {
     id: number;
     style_id: number;

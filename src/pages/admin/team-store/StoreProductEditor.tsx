@@ -35,7 +35,7 @@ export default function StoreProductEditor() {
           personalization_enabled, personalization_price, personalization_config,
           screen_print_enabled, embroidery_enabled, dtf_enabled,
           category_id, store_category_override_id,
-          display_name, display_color, primary_image_url, extra_image_urls,
+          display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types,
           internal_notes, allowed_colors,
           catalog_styles(id, style_id, style_name, brand_name, style_image, description),
           team_store_categories(id, name)
