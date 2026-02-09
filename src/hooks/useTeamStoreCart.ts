@@ -24,6 +24,8 @@ export interface TeamStoreCartItem {
     number?: string;
     namePrice: number;
     numberPrice: number;
+    customFields?: Record<string, string>; // fieldId -> value
+    customFieldsUpcharge?: number;
   };
   addedAt: string;
 }
