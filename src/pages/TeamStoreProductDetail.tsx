@@ -589,7 +589,7 @@ export default function TeamStoreProductDetail() {
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
               {/* ═══ LEFT: Image Gallery ═══ */}
               <div className="space-y-4">
-                <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group mx-auto w-full" style={{ aspectRatio: "4/5", maxHeight: "520px" }}>
+                <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group mx-auto w-full" style={{ aspectRatio: "4/5", maxHeight: "420px" }}>
                   {galleryImages[activeImageIdx] ? (
                     <img
                       src={galleryImages[activeImageIdx]}
@@ -611,22 +611,26 @@ export default function TeamStoreProductDetail() {
                   {assignedLogos.map((logo: any) => {
                     const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
                     if (!logoFileUrl) return null;
+                    const size = (logo.scale ?? 0.3) * 100;
                     return (
-                      <img
+                      <div
                         key={logo.id}
-                        src={logoFileUrl}
-                        alt={logo.store_logos?.name || "Logo"}
-                        className="absolute pointer-events-none object-contain"
+                        className="absolute pointer-events-none"
                         style={{
                           left: `${(logo.x ?? 0.5) * 100}%`,
                           top: `${(logo.y ?? 0.2) * 100}%`,
-                          width: `${(logo.scale ?? 0.3) * 100}%`,
+                          width: `${size}%`,
                           transform: "translate(-50%, -50%)",
                         }}
-                      />
+                      >
+                        <img
+                          src={logoFileUrl}
+                          alt={logo.store_logos?.name || "Logo"}
+                          className="w-full h-auto object-contain"
+                        />
+                      </div>
                     );
                   })}
-
                   {/* Text layer overlays with live personalization */}
                   {viewTextLayers.map((t, idx) => {
                     const rawText = resolveTextContent(t, { name: persName, number: persNumber, customFields: customFieldValues });
