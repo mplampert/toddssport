@@ -569,6 +569,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             onSelectPlacement={setActivePlacementIdx}
             onMovePlacement={(idx, x, y) => updatePlacement(idx, { x, y })}
             onScalePlacement={(idx, scale) => updatePlacement(idx, { scale })}
+            onDeletePlacement={removePlacement}
           />
         </div>
 

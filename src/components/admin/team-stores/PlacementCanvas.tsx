@@ -1,5 +1,5 @@
-import React, { useRef, useCallback } from "react";
-import { ImageIcon } from "lucide-react";
+import React, { useRef, useCallback, useEffect } from "react";
+import { ImageIcon, Trash2 } from "lucide-react";
 import { handleImageError } from "@/lib/productImages";
 
 /* ─── Types ─── */
@@ -46,15 +46,32 @@ interface CanvasProps {
   onSelectPlacement: (idx: number) => void;
   onMovePlacement: (idx: number, x: number, y: number) => void;
   onScalePlacement: (idx: number, scale: number) => void;
+  onDeletePlacement?: (idx: number) => void;
 }
 
-export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, onSelectPlacement, onMovePlacement, onScalePlacement }: CanvasProps) {
+export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxScaleFn, onSelectPlacement, onMovePlacement, onScalePlacement, onDeletePlacement }: CanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const interactionRef = useRef<
     | { type: "drag"; idx: number; offsetX: number; offsetY: number }
     | { type: "resize"; idx: number; startScale: number; startDist: number }
     | null
   >(null);
+
+  // Keyboard Delete/Backspace support
+  useEffect(() => {
+    if (activeIdx === null || !onDeletePlacement) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        // Don't intercept if user is typing in an input
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+        e.preventDefault();
+        onDeletePlacement(activeIdx);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [activeIdx, onDeletePlacement]);
 
   const handlePointerDown = useCallback((e: React.PointerEvent, idx: number) => {
     e.preventDefault();
@@ -225,6 +242,20 @@ export function PlacementCanvas({ image, placements, presetMap, activeIdx, maxSc
                 <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap shadow-sm">
                   {presetMap.get(p.position)?.label || p.position}
                 </div>
+                {/* Delete button */}
+                {onDeletePlacement && (
+                  <button
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      onDeletePlacement(idx);
+                    }}
+                    className="absolute -top-3 -right-3 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center shadow-md z-30 hover:scale-110 transition-transform"
+                    title="Delete placement"
+                  >
+                    <Trash2 className="w-2.5 h-2.5" />
+                  </button>
+                )}
               </>
             )}
           </div>
