@@ -20,6 +20,7 @@ import {
   MessageSquare,
   UserCheck,
   DollarSign,
+  Tag,
 } from "lucide-react";
 
 const STORE_TABS = [
@@ -30,6 +31,7 @@ const STORE_TABS = [
   { label: "Branding", path: "branding", icon: Palette },
   { label: "Messages", path: "messages", icon: MessageSquare },
   { label: "Orders", path: "orders", icon: ShoppingCart },
+  { label: "Promo Codes", path: "promo-codes", icon: Tag },
   { label: "Reports", path: "reports", icon: BarChart3 },
   { label: "Fulfillment", path: "fulfillment", icon: Truck },
   { label: "Marketing", path: "marketing", icon: Megaphone },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe";
@@ -12,6 +12,8 @@ import { Separator } from "@/components/ui/separator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft,
   Loader2,
@@ -22,11 +24,14 @@ import {
   Package,
   User,
   Truck,
+  Users,
+  Tag,
+  X,
 } from "lucide-react";
 import { useTeamStoreCart, type TeamStoreCartItem } from "@/hooks/useTeamStoreCart";
 import { toast } from "sonner";
 
-/* ─── Inner payment form (rendered inside <Elements>) ─── */
+/* ─── Inner payment form ─── */
 function PaymentForm({
   orderId,
   orderNumber,
@@ -62,13 +67,11 @@ function PaymentForm({
     }
 
     if (result.paymentIntent?.status === "succeeded") {
-      // Mark order as paid in our DB (belt-and-suspenders; webhook also does this)
       await supabase
         .from("team_store_orders")
         .update({ status: "confirmed", payment_status: "paid" } as any)
         .eq("id", orderId);
 
-      // Record payment ledger entry
       await supabase.from("team_store_payments").insert({
         order_id: orderId,
         type: "payment",
@@ -116,30 +119,54 @@ export default function TeamStoreCheckout() {
   const storeName = storeItems[0]?.storeName || "Store";
   const subtotal = storeItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
-  // Form state
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+  // ═══ Billing fields ═══
+  const [billingName, setBillingName] = useState("");
+  const [billingEmail, setBillingEmail] = useState("");
+  const [billingPhone, setBillingPhone] = useState("");
+
+  // ═══ Recipient fields ═══
+  const [recipientName, setRecipientName] = useState("");
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [recipientPhone, setRecipientPhone] = useState("");
+  const [recipientSmsOptIn, setRecipientSmsOptIn] = useState(false);
+
+  // ═══ Fulfillment fields ═══
   const [fulfillment, setFulfillment] = useState("ship");
+  // Ship
+  const [shipName, setShipName] = useState("");
   const [address1, setAddress1] = useState("");
   const [address2, setAddress2] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
+  const [shipPhone, setShipPhone] = useState("");
+  // Pickup
+  const [pickupContactName, setPickupContactName] = useState("");
+  const [pickupContactPhone, setPickupContactPhone] = useState("");
+  // Local delivery
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
+
   const [notes, setNotes] = useState("");
 
-  // Checkout state
+  // ═══ Promo code ═══
+  const [promoCode, setPromoCode] = useState("");
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState("");
+
+  // ═══ Checkout state ═══
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [orderId, setOrderId] = useState("");
   const [orderNumber, setOrderNumber] = useState("");
   const [serverTotal, setServerTotal] = useState(subtotal);
+  const [serverDiscount, setServerDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paid, setPaid] = useState(false);
 
   const stripePromise = getStripe();
 
-  // Check for redirect back (payment_intent in URL)
+  // Check for redirect back
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const piClientSecret = params.get("payment_intent_client_secret");
@@ -156,14 +183,24 @@ export default function TeamStoreCheckout() {
     }
   }, []);
 
+  const locked = !!clientSecret;
+
   const validate = () => {
-    if (!name.trim()) return "Name is required";
-    if (!email.trim() || !email.includes("@")) return "Valid email is required";
+    if (!billingName.trim()) return "Billing name is required";
+    if (!billingEmail.trim() || !billingEmail.includes("@")) return "Valid billing email is required";
+    if (!recipientName.trim()) return "Recipient / player name is required";
     if (fulfillment === "ship") {
       if (!address1.trim()) return "Shipping address is required";
       if (!city.trim()) return "City is required";
       if (!state.trim()) return "State is required";
       if (!zip.trim()) return "ZIP code is required";
+    }
+    if (fulfillment === "pickup") {
+      if (!pickupContactName.trim()) return "Pickup contact name is required";
+      if (!pickupContactPhone.trim()) return "Pickup contact phone is required";
+    }
+    if (fulfillment === "local_delivery") {
+      if (!deliveryAddress.trim()) return "Delivery address is required";
     }
     return null;
   };
@@ -196,15 +233,41 @@ export default function TeamStoreCheckout() {
             imageUrl: i.imageUrl,
             personalization: i.personalization,
           })),
-          customer: { name, email, phone },
+          billing: {
+            name: billingName,
+            email: billingEmail,
+            phone: billingPhone || undefined,
+          },
+          recipient: {
+            name: recipientName,
+            email: recipientEmail || undefined,
+            phone: recipientPhone || undefined,
+            smsOptIn: recipientSmsOptIn,
+          },
           fulfillment: {
             method: fulfillment,
-            address:
-              fulfillment === "ship"
-                ? { name, address1, address2, city, state, zip }
-                : undefined,
+            ...(fulfillment === "ship" ? {
+              address: {
+                name: shipName || billingName,
+                address1,
+                address2,
+                city,
+                state,
+                zip,
+                phone: shipPhone || billingPhone,
+              },
+            } : {}),
+            ...(fulfillment === "pickup" ? {
+              pickupContactName,
+              pickupContactPhone,
+            } : {}),
+            ...(fulfillment === "local_delivery" ? {
+              deliveryAddress,
+              deliveryInstructions: deliveryInstructions || undefined,
+            } : {}),
           },
           customerNotes: notes || undefined,
+          promoCode: promoApplied ? promoCode.trim() : undefined,
         },
       });
 
@@ -215,6 +278,7 @@ export default function TeamStoreCheckout() {
       setOrderId(data.orderId);
       setOrderNumber(data.orderNumber);
       setServerTotal(data.total);
+      setServerDiscount(data.discountTotal || 0);
     } catch (err: any) {
       setError(err.message || "Failed to start checkout");
     } finally {
@@ -282,12 +346,8 @@ export default function TeamStoreCheckout() {
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-8 max-w-5xl">
           <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-            <Link
-              to={`/team-stores/${slug}/cart`}
-              className="hover:text-foreground transition-colors flex items-center gap-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              Cart
+            <Link to={`/team-stores/${slug}/cart`} className="hover:text-foreground transition-colors flex items-center gap-1">
+              <ArrowLeft className="w-3.5 h-3.5" /> Cart
             </Link>
             <span>/</span>
             <span className="text-foreground font-medium">Checkout</span>
@@ -298,28 +358,62 @@ export default function TeamStoreCheckout() {
           <div className="grid lg:grid-cols-5 gap-8">
             {/* ── Left: Form ── */}
             <div className="lg:col-span-3 space-y-6">
-              {/* Customer Info */}
+              {/* Billing / Purchaser */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <User className="w-5 h-5" />
-                    Customer Information
+                    <User className="w-5 h-5" /> Purchaser / Billing
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label>Full Name *</Label>
-                      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="John Smith" disabled={!!clientSecret} />
+                      <Input value={billingName} onChange={(e) => setBillingName(e.target.value)} placeholder="John Smith" disabled={locked} />
                     </div>
                     <div className="space-y-1.5">
                       <Label>Email *</Label>
-                      <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="john@example.com" disabled={!!clientSecret} />
+                      <Input type="email" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} placeholder="john@example.com" disabled={locked} />
                     </div>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Phone</Label>
-                    <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="(555) 123-4567" disabled={!!clientSecret} />
+                    <Input value={billingPhone} onChange={(e) => setBillingPhone(e.target.value)} placeholder="(555) 123-4567" disabled={locked} />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Recipient / Player */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="w-5 h-5" /> Player / Recipient
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Recipient Name *</Label>
+                      <Input value={recipientName} onChange={(e) => setRecipientName(e.target.value)} placeholder="Player name" disabled={locked} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Recipient Email</Label>
+                      <Input type="email" value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} placeholder="Optional" disabled={locked} />
+                    </div>
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>Recipient Phone</Label>
+                      <Input value={recipientPhone} onChange={(e) => setRecipientPhone(e.target.value)} placeholder="Optional" disabled={locked} />
+                    </div>
+                    <div className="flex items-center gap-2 pt-6">
+                      <Checkbox
+                        checked={recipientSmsOptIn}
+                        onCheckedChange={(v) => setRecipientSmsOptIn(v === true)}
+                        disabled={locked}
+                      />
+                      <Label className="text-sm font-normal">Opt-in to SMS updates</Label>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -328,12 +422,11 @@ export default function TeamStoreCheckout() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <Truck className="w-5 h-5" />
-                    Fulfillment
+                    <Truck className="w-5 h-5" /> Fulfillment
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <RadioGroup value={fulfillment} onValueChange={setFulfillment} disabled={!!clientSecret}>
+                  <RadioGroup value={fulfillment} onValueChange={setFulfillment} disabled={locked}>
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="ship" id="ship" />
                       <Label htmlFor="ship">Ship to me</Label>
@@ -343,41 +436,77 @@ export default function TeamStoreCheckout() {
                       <Label htmlFor="pickup">Pickup</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="deliver" id="deliver" />
-                      <Label htmlFor="deliver">Deliver to coach</Label>
+                      <RadioGroupItem value="local_delivery" id="local_delivery" />
+                      <Label htmlFor="local_delivery">Local delivery</Label>
                     </div>
                   </RadioGroup>
 
                   {fulfillment === "ship" && (
                     <div className="space-y-3 pt-2">
+                      <div className="grid sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label>Ship To Name</Label>
+                          <Input value={shipName} onChange={(e) => setShipName(e.target.value)} placeholder={billingName || "Same as billing"} disabled={locked} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label>Phone</Label>
+                          <Input value={shipPhone} onChange={(e) => setShipPhone(e.target.value)} placeholder={billingPhone || "(555) 123-4567"} disabled={locked} />
+                        </div>
+                      </div>
                       <div className="space-y-1.5">
                         <Label>Address *</Label>
-                        <Input value={address1} onChange={(e) => setAddress1(e.target.value)} placeholder="123 Main St" disabled={!!clientSecret} />
+                        <Input value={address1} onChange={(e) => setAddress1(e.target.value)} placeholder="123 Main St" disabled={locked} />
                       </div>
                       <div className="space-y-1.5">
                         <Label>Address 2</Label>
-                        <Input value={address2} onChange={(e) => setAddress2(e.target.value)} placeholder="Apt, Suite, etc." disabled={!!clientSecret} />
+                        <Input value={address2} onChange={(e) => setAddress2(e.target.value)} placeholder="Apt, Suite, etc." disabled={locked} />
                       </div>
                       <div className="grid grid-cols-3 gap-3">
                         <div className="space-y-1.5">
                           <Label>City *</Label>
-                          <Input value={city} onChange={(e) => setCity(e.target.value)} disabled={!!clientSecret} />
+                          <Input value={city} onChange={(e) => setCity(e.target.value)} disabled={locked} />
                         </div>
                         <div className="space-y-1.5">
                           <Label>State *</Label>
-                          <Input value={state} onChange={(e) => setState(e.target.value)} maxLength={2} placeholder="OH" disabled={!!clientSecret} />
+                          <Input value={state} onChange={(e) => setState(e.target.value)} maxLength={2} placeholder="OH" disabled={locked} />
                         </div>
                         <div className="space-y-1.5">
                           <Label>ZIP *</Label>
-                          <Input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="44101" disabled={!!clientSecret} />
+                          <Input value={zip} onChange={(e) => setZip(e.target.value)} placeholder="44101" disabled={locked} />
                         </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {fulfillment === "pickup" && (
+                    <div className="space-y-3 pt-2">
+                      <div className="space-y-1.5">
+                        <Label>Pickup Contact Name *</Label>
+                        <Input value={pickupContactName} onChange={(e) => setPickupContactName(e.target.value)} placeholder="Who will pick up?" disabled={locked} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Pickup Contact Phone *</Label>
+                        <Input value={pickupContactPhone} onChange={(e) => setPickupContactPhone(e.target.value)} placeholder="(555) 123-4567" disabled={locked} />
+                      </div>
+                    </div>
+                  )}
+
+                  {fulfillment === "local_delivery" && (
+                    <div className="space-y-3 pt-2">
+                      <div className="space-y-1.5">
+                        <Label>Delivery Address *</Label>
+                        <Input value={deliveryAddress} onChange={(e) => setDeliveryAddress(e.target.value)} placeholder="Where should we deliver?" disabled={locked} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>Delivery Instructions</Label>
+                        <Textarea value={deliveryInstructions} onChange={(e) => setDeliveryInstructions(e.target.value)} placeholder="Coach name, room number, etc." rows={2} disabled={locked} />
                       </div>
                     </div>
                   )}
 
                   <div className="space-y-1.5 pt-2">
                     <Label>Order Notes</Label>
-                    <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Special instructions..." rows={2} disabled={!!clientSecret} />
+                    <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Special instructions..." rows={2} disabled={locked} />
                   </div>
                 </CardContent>
               </Card>
@@ -386,8 +515,7 @@ export default function TeamStoreCheckout() {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <CreditCard className="w-5 h-5" />
-                    Payment
+                    <CreditCard className="w-5 h-5" /> Payment
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -403,31 +531,14 @@ export default function TeamStoreCheckout() {
                           <AlertCircle className="w-4 h-4 shrink-0" /> {error}
                         </div>
                       )}
-                      <Button
-                        onClick={handleStartCheckout}
-                        disabled={loading}
-                        className="w-full btn-cta"
-                        size="lg"
-                      >
-                        {loading ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <CreditCard className="w-4 h-4 mr-2" />
-                        )}
+                      <Button onClick={handleStartCheckout} disabled={loading} className="w-full btn-cta" size="lg">
+                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CreditCard className="w-4 h-4 mr-2" />}
                         Continue to Payment
                       </Button>
                     </div>
                   ) : (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{ clientSecret, appearance: { theme: "stripe" } }}
-                    >
-                      <PaymentForm
-                        orderId={orderId}
-                        orderNumber={orderNumber}
-                        total={serverTotal}
-                        onSuccess={handlePaymentSuccess}
-                      />
+                    <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: "stripe" } }}>
+                      <PaymentForm orderId={orderId} orderNumber={orderNumber} total={serverTotal} onSuccess={handlePaymentSuccess} />
                     </Elements>
                   )}
                 </CardContent>
@@ -439,19 +550,14 @@ export default function TeamStoreCheckout() {
               <Card className="sticky top-24">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
-                    <Package className="w-5 h-5" />
-                    Order Summary
+                    <Package className="w-5 h-5" /> Order Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {storeItems.map((item) => (
                     <div key={item.id} className="flex gap-3">
                       {item.imageUrl && (
-                        <img
-                          src={item.imageUrl}
-                          alt=""
-                          className="w-12 h-12 object-contain rounded border bg-muted p-0.5 shrink-0"
-                        />
+                        <img src={item.imageUrl} alt="" className="w-12 h-12 object-contain rounded border bg-muted p-0.5 shrink-0" />
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate">{item.productName}</p>
@@ -473,11 +579,80 @@ export default function TeamStoreCheckout() {
 
                   <Separator />
 
+                  {/* Promo Code */}
+                  {!locked && (
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-1.5 text-sm">
+                        <Tag className="w-3.5 h-3.5" /> Promo Code
+                      </Label>
+                      {promoApplied ? (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className="text-sm">
+                            {promoCode.toUpperCase()}
+                          </Badge>
+                          <button
+                            onClick={() => { setPromoApplied(false); setPromoCode(""); setPromoError(""); }}
+                            className="text-muted-foreground hover:text-foreground"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <Input
+                            value={promoCode}
+                            onChange={(e) => { setPromoCode(e.target.value); setPromoError(""); }}
+                            placeholder="Enter code"
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={!promoCode.trim()}
+                            onClick={() => {
+                              if (!billingEmail.trim()) {
+                                setPromoError("Enter your billing email first");
+                                return;
+                              }
+                              setPromoApplied(true);
+                              setPromoError("");
+                            }}
+                          >
+                            Apply
+                          </Button>
+                        </div>
+                      )}
+                      {promoError && (
+                        <p className="text-xs text-destructive">{promoError}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {locked && serverDiscount > 0 && (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-sm">
+                        <Tag className="w-3 h-3 mr-1" />
+                        {promoCode.toUpperCase()}
+                      </Badge>
+                      <span className="text-sm text-green-600 dark:text-green-400">
+                        -${serverDiscount.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+
+                  <Separator />
+
                   <div className="space-y-1.5 text-sm">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
+                    {(locked ? serverDiscount : 0) > 0 && (
+                      <div className="flex justify-between text-green-600 dark:text-green-400">
+                        <span>Discount</span>
+                        <span>-${serverDiscount.toFixed(2)}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Shipping</span>
                       <span>$0.00</span>
@@ -492,7 +667,7 @@ export default function TeamStoreCheckout() {
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>${(clientSecret ? serverTotal : subtotal).toFixed(2)}</span>
+                    <span>${(locked ? serverTotal : subtotal).toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>
