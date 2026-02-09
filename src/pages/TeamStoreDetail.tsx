@@ -39,11 +39,11 @@ export default function TeamStoreDetail() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_stores")
-        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active")
+        .select("id, name, slug, start_date, end_date, logo_url, primary_color, secondary_color, store_pin, status, active, hero_image_url, hero_title, hero_subtitle")
         .eq("slug", slug!)
         .single();
       if (error) throw error;
-      return data as StoreData & { status: string; active: boolean };
+      return data as StoreData & { status: string; active: boolean; hero_image_url: string | null; hero_title: string | null; hero_subtitle: string | null };
     },
     enabled: !!slug,
   });
@@ -218,12 +218,29 @@ export default function TeamStoreDetail() {
       <main className="flex-1">
         {/* Hero */}
         <section
-          className="py-16 px-4"
+          className="relative py-16 px-4 min-h-[240px] md:min-h-[320px] flex items-center"
           style={{
-            background: `linear-gradient(135deg, ${store?.primary_color || "#1a1a2e"}dd, ${store?.secondary_color || "#e2e8f0"}99)`,
+            background: storePublic?.hero_image_url
+              ? undefined
+              : `linear-gradient(135deg, ${store?.primary_color || "#1a1a2e"}dd, ${store?.secondary_color || "#e2e8f0"}99)`,
           }}
         >
-          <div className="container mx-auto text-center">
+          {/* Background image if hero_image_url exists */}
+          {storePublic?.hero_image_url && (
+            <>
+              <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: `url(${storePublic.hero_image_url})` }}
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: `linear-gradient(to right, ${store?.primary_color || "#1a1a2e"}e6, ${store?.primary_color || "#1a1a2e"}80, transparent)`,
+                }}
+              />
+            </>
+          )}
+          <div className="container mx-auto text-center relative z-10">
             <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white mb-4">
               <Link to="/team-stores">
                 <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
@@ -232,7 +249,14 @@ export default function TeamStoreDetail() {
             {store?.logo_url && (
               <img src={store.logo_url} alt={store.name} className="w-24 h-24 object-contain mx-auto mb-4 rounded-xl bg-white/90 p-2" />
             )}
-            <h1 className="text-4xl font-bold text-white drop-shadow-lg">{store?.name}</h1>
+            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+              {storePublic?.hero_title || store?.name}
+            </h1>
+            {storePublic?.hero_subtitle && (
+              <p className="text-lg text-white/90 mt-2 drop-shadow max-w-xl mx-auto">
+                {storePublic.hero_subtitle}
+              </p>
+            )}
             {dateRange && (
               <div className="flex items-center justify-center gap-2 mt-3 text-white/90">
                 <Calendar className="w-4 h-4" />

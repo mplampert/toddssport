@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Palette, Save, Info, Plus, X, Wand2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { LogoLibrary } from "@/components/admin/team-stores/LogoLibrary";
+import { HeroGenerator } from "@/components/admin/team-stores/HeroGenerator";
 
 const MAX_COLORS = 4;
 const HEX_PATTERN = /^#[0-9A-Fa-f]{0,6}$/;
@@ -298,6 +299,9 @@ export default function StoreBranding() {
           </div>
         </CardContent>
       </Card>
+
+      {/* AI Hero Generator */}
+      <HeroGenerator storeId={store.id} storeName={storeName} brandColors={brandColors} />
 
       {/* Logo Library Card */}
       <Card>
