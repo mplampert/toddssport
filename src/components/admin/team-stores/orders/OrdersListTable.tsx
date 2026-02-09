@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useStoreOrders, useOrderPayments, computePaymentStatus, type StoreOrder } from "@/hooks/useStoreOrders";
+import { useStoreOrders, useUpdateOrder, useOrderPayments, computePaymentStatus, type StoreOrder } from "@/hooks/useStoreOrders";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Search, X, FlaskConical, Trash2, Loader2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Plus, Search, X, FlaskConical, Trash2, Loader2, MoreHorizontal, Pencil, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
 interface Props {
@@ -26,10 +27,19 @@ function PaymentBadge({ orderId, total }: { orderId: string; total: number }) {
   return <Badge variant={variant}>{status}</Badge>;
 }
 
+const STATUS_ACTIONS = [
+  { value: "open", label: "Pending" },
+  { value: "paid", label: "Paid" },
+  { value: "in_production", label: "In Production" },
+  { value: "shipped", label: "Shipped" },
+  { value: "cancelled", label: "Cancelled" },
+] as const;
+
 export function OrdersListTable({ storeId }: Props) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: orders = [], isLoading } = useStoreOrders(storeId);
+  const updateOrder = useUpdateOrder();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sourceFilter, setSourceFilter] = useState("");
@@ -37,6 +47,7 @@ export function OrdersListTable({ storeId }: Props) {
   const [generating, setGenerating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [cancelTarget, setCancelTarget] = useState<StoreOrder | null>(null);
 
   const sampleCount = useMemo(() => orders.filter((o) => o.is_sample).length, [orders]);
 
@@ -76,7 +87,7 @@ export function OrdersListTable({ storeId }: Props) {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteSamples = async () => {
     setDeleting(true);
     setShowDeleteConfirm(false);
     try {
@@ -92,6 +103,25 @@ export function OrdersListTable({ storeId }: Props) {
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleQuickStatus = async (order: StoreOrder, newStatus: string) => {
+    if (newStatus === "cancelled") {
+      setCancelTarget(order);
+      return;
+    }
+    await updateOrder.mutateAsync({ id: order.id, status: newStatus } as any);
+  };
+
+  const confirmCancel = async () => {
+    if (!cancelTarget) return;
+    await updateOrder.mutateAsync({ id: cancelTarget.id, status: "cancelled" } as any);
+    setCancelTarget(null);
+  };
+
+  const statusLabel = (s: string) => {
+    const found = STATUS_ACTIONS.find((a) => a.value === s);
+    return found ? found.label : s;
   };
 
   return (
@@ -124,11 +154,9 @@ export function OrdersListTable({ storeId }: Props) {
             <SelectTrigger className="w-full sm:w-36 h-9"><SelectValue placeholder="All Statuses" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="__all__">All Statuses</SelectItem>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="open">Open</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
+              {STATUS_ACTIONS.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Select value={sourceFilter || "__all__"} onValueChange={(v) => setSourceFilter(v === "__all__" ? "" : v)}>
@@ -167,6 +195,7 @@ export function OrdersListTable({ storeId }: Props) {
                   <TableHead className="text-right">Total</TableHead>
                   <TableHead>Fulfillment</TableHead>
                   <TableHead>Created</TableHead>
+                  <TableHead className="w-10" />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,11 +209,34 @@ export function OrdersListTable({ storeId }: Props) {
                       </span>
                     </TableCell>
                     <TableCell className="text-sm">{o.customer_name || o.customer_email || "—"}</TableCell>
-                    <TableCell><Badge variant={o.status === "completed" ? "default" : "secondary"}>{o.status}</Badge></TableCell>
+                    <TableCell><Badge variant={o.status === "shipped" || o.status === "paid" ? "default" : o.status === "cancelled" ? "destructive" : "secondary"}>{statusLabel(o.status)}</Badge></TableCell>
                     <TableCell><PaymentBadge orderId={o.id} total={o.total} /></TableCell>
                     <TableCell className="text-right font-mono text-sm">${Number(o.total).toFixed(2)}</TableCell>
                     <TableCell className="text-sm capitalize">{o.fulfillment_method.replace("_", " ")}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/admin/team-stores/${storeId}/orders/${o.id}`)}>
+                            <Pencil className="w-4 h-4 mr-2" /> Edit Order
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => window.open(`/stores/${storeId}`, "_blank")}>
+                            <ExternalLink className="w-4 h-4 mr-2" /> View in Store
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          {STATUS_ACTIONS.filter((s) => s.value !== o.status).map((s) => (
+                            <DropdownMenuItem key={s.value} onClick={() => handleQuickStatus(o, s.value)}>
+                              Set {s.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -193,7 +245,7 @@ export function OrdersListTable({ storeId }: Props) {
         )}
       </CardContent>
 
-      {/* Delete confirmation */}
+      {/* Delete sample confirmation */}
       <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <DialogContent>
           <DialogHeader>
@@ -204,7 +256,23 @@ export function OrdersListTable({ storeId }: Props) {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDelete}>Delete {sampleCount} Sample Orders</Button>
+            <Button variant="destructive" onClick={handleDeleteSamples}>Delete {sampleCount} Sample Orders</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel order confirmation */}
+      <Dialog open={!!cancelTarget} onOpenChange={(open) => !open && setCancelTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Order?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to cancel order <span className="font-mono font-semibold">{cancelTarget?.order_number}</span>? This will mark the order as cancelled.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCancelTarget(null)}>Keep Order</Button>
+            <Button variant="destructive" onClick={confirmCancel} disabled={updateOrder.isPending}>Cancel Order</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
