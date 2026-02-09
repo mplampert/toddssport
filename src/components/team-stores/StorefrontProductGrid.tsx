@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -84,7 +85,7 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
   const { data: allVariantImages = [] } = useStoreVariantImages(productIds);
 
   // Fetch flat (no-model) images from S&S API for all products
-  const { data: flatImageMap } = useStoreFlatImages(products as any);
+  const { data: flatImageMap, isLoading: flatImagesLoading } = useStoreFlatImages(products as any);
 
   // Build lookup: productId -> variant images
   const variantImagesByProduct = useMemo(() => {
@@ -238,6 +239,9 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
               const productVariantImgs = variantImagesByProduct.get(item.id) || [];
               const ssFlatImg = flatImageMap?.get(item.id);
               const { heroImageUrl: fallbackImg } = getStorefrontHero(item, productVariantImgs);
+              // Only show image once flat images have loaded (or if we have variant/override images)
+              const hasLocalImage = productVariantImgs.length > 0 || item.primary_image_url;
+              const imgReady = hasLocalImage || !flatImagesLoading;
               const imgSrc = ssFlatImg || fallbackImg;
               const name = getDisplayName(item);
               const itemLogos = logosByProduct.get(item.id) || [];
@@ -246,7 +250,9 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
                     <div className="relative w-full overflow-hidden bg-muted" style={{ paddingTop: "100%" }}>
                       <div className="absolute inset-0 flex items-center justify-center p-4">
-                        {imgSrc ? (
+                        {!imgReady ? (
+                          <Skeleton className="w-full h-full rounded-none" />
+                        ) : imgSrc ? (
                           <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" onError={handleImageError} />
                         ) : (
                           <ShoppingBag className="w-12 h-12 text-muted-foreground/40" />
