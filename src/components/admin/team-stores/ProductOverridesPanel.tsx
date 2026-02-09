@@ -42,7 +42,7 @@ export function ProductOverridesPanel({ item, storeId, onDirty }: Props) {
   const [displayColor, setDisplayColor] = useState(item.display_color ?? "");
   const [primaryImage, setPrimaryImage] = useState(item.primary_image_url ?? "");
   const [primaryImageType, setPrimaryImageType] = useState<ImageType>(
-    (item.primary_image_type as ImageType) || "lifestyle"
+    (item.primary_image_type as ImageType) || "flat"
   );
   const [extraImages, setExtraImages] = useState<string[]>(
     Array.isArray(item.extra_image_urls) ? item.extra_image_urls : []
@@ -50,7 +50,7 @@ export function ProductOverridesPanel({ item, storeId, onDirty }: Props) {
   const [extraImageTypes, setExtraImageTypes] = useState<ImageType[]>(
     Array.isArray(item.extra_image_types)
       ? (item.extra_image_types as ImageType[])
-      : (Array.isArray(item.extra_image_urls) ? item.extra_image_urls.map(() => "lifestyle" as ImageType) : [])
+      : (Array.isArray(item.extra_image_urls) ? item.extra_image_urls.map(() => "flat" as ImageType) : [])
   );
   const [uploading, setUploading] = useState(false);
 
