@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Trash2, Save, ChevronDown, ChevronUp, Image, Tags } from "lucide-react";
+import { Trash2, Save, ChevronDown, ChevronUp, Image, Tags, ArrowUp, ArrowDown } from "lucide-react";
 import { toast } from "sonner";
 import { LogoAssignmentDialog } from "./LogoAssignmentDialog";
 import { ProductMessagesPanel } from "./ProductMessagesPanel";
@@ -26,10 +26,14 @@ interface ProductRowCardProps {
   item: any;
   storeId: string;
   onRemove: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
   categories?: { id: string; name: string; slug: string; overrideId?: string | null; isCustom?: boolean }[];
 }
 
-export function ProductRowCard({ item, storeId, onRemove, categories = [] }: ProductRowCardProps) {
+export function ProductRowCard({ item, storeId, onRemove, onMoveUp, onMoveDown, isFirst, isLast, categories = [] }: ProductRowCardProps) {
   const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const [logoDialogOpen, setLogoDialogOpen] = useState(false);
@@ -109,7 +113,13 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
             <p className="text-xs text-muted-foreground">{getInternalIdentity(item).catalogSku} · {getInternalIdentity(item).brand}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon" onClick={onMoveUp} disabled={isFirst} className="h-7 w-7" title="Move up">
+            <ArrowUp className="w-3.5 h-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onMoveDown} disabled={isLast} className="h-7 w-7" title="Move down">
+            <ArrowDown className="w-3.5 h-3.5" />
+          </Button>
           <Button variant="ghost" size="icon" onClick={() => setExpanded(!expanded)}>
             {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </Button>
