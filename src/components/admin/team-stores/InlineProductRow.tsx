@@ -109,13 +109,11 @@ export function InlineProductRow({
         className="flex items-center gap-2 min-w-0 flex-1"
         onClick={onNavigate}
       >
-        {(imgSrc || logoOverlays.length > 0) && (
-          <DecoratedThumbnail
-            imgSrc={imgSrc}
-            logos={logoOverlays}
-            size={32}
-          />
-        )}
+        <DecoratedThumbnail
+          imgSrc={imgSrc}
+          logos={logoOverlays}
+          size={40}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-medium truncate">{name}</p>
           <p className="text-[10px] text-muted-foreground truncate">
