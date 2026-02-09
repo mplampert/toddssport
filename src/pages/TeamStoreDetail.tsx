@@ -240,12 +240,14 @@ export default function TeamStoreDetail() {
               />
             </>
           )}
-          <div className="container mx-auto text-center relative z-10">
-            <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white mb-4">
+          <div className="absolute top-4 left-4 z-10">
+            <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white">
               <Link to="/team-stores">
                 <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
               </Link>
             </Button>
+          </div>
+          <div className="container mx-auto text-center relative z-10">
             {store?.logo_url && (
               <img src={store.logo_url} alt={store.name} className="w-24 h-24 object-contain mx-auto mb-4 rounded-xl bg-white/90 p-2" />
             )}
