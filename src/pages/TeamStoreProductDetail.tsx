@@ -230,12 +230,13 @@ export default function TeamStoreProductDetail() {
   }, [persSettings.custom_fields, customFieldValues]);
 
   const persUpcharge = useMemo(() => {
+    if ((storeProduct as any)?.personalization_enabled === false) return 0;
     let total = 0;
     if (persSettings.enable_name && persName) total += persSettings.name_price;
     if (persSettings.enable_number && persNumber) total += persSettings.number_price;
     total += customFieldsUpcharge;
     return total;
-  }, [persSettings, persName, persNumber, customFieldsUpcharge]);
+  }, [persSettings, persName, persNumber, customFieldsUpcharge, storeProduct]);
 
   // Size upcharge lookup
   const sizeUpchargesMap = useMemo<Record<string, number>>(() => {
@@ -936,7 +937,7 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 {/* Personalization inputs */}
-                {(persSettings.enable_name || persSettings.enable_number || (persSettings.custom_fields ?? []).length > 0 || rosterEnabled) && (
+                {(storeProduct as any)?.personalization_enabled !== false && (persSettings.enable_name || persSettings.enable_number || (persSettings.custom_fields ?? []).length > 0 || rosterEnabled) && (
                   <div className="mb-6 space-y-3">
                     <label className="text-sm font-semibold text-foreground block">Personalization</label>
                     {persSettings.instructions && (
