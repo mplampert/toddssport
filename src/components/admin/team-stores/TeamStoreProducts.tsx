@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,8 @@ interface Props {
 export function TeamStoreProducts({ storeId }: Props) {
   const queryClient = useQueryClient();
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // Fetch effective categories (global + overrides merged)
   const { visible: visibleCategories } = useEffectiveCategories(storeId);
@@ -44,11 +46,11 @@ export function TeamStoreProducts({ storeId }: Props) {
   });
 
   const reorderMutation = useMutation({
-    mutationFn: async ({ id1, order1, id2, order2 }: { id1: string; order1: number; id2: string; order2: number }) => {
-      const { error: e1 } = await supabase.from("team_store_products").update({ sort_order: order2 }).eq("id", id1);
-      if (e1) throw e1;
-      const { error: e2 } = await supabase.from("team_store_products").update({ sort_order: order1 }).eq("id", id2);
-      if (e2) throw e2;
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      for (const u of updates) {
+        const { error } = await supabase.from("team_store_products").update({ sort_order: u.sort_order }).eq("id", u.id);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] });
@@ -56,15 +58,17 @@ export function TeamStoreProducts({ storeId }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleMove = (index: number, direction: "up" | "down") => {
+  const handleDragDrop = (fromIndex: number, toIndex: number) => {
     const list = categoryFilter === "uncategorized"
       ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
       : filtered;
-    const swapIndex = direction === "up" ? index - 1 : index + 1;
-    if (swapIndex < 0 || swapIndex >= list.length) return;
-    const a = list[index];
-    const b = list[swapIndex];
-    reorderMutation.mutate({ id1: a.id, order1: a.sort_order, id2: b.id, order2: b.sort_order });
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length) return;
+    // Reorder the list and assign new sort_order values
+    const reordered = [...list];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    const updates = reordered.map((item: any, idx: number) => ({ id: item.id, sort_order: idx }));
+    reorderMutation.mutate(updates);
   };
 
   const attachedStyleIds = new Set(attached.map((a: any) => a.style_id));
@@ -146,7 +150,7 @@ export function TeamStoreProducts({ storeId }: Props) {
         ) : attached.length === 0 ? (
           <p className="text-sm text-muted-foreground">No products attached yet. Click "Add Products" to get started.</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null); }}>
             {(() => {
               const list = categoryFilter === "uncategorized"
                 ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
@@ -157,10 +161,16 @@ export function TeamStoreProducts({ storeId }: Props) {
                   item={item}
                   storeId={storeId}
                   onRemove={() => detachMutation.mutate(item.id)}
-                  onMoveUp={() => handleMove(idx, "up")}
-                  onMoveDown={() => handleMove(idx, "down")}
-                  isFirst={idx === 0}
-                  isLast={idx === list.length - 1}
+                  onDragStart={() => { dragIndexRef.current = idx; }}
+                  onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
+                  onDrop={() => {
+                    if (dragIndexRef.current !== null) {
+                      handleDragDrop(dragIndexRef.current, idx);
+                    }
+                    dragIndexRef.current = null;
+                    setDragOverIndex(null);
+                  }}
+                  isDragOver={dragOverIndex === idx}
                   categories={categoryOptions}
                 />
               ));
