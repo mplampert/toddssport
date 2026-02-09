@@ -14,9 +14,13 @@ import {
 } from "lucide-react";
 import { getProducts, getStyles, formatSSPrice, getStockStatus, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { getProductGallery, handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
+import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
+import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
 
 interface ColorOption {
   name: string;
@@ -42,7 +46,9 @@ export default function TeamStoreProductDetail() {
   const [selectedSize, setSelectedSize] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [activeLogoView, setActiveLogoView] = useState<string | null>(null); // null = show all, or a specific logo id
+  const [activeLogoView, setActiveLogoView] = useState<string | null>(null);
+  const [persName, setPersName] = useState("");
+  const [persNumber, setPersNumber] = useState("");
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
@@ -94,6 +100,37 @@ export default function TeamStoreProductDetail() {
     [allLogos, selectedColor]
   );
   const isPreview = store?.status !== "open";
+
+  // Personalization & decoration pricing
+  const storeId = store?.id ?? "";
+  const { data: persDefaults } = useStorePersonalizationDefaults(storeId);
+  const { data: decoDefaults } = useStoreDecorationPricingDefaults(storeId);
+
+  const persSettings = useMemo(
+    () => resolvePersonalization(persDefaults, storeProduct as any),
+    [persDefaults, storeProduct]
+  );
+
+  const decoSettings = useMemo(
+    () => resolveDecorationPricing(decoDefaults, storeProduct as any),
+    [decoDefaults, storeProduct]
+  );
+
+  // Build decoration placements from assigned logos
+  const decoUpcharge = useMemo(() => {
+    const placements = assignedLogos.map((l: any) => ({
+      method: l.store_logos?.method || "print",
+      placement: l.position || "left_chest",
+    }));
+    return calculateDecorationUpcharge(decoSettings, placements);
+  }, [decoSettings, assignedLogos]);
+
+  const persUpcharge = useMemo(() => {
+    let total = 0;
+    if (persSettings.enable_name && persName) total += persSettings.name_price;
+    if (persSettings.enable_number && persNumber) total += persSettings.number_price;
+    return total;
+  }, [persSettings, persName, persNumber]);
 
   // Fetch full product data from SS API
   useEffect(() => {
@@ -205,7 +242,16 @@ export default function TeamStoreProductDetail() {
       toast.error("Please select a color and size.");
       return;
     }
-    toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
+    if (persSettings.enable_name && persSettings.name_required && !persName.trim()) {
+      toast.error(`${persSettings.name_label} is required.`);
+      return;
+    }
+    if (persSettings.enable_number && persSettings.number_required && !persNumber.trim()) {
+      toast.error(`${persSettings.number_label} is required.`);
+      return;
+    }
+    const totalUnit = (Number(displayPrice) || 0) + decoUpcharge + persUpcharge;
+    toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart — $${(totalUnit * quantity).toFixed(2)}`);
   };
 
   // Store price override takes precedence
@@ -418,12 +464,21 @@ export default function TeamStoreProductDetail() {
                   <p className="text-sm text-muted-foreground mb-4">SKU: {selectedVariant.sku}</p>
                 )}
 
-                {/* Price - show store override */}
+                {/* Price - show store override + upcharges */}
                 <div className="mb-4">
                   {displayPrice != null ? (
-                    <span className="text-3xl font-bold text-foreground">
-                      ${Number(displayPrice).toFixed(2)}
-                    </span>
+                    <div>
+                      <span className="text-3xl font-bold text-foreground">
+                        ${(Number(displayPrice) + decoUpcharge + persUpcharge).toFixed(2)}
+                      </span>
+                      {(decoUpcharge > 0 || persUpcharge > 0) && (
+                        <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                          <p>Base: ${Number(displayPrice).toFixed(2)}</p>
+                          {decoUpcharge > 0 && <p>Decoration: +${decoUpcharge.toFixed(2)}</p>}
+                          {persUpcharge > 0 && <p>Personalization: +${persUpcharge.toFixed(2)}</p>}
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-lg text-muted-foreground">Contact for pricing</span>
                   )}
@@ -534,6 +589,48 @@ export default function TeamStoreProductDetail() {
                           </button>
                         );
                       })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Personalization inputs */}
+                {(persSettings.enable_name || persSettings.enable_number) && (
+                  <div className="mb-6 space-y-3">
+                    <label className="text-sm font-semibold text-foreground block">Personalization</label>
+                    {persSettings.instructions && (
+                      <p className="text-xs text-muted-foreground">{persSettings.instructions}</p>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      {persSettings.enable_name && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            {persSettings.name_label}
+                            {persSettings.name_required && <span className="text-destructive ml-0.5">*</span>}
+                            {persSettings.name_price > 0 && <span className="text-muted-foreground ml-1">(+${persSettings.name_price.toFixed(2)})</span>}
+                          </Label>
+                          <Input
+                            value={persName}
+                            onChange={(e) => setPersName(e.target.value)}
+                            maxLength={persSettings.name_max_length}
+                            placeholder={persSettings.name_label}
+                          />
+                        </div>
+                      )}
+                      {persSettings.enable_number && (
+                        <div className="space-y-1">
+                          <Label className="text-xs">
+                            {persSettings.number_label}
+                            {persSettings.number_required && <span className="text-destructive ml-0.5">*</span>}
+                            {persSettings.number_price > 0 && <span className="text-muted-foreground ml-1">(+${persSettings.number_price.toFixed(2)})</span>}
+                          </Label>
+                          <Input
+                            value={persNumber}
+                            onChange={(e) => setPersNumber(e.target.value)}
+                            maxLength={persSettings.number_max_length}
+                            placeholder={persSettings.number_label}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}

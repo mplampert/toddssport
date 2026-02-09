@@ -1398,6 +1398,45 @@ export type Database = {
           },
         ]
       }
+      team_store_decoration_price_defaults: {
+        Row: {
+          created_at: string
+          prices: Json
+          pricing_mode: string
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          prices?: Json
+          pricing_mode?: string
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          prices?: Json
+          pricing_mode?: string
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_decoration_price_defaults_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: true
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_decoration_price_defaults_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: true
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_item_logos: {
         Row: {
           created_at: string
@@ -1594,6 +1633,7 @@ export type Database = {
           order_id: string
           personalization_name: string | null
           personalization_number: string | null
+          pricing_snapshot: Json | null
           product_name_snapshot: string
           quantity: number
           team_store_product_id: string | null
@@ -1608,6 +1648,7 @@ export type Database = {
           order_id: string
           personalization_name?: string | null
           personalization_number?: string | null
+          pricing_snapshot?: Json | null
           product_name_snapshot: string
           quantity?: number
           team_store_product_id?: string | null
@@ -1622,6 +1663,7 @@ export type Database = {
           order_id?: string
           personalization_name?: string | null
           personalization_number?: string | null
+          pricing_snapshot?: Json | null
           product_name_snapshot?: string
           quantity?: number
           team_store_product_id?: string | null
@@ -1798,12 +1840,80 @@ export type Database = {
           },
         ]
       }
+      team_store_personalization_defaults: {
+        Row: {
+          created_at: string
+          enable_name: boolean
+          enable_number: boolean
+          instructions: string | null
+          name_label: string
+          name_max_length: number
+          name_price: number
+          name_required: boolean
+          number_label: string
+          number_max_length: number
+          number_price: number
+          number_required: boolean
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enable_name?: boolean
+          enable_number?: boolean
+          instructions?: string | null
+          name_label?: string
+          name_max_length?: number
+          name_price?: number
+          name_required?: boolean
+          number_label?: string
+          number_max_length?: number
+          number_price?: number
+          number_required?: boolean
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enable_name?: boolean
+          enable_number?: boolean
+          instructions?: string | null
+          name_label?: string
+          name_max_length?: number
+          name_price?: number
+          name_required?: boolean
+          number_label?: string
+          number_max_length?: number
+          number_price?: number
+          number_required?: boolean
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_personalization_defaults_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: true
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_personalization_defaults_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: true
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_products: {
         Row: {
           active: boolean
           allowed_colors: Json | null
           category_id: string | null
           created_at: string
+          decoration_prices_override: Json | null
+          decoration_pricing_override_enabled: boolean
           display_color: string | null
           display_name: string | null
           dtf_enabled: boolean
@@ -1818,7 +1928,9 @@ export type Database = {
           notes: string | null
           personalization_config: Json | null
           personalization_enabled: boolean
+          personalization_override_enabled: boolean
           personalization_price: number | null
+          personalization_settings: Json | null
           price_override: number | null
           primary_image_type: string
           primary_image_url: string | null
@@ -1834,6 +1946,8 @@ export type Database = {
           allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
+          decoration_prices_override?: Json | null
+          decoration_pricing_override_enabled?: boolean
           display_color?: string | null
           display_name?: string | null
           dtf_enabled?: boolean
@@ -1848,7 +1962,9 @@ export type Database = {
           notes?: string | null
           personalization_config?: Json | null
           personalization_enabled?: boolean
+          personalization_override_enabled?: boolean
           personalization_price?: number | null
+          personalization_settings?: Json | null
           price_override?: number | null
           primary_image_type?: string
           primary_image_url?: string | null
@@ -1864,6 +1980,8 @@ export type Database = {
           allowed_colors?: Json | null
           category_id?: string | null
           created_at?: string
+          decoration_prices_override?: Json | null
+          decoration_pricing_override_enabled?: boolean
           display_color?: string | null
           display_name?: string | null
           dtf_enabled?: boolean
@@ -1878,7 +1996,9 @@ export type Database = {
           notes?: string | null
           personalization_config?: Json | null
           personalization_enabled?: boolean
+          personalization_override_enabled?: boolean
           personalization_price?: number | null
+          personalization_settings?: Json | null
           price_override?: number | null
           primary_image_type?: string
           primary_image_url?: string | null

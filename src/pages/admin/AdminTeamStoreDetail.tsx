@@ -18,6 +18,8 @@ import {
   Settings,
   FileText,
   MessageSquare,
+  UserCheck,
+  DollarSign,
 } from "lucide-react";
 
 const STORE_TABS = [
@@ -31,6 +33,8 @@ const STORE_TABS = [
   { label: "Reports", path: "reports", icon: BarChart3 },
   { label: "Fulfillment", path: "fulfillment", icon: Truck },
   { label: "Marketing", path: "marketing", icon: Megaphone },
+  { label: "Personalization", path: "personalization", icon: UserCheck },
+  { label: "Decoration $", path: "decoration-pricing", icon: DollarSign },
   { label: "Settings", path: "settings", icon: Settings },
 ] as const;
 

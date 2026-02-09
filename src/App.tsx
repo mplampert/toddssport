@@ -56,6 +56,8 @@ import StoreOrderCreate from "./pages/admin/team-store/StoreOrderCreate";
 import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
 import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
+import StorePersonalization from "./pages/admin/team-store/StorePersonalization";
+import StoreDecorationPricing from "./pages/admin/team-store/StoreDecorationPricing";
 import StoreMessagesPage from "./pages/admin/team-store/StoreMessagesPage";
 import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
@@ -151,6 +153,8 @@ const App = () => (
               <Route path="fulfillment" element={<StoreFulfillment />} />
               <Route path="marketing" element={<StoreMarketing />} />
               <Route path="settings" element={<StoreSettings />} />
+              <Route path="personalization" element={<StorePersonalization />} />
+              <Route path="decoration-pricing" element={<StoreDecorationPricing />} />
             </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
