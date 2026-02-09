@@ -127,8 +127,9 @@ export default function StoreProductEditor() {
 
   const style = item.catalog_styles;
   // Prefer SS name when catalog style_name is just a number (SKU stored as name)
-  const catalogNameIsNumeric = style?.style_name && /^\d+$/.test(style.style_name);
-  const resolvedName = item.display_name || ssStyle?.styleName || (!catalogNameIsNumeric ? style?.style_name : null) || `Style #${item.style_id}`;
+  // Treat catalog name as a SKU if it's a short alphanumeric code (e.g. "5000B", "18000", "G200")
+  const catalogNameIsSku = style?.style_name && /^\d+[A-Za-z]?$|^[A-Za-z]\d+/.test(style.style_name);
+  const resolvedName = item.display_name || ssStyle?.styleName || (!catalogNameIsSku ? style?.style_name : null) || `Style #${item.style_id}`;
   const resolvedBrand = ssStyle?.brandName || style?.brand_name;
   const resolvedSku = ssStyle?.partNumber || (style as any)?.part_number || style?.style_id || ssStyle?.styleID;
   const resolvedImage = getProductImage(item) || ssStyle?.styleImage;
