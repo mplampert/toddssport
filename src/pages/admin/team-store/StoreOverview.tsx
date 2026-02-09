@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { TeamStoreBrandingPreview } from "@/components/admin/team-stores/TeamStoreBrandingPreview";
 import { useMemo } from "react";
+import { toast } from "sonner";
 
 /* ─── Helpers ─── */
 
@@ -57,8 +58,39 @@ interface PaymentRow {
 /* ─── Component ─── */
 
 export default function StoreOverview() {
+  const queryClient = useQueryClient();
   const { store } = useTeamStoreContext();
   const status = computeStatus(store);
+
+  const launchMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("team_stores")
+        .update({ status: "open", active: true } as any)
+        .eq("id", store.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-team-store", store.id] });
+      toast.success("Store launched! It's now live.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("team_stores")
+        .update({ status: "closed", active: false } as any)
+        .eq("id", store.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-team-store", store.id] });
+      toast.success("Store closed.");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   // Schedule messaging
   const opensIn = status.label === "Scheduled" ? daysUntil(store.start_date) : null;
@@ -201,17 +233,24 @@ export default function StoreOverview() {
           </Link>
         </Button>
         {(status.label === "Draft" || status.label === "Scheduled") && (
-          <Button size="sm" asChild>
-            <Link to={`/admin/team-stores/${store.id}/settings`}>
-              <Rocket className="w-4 h-4 mr-1.5" /> Launch Store
-            </Link>
+          <Button
+            size="sm"
+            onClick={() => launchMutation.mutate()}
+            disabled={launchMutation.isPending}
+          >
+            <Rocket className="w-4 h-4 mr-1.5" />
+            {launchMutation.isPending ? "Launching…" : "Launch Store"}
           </Button>
         )}
         {status.label === "Live" && (
-          <Button variant="destructive" size="sm" asChild>
-            <Link to={`/admin/team-stores/${store.id}/settings`}>
-              <XCircle className="w-4 h-4 mr-1.5" /> Close Store
-            </Link>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={() => closeMutation.mutate()}
+            disabled={closeMutation.isPending}
+          >
+            <XCircle className="w-4 h-4 mr-1.5" />
+            {closeMutation.isPending ? "Closing…" : "Close Store"}
           </Button>
         )}
       </div>
