@@ -21,27 +21,21 @@ export function TeamStoreKpis() {
       const totalStores = stores?.length ?? 0;
       const activeStores = stores?.filter((s) => s.status === "open").length ?? 0;
 
-      // Sales from cart_items linked to team stores
-      const { data: cartItems } = await supabase
-        .from("cart_items")
-        .select("unit_price, quantity")
-        .not("team_store_id", "is", null);
-      const totalSales = (cartItems ?? []).reduce(
-        (sum, i) => sum + (i.unit_price ?? 0) * (i.quantity ?? 0),
-        0
-      );
-
-      // Orders that reference a team store (via request_payload)
+      // Use real orders table for sales + order counts
       const { data: orders } = await supabase
-        .from("champro_orders")
-        .select("id, request_payload");
-      const teamOrders = (orders ?? []).filter(
-        (o: any) => o.request_payload?.team_store_id
+        .from("team_store_orders")
+        .select("total")
+        .eq("is_sample", false);
+
+      const totalOrders = orders?.length ?? 0;
+      const totalSales = (orders ?? []).reduce(
+        (sum, o) => sum + Number(o.total ?? 0),
+        0
       );
 
       return {
         totalSales,
-        totalOrders: teamOrders.length,
+        totalOrders,
         activeStores,
         totalStores,
       };
