@@ -250,14 +250,3 @@
     }
   }
 }
-
-/* Hide LeadConnector chat widget on team store storefront pages */
-body.hide-chat-widget [data-chat-widget],
-body.hide-chat-widget iframe[title*="chat"],
-body.hide-chat-widget .lc_text-widget,
-body.hide-chat-widget #lc_text-widget,
-body.hide-chat-widget .chat-widget-container {
-  display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
