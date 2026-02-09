@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
@@ -12,6 +13,7 @@ import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
 import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
 import { pickBestVariant, type LogoVariantOption } from "@/lib/logoVariantPicker";
+import { useProductVariantImages, type VariantImage } from "@/hooks/useVariantImages";
 
 /* ─── Types ─── */
 
@@ -66,12 +68,17 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [applyToAllColors, setApplyToAllColors] = useState(true);
   const [loadingVariants, setLoadingVariants] = useState(true);
   const [activeView, setActiveView] = useState<"front" | "back" | "left_sleeve" | "right_sleeve">("front");
+  const [sleeveUploading, setSleeveUploading] = useState(false);
+  const [reuseSleeveForAllColors, setReuseSleeveForAllColors] = useState(true);
 
   // ── Placement state ──
   const [placements, setPlacements] = useState<LogoPlacement[]>([]);
   const [dirty, setDirty] = useState(false);
   const [activePlacementIdx, setActivePlacementIdx] = useState<number | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
+
+  // ── Variant images for sleeve backgrounds ──
+  const { data: variantImages = [] } = useProductVariantImages(item.id);
 
   const { data: presets = [] } = usePlacementPresets();
 
@@ -471,15 +478,98 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   // Determine canvas image based on selected color + active view
   const canvasImage = useMemo(() => {
+    const colorName = selectedColor
+      ? colorOptions.find((c) => c.code === selectedColor)?.name
+      : undefined;
+
+    // For sleeve views, check variant images first
+    if (activeView === "left_sleeve" || activeView === "right_sleeve") {
+      if (colorName) {
+        const sleeveImg = variantImages.find(
+          (img) => img.view === activeView && img.color === colorName
+        );
+        if (sleeveImg) return sleeveImg.image_url;
+      }
+      // Check for any sleeve image (any color) as fallback
+      const anySleeveImg = variantImages.find((img) => img.view === activeView);
+      if (anySleeveImg) return anySleeveImg.image_url;
+      // No sleeve image found — return empty to trigger upload prompt
+      return "";
+    }
+
     if (selectedColor) {
       const color = colorOptions.find((c) => c.code === selectedColor);
       if (activeView === "back" && color?.backImage) return color.backImage;
-      // For sleeves, try side image, then fall back to front
-      if ((activeView === "left_sleeve" || activeView === "right_sleeve") && (color as any)?.sideImage) return (color as any).sideImage;
       if (color?.frontImage) return color.frontImage;
     }
     return item.primary_image_url || item.catalog_styles?.style_image || "";
-  }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image, activeView]);
+  }, [selectedColor, colorOptions, item.primary_image_url, item.catalog_styles?.style_image, activeView, variantImages]);
+
+  const isSleeveView = activeView === "left_sleeve" || activeView === "right_sleeve";
+  const sleeveViewLabel = activeView === "left_sleeve" ? "Left Sleeve" : "Right Sleeve";
+
+  // Handle sleeve image upload
+  const handleSleeveUpload = useCallback(async (file: File) => {
+    const colorName = selectedColor
+      ? colorOptions.find((c) => c.code === selectedColor)?.name
+      : null;
+    if (!colorName) {
+      toast.error("Please select a color first");
+      return;
+    }
+
+    setSleeveUploading(true);
+    try {
+      const ext = file.name.split(".").pop() || "jpg";
+      const path = `${storeId}/${item.id}/variants/${colorName.replace(/\s+/g, "-")}/${activeView}-${Date.now()}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("store-product-images")
+        .upload(path, file, { cacheControl: "3600", upsert: false });
+      if (uploadErr) throw uploadErr;
+      const { data: urlData } = supabase.storage.from("store-product-images").getPublicUrl(path);
+      const imageUrl = urlData.publicUrl;
+
+      if (reuseSleeveForAllColors) {
+        // Insert for ALL enabled colors
+        const enabledColors = colorOptions.map((c) => c.name);
+        const rows = enabledColors.map((cn) => ({
+          team_store_product_id: item.id,
+          color: cn,
+          image_url: imageUrl,
+          image_type: "flat",
+          view: activeView,
+          is_primary: false,
+          sort_order: 0,
+        }));
+        const { error } = await supabase
+          .from("team_store_product_variant_images")
+          .insert(rows as any);
+        if (error) throw error;
+        toast.success(`${sleeveViewLabel} image applied to all ${enabledColors.length} colors`);
+      } else {
+        // Insert for just this color
+        const { error } = await supabase
+          .from("team_store_product_variant_images")
+          .insert({
+            team_store_product_id: item.id,
+            color: colorName,
+            image_url: imageUrl,
+            image_type: "flat",
+            view: activeView,
+            is_primary: false,
+            sort_order: 0,
+          } as any);
+        if (error) throw error;
+        toast.success(`${sleeveViewLabel} image uploaded for ${colorName}`);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["variant-images", item.id] });
+    } catch (err: any) {
+      toast.error("Upload failed: " + err.message);
+    } finally {
+      setSleeveUploading(false);
+    }
+  }, [selectedColor, colorOptions, storeId, item.id, activeView, reuseSleeveForAllColors, sleeveViewLabel, queryClient]);
 
   const active = activePlacementIdx !== null ? placements[activePlacementIdx] : null;
 
@@ -604,6 +694,17 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         </div>
 
+        {/* ─── Reuse sleeve checkbox (only visible for sleeve views without image) ─── */}
+        {isSleeveView && !canvasImage && colorOptions.length > 1 && (
+          <label className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+            <Checkbox
+              checked={reuseSleeveForAllColors}
+              onCheckedChange={(v) => setReuseSleeveForAllColors(!!v)}
+            />
+            Reuse this sleeve image for all colors
+          </label>
+        )}
+
         {/* ─── Placement Canvas ─── */}
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold">Placement Canvas — {
@@ -620,6 +721,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
             onMovePlacement={(idx, x, y) => updatePlacement(idx, { x, y })}
             onScalePlacement={(idx, scale) => updatePlacement(idx, { scale })}
             onDeletePlacement={removePlacement}
+            onUploadSleeveImage={isSleeveView ? handleSleeveUpload : undefined}
+            sleeveUploading={sleeveUploading}
+            sleeveViewLabel={sleeveViewLabel}
           />
         </div>
 
