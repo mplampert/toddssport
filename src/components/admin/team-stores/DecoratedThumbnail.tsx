@@ -13,13 +13,11 @@ interface LogoOverlay {
 interface Props {
   imgSrc: string | null;
   logos?: LogoOverlay[];
-  size?: number; // px, default 32
+  size?: number; // px, default 40
   className?: string;
 }
 
-export function DecoratedThumbnail({ imgSrc, logos = [], size = 32, className = "" }: Props) {
-  if (!imgSrc && logos.length === 0) return null;
-
+export function DecoratedThumbnail({ imgSrc, logos = [], size = 40, className = "" }: Props) {
   return (
     <div
       className={`relative overflow-hidden rounded shrink-0 bg-muted ${className}`}
@@ -33,7 +31,8 @@ export function DecoratedThumbnail({ imgSrc, logos = [], size = 32, className = 
         />
       )}
       {logos.map((logo, i) => {
-        const logoSize = Math.max(logo.scale * 100, 15); // percentage of container
+        // Scale the logo relative to the container — minimum 20% so it's visible
+        const logoSize = Math.max(logo.scale * 100, 20);
         return (
           <img
             key={i}
