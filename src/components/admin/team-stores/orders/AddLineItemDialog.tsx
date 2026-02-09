@@ -14,7 +14,7 @@ interface StoreProduct {
   price_override: number | null;
   style_id: number;
   allowed_colors: any;
-  catalog_styles: { style_name: string; style_image: string | null } | null;
+  catalog_styles: { style_name: string; style_image: string | null; style_id: number } | null;
 }
 
 interface LineItemPayload {
@@ -126,7 +126,8 @@ export function AddLineItemDialog({ open, onOpenChange, storeProducts, onAdd, is
       setSelectedSize("");
 
       try {
-        const products = await getProducts({ style: selectedProduct!.style_id });
+        const ssStyleId = selectedProduct!.catalog_styles?.style_id ?? selectedProduct!.style_id;
+        const products = await getProducts({ style: ssStyleId });
         if (cancelled) return;
 
         const colorMap = new Map<string, ColorOption>();

@@ -48,7 +48,7 @@ export default function StoreOrderCreate() {
     queryFn: async () => {
       const { data } = await supabase
         .from("team_store_products")
-        .select("id, display_name, price_override, style_id, allowed_colors, catalog_styles(style_name, style_image)")
+        .select("id, display_name, price_override, style_id, allowed_colors, catalog_styles(style_name, style_image, style_id)")
         .eq("team_store_id", store.id)
         .eq("active", true)
         .order("sort_order");
