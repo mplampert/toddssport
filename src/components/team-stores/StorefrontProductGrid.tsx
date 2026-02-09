@@ -4,9 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
-import { getProductImage, handleImageError } from "@/lib/productImages";
+import { handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
-import { useStoreVariantImages, getBestImageForColor } from "@/hooks/useVariantImages";
+import { useStoreVariantImages } from "@/hooks/useVariantImages";
+import { getStorefrontHero } from "@/lib/storefrontHero";
 
 interface RawLogoAssignment extends LogoAssignment {
   team_store_item_id: string;
@@ -223,23 +224,7 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
               // Use variant image for first enabled color if available
               const productVariantImgs = variantImagesByProduct.get(item.id) || [];
-              let firstColorImg: string | null = null;
-              if (productVariantImgs.length > 0) {
-                // Determine the first enabled color
-                const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
-                const firstColorName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
-                if (firstColorName) {
-                  // Find the primary for that color, or first image for that color
-                  const colorImgs = productVariantImgs.filter((v) => v.color === firstColorName);
-                  firstColorImg = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
-                }
-                // If no match for first color, use any primary
-                if (!firstColorImg) {
-                  firstColorImg = (productVariantImgs.find((v) => v.is_primary) || productVariantImgs[0])?.image_url ?? null;
-                }
-              }
-              // Prefer the catalog flat image (same as admin placement canvas) over lifestyle
-              const imgSrc = firstColorImg || item.catalog_styles?.style_image || getProductImage(item);
+              const { heroImageUrl: imgSrc } = getStorefrontHero(item, productVariantImgs);
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
