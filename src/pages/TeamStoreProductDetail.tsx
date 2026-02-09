@@ -40,6 +40,7 @@ export default function TeamStoreProductDetail() {
   const [selectedSize, setSelectedSize] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [activeLogoView, setActiveLogoView] = useState<string | null>(null); // null = show all, or a specific logo id
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
@@ -294,14 +295,17 @@ export default function TeamStoreProductDetail() {
                     <Package className="w-24 h-24 text-muted-foreground/20" />
                   )}
 
-                  {/* Logo overlays from assigned logos */}
-                  {assignedLogos.map((logo: any) => {
-                    const logoUrl = logo.store_logos?.file_url;
-                    if (!logoUrl) return null;
-                    return (
+                  {/* Logo overlays from assigned placements */}
+                  {assignedLogos
+                    .filter((logo: any) => {
+                      if (!logo.store_logos?.file_url) return false;
+                      if (activeLogoView === null) return true;
+                      return logo.id === activeLogoView;
+                    })
+                    .map((logo: any) => (
                       <img
                         key={logo.id}
-                        src={logoUrl}
+                        src={logo.store_logos.file_url}
                         alt={logo.store_logos?.name || "Logo"}
                         className="absolute pointer-events-none object-contain"
                         style={{
@@ -311,8 +315,7 @@ export default function TeamStoreProductDetail() {
                           transform: "translate(-50%, -50%)",
                         }}
                       />
-                    );
-                  })}
+                    ))}
 
                   {galleryImages.length > 1 && (
                     <>
@@ -351,6 +354,39 @@ export default function TeamStoreProductDetail() {
                         }`}
                       >
                         <img src={img} alt={`View ${i + 1}`} className="w-full h-full object-contain p-1" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Placement selector — shown when multiple logo placements exist */}
+                {assignedLogos.length > 1 && (
+                  <div className="flex items-center gap-2 justify-center">
+                    <span className="text-xs text-muted-foreground">View:</span>
+                    <button
+                      onClick={() => setActiveLogoView(null)}
+                      className={`px-2.5 py-1 rounded-md text-xs border transition-colors ${
+                        activeLogoView === null
+                          ? "border-accent bg-accent/10 text-accent-foreground font-medium"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      All
+                    </button>
+                    {assignedLogos.map((logo: any) => (
+                      <button
+                        key={logo.id}
+                        onClick={() => setActiveLogoView(logo.id)}
+                        className={`px-2.5 py-1 rounded-md text-xs border transition-colors inline-flex items-center gap-1.5 ${
+                          activeLogoView === logo.id
+                            ? "border-accent bg-accent/10 text-accent-foreground font-medium"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {logo.store_logos?.file_url && (
+                          <img src={logo.store_logos.file_url} alt="" className="w-4 h-4 object-contain" />
+                        )}
+                        {logo.position || "Logo"}
                       </button>
                     ))}
                   </div>

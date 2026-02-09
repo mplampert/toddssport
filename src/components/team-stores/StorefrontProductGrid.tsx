@@ -215,25 +215,26 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                     {imgSrc && (
                       <div className="relative aspect-square bg-muted flex items-center justify-center p-4">
                         <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" />
-                        {/* Logo overlays */}
-                        {itemLogos.map((logo) => {
-                          const logoUrl = logo.store_logos?.file_url;
+                        {/* Primary logo overlay only */}
+                        {(() => {
+                          const primaryLogo = itemLogos.find((l) => l.is_primary) || itemLogos[0];
+                          if (!primaryLogo) return null;
+                          const logoUrl = primaryLogo.store_logos?.file_url;
                           if (!logoUrl) return null;
                           return (
                             <img
-                              key={logo.id}
                               src={logoUrl}
-                              alt={logo.store_logos?.name || "Logo"}
+                              alt=""
                               className="absolute pointer-events-none object-contain"
                               style={{
-                                left: `${(logo.x ?? 0.5) * 100}%`,
-                                top: `${(logo.y ?? 0.2) * 100}%`,
-                                width: `${(logo.scale ?? 0.3) * 100}%`,
+                                left: `${(primaryLogo.x ?? 0.5) * 100}%`,
+                                top: `${(primaryLogo.y ?? 0.2) * 100}%`,
+                                width: `${(primaryLogo.scale ?? 0.3) * 100}%`,
                                 transform: "translate(-50%, -50%)",
                               }}
                             />
                           );
-                        })}
+                        })()}
                       </div>
                     )}
                     <CardContent className="p-4">
