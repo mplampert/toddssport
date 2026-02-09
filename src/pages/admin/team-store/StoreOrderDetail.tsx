@@ -223,7 +223,7 @@ export default function StoreOrderDetail() {
           </Card>
 
           {/* Payments */}
-          <PaymentsPanel orderId={order.id} orderTotal={computedTotal} isSample={order.is_sample} />
+          <PaymentsPanel orderId={order.id} orderTotal={computedTotal} isSample={order.is_sample} customerEmail={order.customer_email || undefined} customerName={order.customer_name || undefined} />
         </div>
       </div>
     </div>

@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.delete-sample-orders]
 verify_jwt = false
+
+[functions.order-payment-intent]
+verify_jwt = false

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useOrderPayments, useAddPayment, computePaymentStatus, type OrderPayment } from "@/hooks/useStoreOrders";
+import { CardPaymentForm } from "./CardPaymentForm";
+import { StripeRefundDialog } from "./StripeRefundDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -9,15 +11,17 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { DollarSign, MinusCircle, PlusCircle } from "lucide-react";
+import { CreditCard, DollarSign, MinusCircle, PlusCircle, RotateCcw } from "lucide-react";
 
 interface Props {
   orderId: string;
   orderTotal: number;
   isSample?: boolean;
+  customerEmail?: string;
+  customerName?: string;
 }
 
-export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
+export function PaymentsPanel({ orderId, orderTotal, isSample, customerEmail, customerName }: Props) {
   const { data: payments = [] } = useOrderPayments(orderId);
   const addPayment = useAddPayment(orderId);
   const { paidTotal, balanceDue, status } = computePaymentStatus(payments, orderTotal);
@@ -27,6 +31,10 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
   const [method, setMethod] = useState("cash");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [showCardPayment, setShowCardPayment] = useState(false);
+  const [showStripeRefund, setShowStripeRefund] = useState(false);
+
+  const hasCardPayments = payments.some((p) => p.provider === "stripe" && p.type === "payment");
 
   const openDialog = (type: "payment" | "refund") => {
     setDialogType(type);
@@ -74,6 +82,7 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Payment ledger */}
         {payments.length > 0 && (
           <Table>
             <TableHeader>
@@ -81,7 +90,7 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
                 <TableHead>Type</TableHead>
                 <TableHead>Method</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Note</TableHead>
+                <TableHead>Ref</TableHead>
                 <TableHead>Date</TableHead>
               </TableRow>
             </TableHeader>
@@ -95,7 +104,9 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
                   <TableCell className={`text-right font-mono text-sm ${p.type === "refund" ? "text-destructive" : "text-green-600"}`}>
                     {p.type === "refund" ? "-" : "+"}${Number(p.amount).toFixed(2)}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{p.note || "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground max-w-[140px] truncate" title={p.provider_ref || p.note || ""}>
+                    {p.provider_ref || p.note || "—"}
+                  </TableCell>
                   <TableCell className="text-sm text-muted-foreground">{new Date(p.created_at).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
@@ -103,23 +114,49 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
           </Table>
         )}
 
+        {/* Card Payment Element (embedded) */}
+        {showCardPayment && !isSample && balanceDue > 0.01 && (
+          <div className="border rounded-md p-4">
+            <CardPaymentForm
+              orderId={orderId}
+              balanceDueDollars={balanceDue}
+              customerEmail={customerEmail}
+              customerName={customerName}
+              onSuccess={() => setShowCardPayment(false)}
+              onCancel={() => setShowCardPayment(false)}
+            />
+          </div>
+        )}
+
+        {/* Action buttons */}
         {!isSample && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={() => openDialog("payment")} disabled={balanceDue <= 0.01}>
-              <PlusCircle className="w-4 h-4 mr-1" /> Record Payment
+              <PlusCircle className="w-4 h-4 mr-1" /> Record Manual Payment
             </Button>
+            {!showCardPayment && balanceDue > 0.01 && (
+              <Button size="sm" variant="outline" onClick={() => setShowCardPayment(true)}>
+                <CreditCard className="w-4 h-4 mr-1" /> Charge Card
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={() => openDialog("refund")} disabled={paidTotal <= 0}>
-              <MinusCircle className="w-4 h-4 mr-1" /> Record Refund
+              <MinusCircle className="w-4 h-4 mr-1" /> Manual Refund
             </Button>
+            {hasCardPayments && (
+              <Button size="sm" variant="outline" onClick={() => setShowStripeRefund(true)}>
+                <RotateCcw className="w-4 h-4 mr-1" /> Stripe Refund
+              </Button>
+            )}
           </div>
         )}
         {isSample && <p className="text-xs text-muted-foreground">Payments disabled for sample orders.</p>}
       </CardContent>
 
+      {/* Manual payment/refund dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{dialogType === "payment" ? "Record Payment" : "Record Refund"}</DialogTitle>
+            <DialogTitle>{dialogType === "payment" ? "Record Manual Payment" : "Record Manual Refund"}</DialogTitle>
             <DialogDescription>
               {dialogType === "payment" ? `Balance due: $${balanceDue.toFixed(2)}` : `Total paid: $${paidTotal.toFixed(2)}`}
             </DialogDescription>
@@ -132,7 +169,7 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
                 <SelectContent>
                   <SelectItem value="cash">Cash</SelectItem>
                   <SelectItem value="check">Check</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="card">Card (external)</SelectItem>
                   <SelectItem value="venmo">Venmo</SelectItem>
                   <SelectItem value="other">Other</SelectItem>
                 </SelectContent>
@@ -155,6 +192,13 @@ export function PaymentsPanel({ orderId, orderTotal, isSample }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Stripe Refund dialog */}
+      <StripeRefundDialog
+        open={showStripeRefund}
+        onOpenChange={setShowStripeRefund}
+        orderId={orderId}
+      />
     </Card>
   );
 }

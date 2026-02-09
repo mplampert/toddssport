@@ -4,6 +4,7 @@ import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStore
 import { useCreateOrder } from "@/hooks/useStoreOrders";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { CardPaymentForm } from "@/components/admin/team-stores/orders/CardPaymentForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Save, Trash2, CreditCard } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 
 interface DraftItem {
@@ -38,6 +39,8 @@ export default function StoreOrderCreate() {
   const [shipping, setShipping] = useState(0);
   const [items, setItems] = useState<DraftItem[]>([]);
   const [showAddItem, setShowAddItem] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [showCardPayment, setShowCardPayment] = useState(false);
   const [newItem, setNewItem] = useState<DraftItem>({
     team_store_product_id: "",
     product_name_snapshot: "",
@@ -85,7 +88,7 @@ export default function StoreOrderCreate() {
 
   const removeItem = (idx: number) => setItems(items.filter((_, i) => i !== idx));
 
-  const handleCreate = async () => {
+  const handleCreate = async (payAfter = false) => {
     const orderItems = items.map((i) => ({
       team_store_product_id: i.team_store_product_id || null,
       product_name_snapshot: i.product_name_snapshot,
@@ -99,7 +102,7 @@ export default function StoreOrderCreate() {
 
     const result = await createOrder.mutateAsync({
       source: "manual",
-      status,
+      status: payAfter ? "open" : status,
       customer_name: customer.name || null,
       customer_email: customer.email || null,
       customer_phone: customer.phone || null,
@@ -115,7 +118,12 @@ export default function StoreOrderCreate() {
     } as any);
 
     if (result) {
-      navigate(`/admin/team-stores/${store.id}/orders/${result.id}`);
+      if (payAfter) {
+        setCreatedOrderId(result.id);
+        setShowCardPayment(true);
+      } else {
+        navigate(`/admin/team-stores/${store.id}/orders/${result.id}`);
+      }
     }
   };
 
@@ -128,9 +136,16 @@ export default function StoreOrderCreate() {
           </Button>
           <h2 className="text-xl font-bold">Create Manual Order</h2>
         </div>
-        <Button onClick={handleCreate} disabled={createOrder.isPending || items.length === 0}>
-          <Save className="w-4 h-4 mr-1" /> {status === "draft" ? "Save as Draft" : "Create Order"}
-        </Button>
+        <div className="flex gap-2">
+          {items.length > 0 && total > 0 && !createdOrderId && (
+            <Button variant="outline" onClick={() => handleCreate(true)} disabled={createOrder.isPending}>
+              <CreditCard className="w-4 h-4 mr-1" /> Save & Take Card Payment
+            </Button>
+          )}
+          <Button onClick={() => handleCreate(false)} disabled={createOrder.isPending || items.length === 0}>
+            <Save className="w-4 h-4 mr-1" /> {status === "draft" ? "Save as Draft" : "Create Order"}
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -255,6 +270,23 @@ export default function StoreOrderCreate() {
           </Card>
         </div>
       </div>
+
+      {/* Embedded card payment after order creation */}
+      {showCardPayment && createdOrderId && (
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Take Card Payment</CardTitle></CardHeader>
+          <CardContent>
+            <CardPaymentForm
+              orderId={createdOrderId}
+              balanceDueDollars={total}
+              customerEmail={customer.email || undefined}
+              customerName={customer.name || undefined}
+              onSuccess={() => navigate(`/admin/team-stores/${store.id}/orders/${createdOrderId}`)}
+              onCancel={() => navigate(`/admin/team-stores/${store.id}/orders/${createdOrderId}`)}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Add item dialog */}
       <Dialog open={showAddItem} onOpenChange={setShowAddItem}>
