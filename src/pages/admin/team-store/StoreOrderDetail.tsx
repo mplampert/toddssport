@@ -1,8 +1,10 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useStoreOrder, useUpdateOrder, useOrderItems } from "@/hooks/useStoreOrders";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { OrderItemsEditor } from "@/components/admin/team-stores/orders/OrderItemsEditor";
 import { PaymentsPanel } from "@/components/admin/team-stores/orders/PaymentsPanel";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,20 +12,43 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { ArrowLeft, Save, Bell, Send, MessageSquare, Mail, Phone, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { format } from "date-fns";
 
 export default function StoreOrderDetail() {
   const { store } = useTeamStoreContext();
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { data: order, isLoading } = useStoreOrder(orderId!);
   const { data: items = [] } = useOrderItems(orderId!);
   const updateOrder = useUpdateOrder();
 
   const [form, setForm] = useState<any>({});
   const [dirty, setDirty] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [messageChannel, setMessageChannel] = useState<"email" | "sms">("email");
+  const [messageBody, setMessageBody] = useState("");
+  const [messageSubject, setMessageSubject] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+
+  // Notification timeline
+  const { data: notifEvents = [] } = useQuery({
+    queryKey: ["order-notifications", orderId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("notification_events")
+        .select("*")
+        .eq("order_id", orderId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!orderId,
+  });
 
   useEffect(() => {
     if (order) {
@@ -197,6 +222,66 @@ export default function StoreOrderDetail() {
               <div><Label>Customer Notes</Label><Textarea value={form.customer_notes} onChange={(e) => update("customer_notes", e.target.value)} rows={3} /></div>
             </CardContent>
           </Card>
+
+          {/* Notification Actions + Timeline */}
+          <Card>
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2"><Bell className="w-4 h-4" /> Notifications</CardTitle>
+              <div className="flex gap-1">
+                <Button variant="outline" size="sm" onClick={async () => {
+                  try {
+                    const res = await supabase.functions.invoke("send-notification", {
+                      body: { order_id: order.id, template_key: "order_placed" },
+                    });
+                    if (res.error) throw res.error;
+                    toast.success("Confirmation resent");
+                    queryClient.invalidateQueries({ queryKey: ["order-notifications", orderId] });
+                  } catch (e: any) { toast.error(e.message); }
+                }}>
+                  <Mail className="w-3 h-3 mr-1" /> Resend Confirmation
+                </Button>
+                {order.fulfillment_method === "pickup" && (
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    try {
+                      await supabase.functions.invoke("send-notification", {
+                        body: { order_id: order.id, template_key: "ready_for_pickup" },
+                      });
+                      toast.success("Pickup ready notification sent");
+                      queryClient.invalidateQueries({ queryKey: ["order-notifications", orderId] });
+                    } catch (e: any) { toast.error(e.message); }
+                  }}>
+                    <Send className="w-3 h-3 mr-1" /> Send Pickup Ready
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={() => { setMessageChannel("sms"); setMessageBody(""); setMessageSubject(""); setMessageDialogOpen(true); }}>
+                  <MessageSquare className="w-3 h-3 mr-1" /> Text Customer
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {notifEvents.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No notifications sent yet.</p>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {notifEvents.map((evt: any) => (
+                    <div key={evt.id} className="flex items-start gap-2 p-2 rounded border bg-muted/20 text-xs">
+                      {evt.channel === "email" ? <Mail className="w-3 h-3 mt-0.5 shrink-0" /> : <Phone className="w-3 h-3 mt-0.5 shrink-0" />}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-mono">{evt.template_key}</span>
+                          <Badge variant={evt.status === "sent" ? "default" : evt.status === "failed" ? "destructive" : "secondary"} className="text-[10px]">{evt.status}</Badge>
+                          <span className="text-muted-foreground">{format(new Date(evt.created_at), "MMM d, h:mm a")}</span>
+                        </div>
+                        <div className="text-muted-foreground mt-0.5 truncate">{evt.recipient_address}</div>
+                        {evt.phone_selection_reason && <div className="text-muted-foreground">Phone reason: {evt.phone_selection_reason}</div>}
+                        {evt.error && <div className="text-destructive">Error: {evt.error}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right column: status + totals + payments */}
@@ -276,6 +361,70 @@ export default function StoreOrderDetail() {
           <PaymentsPanel orderId={order.id} orderTotal={computedTotal} isSample={order.is_sample} customerEmail={order.customer_email || undefined} customerName={order.customer_name || undefined} />
         </div>
       </div>
+
+      {/* Send Message Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Send Message to Customer</DialogTitle>
+            <DialogDescription>Send a direct {messageChannel === "sms" ? "SMS" : "email"} to the customer.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Channel</Label>
+              <Select value={messageChannel} onValueChange={(v) => setMessageChannel(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="email">Email</SelectItem>
+                  <SelectItem value="sms">SMS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {messageChannel === "email" && (
+              <div><Label>Subject</Label><Input value={messageSubject} onChange={(e) => setMessageSubject(e.target.value)} /></div>
+            )}
+            <div><Label>Message</Label><Textarea value={messageBody} onChange={(e) => setMessageBody(e.target.value)} rows={4} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMessageDialogOpen(false)}>Cancel</Button>
+            <Button
+              disabled={sendingMessage || !messageBody.trim()}
+              onClick={async () => {
+                setSendingMessage(true);
+                try {
+                  const recipientAddress = messageChannel === "sms"
+                    ? (order.customer_phone || (order as any).recipient_phone || "")
+                    : (order.customer_email || "");
+                  if (!recipientAddress) throw new Error(`No ${messageChannel === "sms" ? "phone" : "email"} on this order`);
+                  const res = await supabase.functions.invoke("send-admin-message", {
+                    body: {
+                      customer_id: (order as any).customer_id,
+                      order_id: order.id,
+                      channel: messageChannel,
+                      recipient_address: recipientAddress,
+                      subject: messageChannel === "email" ? messageSubject : undefined,
+                      body: messageBody,
+                    },
+                  });
+                  if (res.error) throw res.error;
+                  const data = res.data as any;
+                  if (data?.error) throw new Error(data.error);
+                  toast.success("Message sent");
+                  setMessageDialogOpen(false);
+                  setMessageBody("");
+                } catch (e: any) {
+                  toast.error(e.message);
+                } finally {
+                  setSendingMessage(false);
+                }
+              }}
+            >
+              {sendingMessage && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+              Send
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -77,3 +77,12 @@ verify_jwt = false
 
 [functions.storefront-checkout]
 verify_jwt = false
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.twilio-webhook]
+verify_jwt = false
+
+[functions.send-admin-message]
+verify_jwt = false

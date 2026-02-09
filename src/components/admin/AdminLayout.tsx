@@ -8,6 +8,7 @@ import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
   Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
+  Bell,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -27,6 +28,7 @@ const globalNavItems = [
   { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
   { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
   { path: "/admin/team-stores", label: "Team Stores", icon: Store },
+  { path: "/admin/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
 ];
