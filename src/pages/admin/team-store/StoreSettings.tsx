@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Save, TrendingUp, Globe, Truck, DollarSign } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +43,8 @@ export default function StoreSettings() {
     },
   });
 
+  const parseMethods = (val: string) => val ? val.split(",").filter(Boolean) : [];
+
   const [form, setForm] = useState({
     start_date: store.start_date ?? "",
     end_date: store.end_date ?? "",
@@ -50,7 +52,8 @@ export default function StoreSettings() {
     store_pin: store.store_pin ?? "",
     fundraising_goal_amount: store.fundraising_goal_amount != null ? String(store.fundraising_goal_amount) : "",
     country: (store as any).country ?? "",
-    fulfillment_method: (store as any).fulfillment_method ?? "",
+    fulfillment_methods: parseMethods((store as any).fulfillment_method ?? ""),
+    use_default_fulfillment: !((store as any).fulfillment_method),
     flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
     org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
     pickup_location: (store as any).pickup_location ?? "",
@@ -64,7 +67,8 @@ export default function StoreSettings() {
       store_pin: store.store_pin ?? "",
       fundraising_goal_amount: store.fundraising_goal_amount != null ? String(store.fundraising_goal_amount) : "",
       country: (store as any).country ?? "",
-      fulfillment_method: (store as any).fulfillment_method ?? "",
+      fulfillment_methods: parseMethods((store as any).fulfillment_method ?? ""),
+      use_default_fulfillment: !((store as any).fulfillment_method),
       flat_rate_shipping: (store as any).flat_rate_shipping != null ? String((store as any).flat_rate_shipping) : "",
       org_tax_exempt: (store as any).org_tax_exempt as boolean | null,
       pickup_location: (store as any).pickup_location ?? "",
@@ -116,7 +120,7 @@ export default function StoreSettings() {
           store_pin: form.store_pin || null,
           fundraising_goal_amount: form.fundraising_goal_amount ? parseFloat(form.fundraising_goal_amount) : null,
           country: form.country || null,
-          fulfillment_method: form.fulfillment_method || null,
+          fulfillment_method: form.use_default_fulfillment ? null : (form.fulfillment_methods.join(",") || null),
           flat_rate_shipping: form.flat_rate_shipping !== "" ? parseFloat(form.flat_rate_shipping) : null,
           org_tax_exempt: form.org_tax_exempt,
           pickup_location: form.pickup_location || null,
@@ -135,9 +139,9 @@ export default function StoreSettings() {
   const progressPercent = goalAmount > 0 ? Math.min(100, (fundsRaised / goalAmount) * 100) : 0;
 
   const effectiveCountry = form.country || globalDefaults?.default_country || "US";
-  const effectiveFulfillment = form.fulfillment_method || globalDefaults?.default_fulfillment_method || "ship_to_customer";
-  const effectiveShipping = form.flat_rate_shipping !== "" ? form.flat_rate_shipping : String(globalDefaults?.default_flat_rate_shipping ?? 0);
-  const effectiveTaxExempt = form.org_tax_exempt !== null ? form.org_tax_exempt : (globalDefaults?.default_org_tax_exempt ?? false);
+  const effectiveFulfillmentMethods = form.use_default_fulfillment
+    ? parseMethods(globalDefaults?.default_fulfillment_method ?? "ship_to_customer")
+    : form.fulfillment_methods;
 
   return (
     <div className="space-y-6">
@@ -215,32 +219,49 @@ export default function StoreSettings() {
               </Select>
             </div>
 
-            {/* Fulfillment Method */}
+            {/* Fulfillment Methods */}
             <div className="space-y-3">
               <Label className="flex items-center gap-2">
-                <Truck className="w-4 h-4" /> Fulfillment Method
+                <Truck className="w-4 h-4" /> Fulfillment Methods
               </Label>
-              <RadioGroup
-                value={form.fulfillment_method || "__default__"}
-                onValueChange={(v) => setForm((f) => ({ ...f, fulfillment_method: v === "__default__" ? "" : v }))}
-                className="space-y-2"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="__default__" id="store-default-fulfillment" />
-                  <Label htmlFor="store-default-fulfillment" className="font-normal cursor-pointer text-muted-foreground">
-                    Use global default ({FULFILLMENT_OPTIONS.find((o) => o.value === (globalDefaults?.default_fulfillment_method ?? "ship_to_customer"))?.label})
-                  </Label>
+              <p className="text-xs text-muted-foreground">Select one or more options customers can choose from at checkout.</p>
+
+              <div className="flex items-center gap-2 mb-2">
+                <Checkbox
+                  id="store-use-default-fulfillment"
+                  checked={form.use_default_fulfillment}
+                  onCheckedChange={(v) => setForm((f) => ({ ...f, use_default_fulfillment: !!v }))}
+                />
+                <Label htmlFor="store-use-default-fulfillment" className="font-normal cursor-pointer text-muted-foreground">
+                  Use global defaults
+                </Label>
+              </div>
+
+              {!form.use_default_fulfillment && (
+                <div className="space-y-2 ml-2">
+                  {FULFILLMENT_OPTIONS.map((opt) => (
+                    <div key={opt.value} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`store-${opt.value}`}
+                        checked={form.fulfillment_methods.includes(opt.value)}
+                        onCheckedChange={(checked) => {
+                          setForm((f) => ({
+                            ...f,
+                            fulfillment_methods: checked
+                              ? [...f.fulfillment_methods, opt.value]
+                              : f.fulfillment_methods.filter((m) => m !== opt.value),
+                          }));
+                        }}
+                      />
+                      <Label htmlFor={`store-${opt.value}`} className="font-normal cursor-pointer">
+                        {opt.label}
+                      </Label>
+                    </div>
+                  ))}
                 </div>
-                {FULFILLMENT_OPTIONS.map((opt) => (
-                  <div key={opt.value} className="flex items-center gap-2">
-                    <RadioGroupItem value={opt.value} id={`store-${opt.value}`} />
-                    <Label htmlFor={`store-${opt.value}`} className="font-normal cursor-pointer">
-                      {opt.label}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
-              {(form.fulfillment_method === "local_pickup" || (!form.fulfillment_method && globalDefaults?.default_fulfillment_method === "local_pickup")) && (
+              )}
+
+              {effectiveFulfillmentMethods.includes("local_pickup") && (
                 <div className="space-y-2 ml-6 mt-2">
                   <Label>Pickup Location / Address</Label>
                   <Input
@@ -279,7 +300,7 @@ export default function StoreSettings() {
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <Switch
-                  checked={effectiveTaxExempt}
+                  checked={form.org_tax_exempt !== null ? form.org_tax_exempt : (globalDefaults?.default_org_tax_exempt ?? false)}
                   onCheckedChange={(v) => setForm((f) => ({ ...f, org_tax_exempt: v }))}
                 />
                 <Label>Organization is tax-exempt</Label>
