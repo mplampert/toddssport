@@ -14,6 +14,7 @@ import { ProductVariantsTab } from "@/components/admin/team-stores/ProductVarian
 import { ProductMessagesPanel } from "@/components/admin/team-stores/ProductMessagesPanel";
 import { ProductVariantImagesTab } from "@/components/admin/team-stores/ProductVariantImagesTab";
 import { ProductEditorOverviewTab } from "@/components/admin/team-stores/ProductEditorOverviewTab";
+import { ProductDescriptionTab } from "@/components/admin/team-stores/ProductDescriptionTab";
 
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
 import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
@@ -46,6 +47,7 @@ export default function StoreProductEditor() {
           category_id, store_category_override_id,
           display_name, display_color, primary_image_url, primary_image_type, extra_image_urls, extra_image_types,
           internal_notes, allowed_colors, size_upcharges,
+          description_override, short_description_override, size_chart_override_id, size_chart_display_mode,
           team_roster_id, number_lock_rule,
           catalog_styles(id, style_id, style_name, brand_name, style_image, description, part_number, title),
           team_store_categories(id, name)
@@ -167,7 +169,7 @@ export default function StoreProductEditor() {
       {/* Full-width tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start bg-transparent border-b rounded-none px-0 h-auto py-0 overflow-x-auto">
-          {["Overview", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
+          {["Overview", "Description", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -181,6 +183,9 @@ export default function StoreProductEditor() {
         <div className="pt-6">
           <TabsContent value="overview" className="m-0">
             <ProductEditorOverviewTab item={item} storeId={store.id} categories={categoryOptions} />
+          </TabsContent>
+          <TabsContent value="description" className="m-0">
+            <ProductDescriptionTab item={item} storeId={store.id} />
           </TabsContent>
           <TabsContent value="logos" className="m-0">
             <div className="max-w-2xl">

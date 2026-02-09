@@ -29,6 +29,9 @@ import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 import { VIEW_ORDER, getViewLabel, type ViewEnum } from "@/lib/viewLabels";
 import { type TextLayer, resolveTextContent, applyTextTransform } from "@/lib/textLayers";
+import { getEffectiveDescription } from "@/lib/productDescriptions";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Ruler } from "lucide-react";
 
 interface ColorOption {
   name: string;
@@ -39,6 +42,54 @@ interface ColorOption {
   swatchImage?: string;
   color1?: string;
   color2?: string;
+}
+
+/** Popup for showing a size chart from the size_charts table */
+function SizeChartPopup({ chartId }: { chartId: string }) {
+  const { data: chart } = useQuery({
+    queryKey: ["size-chart", chartId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("size_charts")
+        .select("name, content_type, content_html, file_url")
+        .eq("id", chartId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!chartId,
+  });
+
+  if (!chart) return null;
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button className="text-xs text-accent hover:underline flex items-center gap-1">
+          <Ruler className="w-3 h-3" /> Size Chart
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{chart.name || "Size Chart"}</DialogTitle>
+        </DialogHeader>
+        {chart.content_type === "html" && chart.content_html && (
+          <div
+            className="prose prose-sm max-w-none"
+            dangerouslySetInnerHTML={{ __html: chart.content_html }}
+          />
+        )}
+        {chart.content_type === "image" && chart.file_url && (
+          <img src={chart.file_url} alt={chart.name || "Size Chart"} className="w-full rounded" />
+        )}
+        {chart.content_type === "pdf" && chart.file_url && (
+          <a href={chart.file_url} target="_blank" rel="noopener noreferrer" className="text-accent underline">
+            Open Size Chart PDF
+          </a>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function TeamStoreProductDetail() {
@@ -769,13 +820,17 @@ export default function TeamStoreProductDetail() {
 
                 <Separator className="mb-6" />
 
-                {/* Description */}
-                {(styleInfo?.description || catalogStyle?.description) && (
-                  <div
-                    className="text-sm text-muted-foreground mb-6 prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
-                    dangerouslySetInnerHTML={{ __html: styleInfo?.description || catalogStyle?.description || "" }}
-                  />
-                )}
+                {/* Description — uses override if set, else vendor/API */}
+                {(() => {
+                  const effectiveDesc = getEffectiveDescription(storeProduct as any) || styleInfo?.description;
+                  if (!effectiveDesc) return null;
+                  return (
+                    <div
+                      className="text-sm text-muted-foreground mb-6 prose prose-sm max-w-none [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1"
+                      dangerouslySetInnerHTML={{ __html: effectiveDesc }}
+                    />
+                  );
+                })()}
 
                 {/* Color Selector */}
                 {colorOptions.length > 0 && (
@@ -825,9 +880,15 @@ export default function TeamStoreProductDetail() {
                 {/* Size Selector */}
                 {sizesForColor.length > 0 && (
                   <div className="mb-6">
-                    <label className="text-sm font-semibold text-foreground mb-3 block">
-                      Size: <span className="font-normal text-muted-foreground">{selectedSize || "Select a size"}</span>
-                    </label>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-semibold text-foreground">
+                        Size: <span className="font-normal text-muted-foreground">{selectedSize || "Select a size"}</span>
+                      </label>
+                      {/* Size Chart link */}
+                      {(storeProduct as any)?.size_chart_override_id && (
+                        <SizeChartPopup chartId={(storeProduct as any).size_chart_override_id} />
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {sizesForColor.map((variant) => {
                         const inStock = variant.qty !== undefined && variant.qty > 0;
