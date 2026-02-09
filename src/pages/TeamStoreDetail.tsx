@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Lock, ShoppingBag, Calendar, ArrowLeft } from "lucide-react";
+import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { StorePopupMessage } from "@/components/team-stores/StorePopupMessage";
@@ -263,6 +264,7 @@ export default function TeamStoreDetail() {
         </section>
       </main>
       <Footer />
+      <TeamStoreCartDrawer storeId={store?.id} />
     </div>
   );
 }

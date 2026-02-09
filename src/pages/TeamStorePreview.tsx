@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { ShoppingBag, Calendar, ArrowLeft, Eye, Rocket } from "lucide-react";
+import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 import { toast } from "sonner";
 import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
@@ -208,6 +209,7 @@ export default function TeamStorePreview() {
         </section>
       </main>
       <Footer />
+      <TeamStoreCartDrawer storeId={store?.id} />
     </div>
   );
 }

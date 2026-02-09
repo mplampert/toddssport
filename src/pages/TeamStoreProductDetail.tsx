@@ -22,6 +22,8 @@ import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
 import { useProductVariantImages, getGalleryForColor } from "@/hooks/useVariantImages";
+import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
+import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 
 interface ColorOption {
   name: string;
@@ -50,6 +52,7 @@ export default function TeamStoreProductDetail() {
   const [activeLogoView, setActiveLogoView] = useState<string | null>(null);
   const [persName, setPersName] = useState("");
   const [persNumber, setPersNumber] = useState("");
+  const { addItem } = useTeamStoreCart();
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
   const { data: storeProduct, isLoading: loadingItem } = useQuery({
@@ -263,8 +266,38 @@ export default function TeamStoreProductDetail() {
       toast.error(`${persSettings.number_label} is required.`);
       return;
     }
-    const totalUnit = (Number(displayPrice) || 0) + decoUpcharge + persUpcharge;
-    toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart — $${(totalUnit * quantity).toFixed(2)}`);
+    const basePrice = Number(displayPrice) || 0;
+    const totalUnit = basePrice + decoUpcharge + persUpcharge;
+    addItem({
+      storeId: store?.id ?? "",
+      storeSlug: slug ?? "",
+      storeName: store?.name ?? "",
+      productId: itemId ?? "",
+      styleId: ssStyleId ?? 0,
+      productName: storeProduct?.display_name || styleInfo?.title || catalogStyle?.style_name || "Product",
+      brandName: catalogStyle?.brand_name ?? "",
+      color: selectedVariant.colorName ?? "",
+      colorCode: selectedVariant.colorCode ?? "",
+      size: selectedVariant.sizeName ?? "",
+      sku: selectedVariant.sku ?? "",
+      quantity,
+      unitPrice: totalUnit,
+      basePrice,
+      decoUpcharge,
+      persUpcharge,
+      imageUrl: galleryImages[0] ?? catalogStyle?.style_image ?? null,
+      personalization: (persSettings.enable_name || persSettings.enable_number) ? {
+        name: persName || undefined,
+        number: persNumber || undefined,
+        namePrice: persSettings.name_price,
+        numberPrice: persSettings.number_price,
+      } : undefined,
+    });
+    toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
+    // Reset personalization after adding
+    setPersName("");
+    setPersNumber("");
+    setQuantity(1);
   };
 
   // Store price override takes precedence
@@ -704,6 +737,7 @@ export default function TeamStoreProductDetail() {
         </div>
       </main>
       <Footer />
+      <TeamStoreCartDrawer storeId={store?.id} />
     </div>
   );
 }
