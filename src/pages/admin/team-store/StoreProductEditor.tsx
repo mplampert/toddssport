@@ -13,7 +13,7 @@ import { ProductMessagesPanel } from "@/components/admin/team-stores/ProductMess
 import { ProductOverridesPanel } from "@/components/admin/team-stores/ProductOverridesPanel";
 import { ProductVariantImagesTab } from "@/components/admin/team-stores/ProductVariantImagesTab";
 import { ProductEditorOverviewTab } from "@/components/admin/team-stores/ProductEditorOverviewTab";
-import { ProductEditorPricingTab } from "@/components/admin/team-stores/ProductEditorPricingTab";
+
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
 import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
 import { getProductImage, handleImageError } from "@/lib/productImages";
@@ -165,7 +165,7 @@ export default function StoreProductEditor() {
       {/* Full-width tabs */}
       <Tabs defaultValue="overview" className="w-full">
         <TabsList className="w-full justify-start bg-transparent border-b rounded-none px-0 h-auto py-0 overflow-x-auto">
-          {["Overview", "Pricing", "Images", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
+          {["Overview", "Images", "Logos", "Messages", "Variants", "Personalization", "Decoration"].map((tab) => (
             <TabsTrigger
               key={tab}
               value={tab.toLowerCase()}
@@ -179,9 +179,6 @@ export default function StoreProductEditor() {
         <div className="pt-6">
           <TabsContent value="overview" className="m-0">
             <ProductEditorOverviewTab item={item} storeId={store.id} categories={categoryOptions} />
-          </TabsContent>
-          <TabsContent value="pricing" className="m-0">
-            <ProductEditorPricingTab item={item} storeId={store.id} />
           </TabsContent>
           <TabsContent value="images" className="m-0">
             <StorefrontImagePreview item={item} />

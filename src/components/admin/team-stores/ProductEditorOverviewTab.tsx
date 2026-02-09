@@ -19,6 +19,9 @@ interface Props {
   categories: { id: string; name: string; slug: string; overrideId?: string | null; isCustom?: boolean }[];
 }
 
+/* ── helpers ── */
+const num = (v: string) => v.trim() ? parseFloat(v) : null;
+
 export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
   const queryClient = useQueryClient();
   const style = item.catalog_styles;
@@ -31,6 +34,13 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
   const [screenPrint, setScreenPrint] = useState(item.screen_print_enabled);
   const [embroidery, setEmbroidery] = useState(item.embroidery_enabled);
   const [dtf, setDtf] = useState(item.dtf_enabled);
+
+  // Pricing fields
+  const [priceOverride, setPriceOverride] = useState(item.price_override != null ? String(item.price_override) : "");
+  const [fundraisingEnabled, setFundraisingEnabled] = useState(item.fundraising_enabled);
+  const [fundraisingAmount, setFundraisingAmount] = useState(item.fundraising_amount_per_unit != null ? String(item.fundraising_amount_per_unit) : "");
+  const [fundraisingPct, setFundraisingPct] = useState(item.fundraising_percentage != null ? String(item.fundraising_percentage) : "");
+
   const [dirty, setDirty] = useState(false);
 
   const saveMutation = useMutation({
@@ -49,6 +59,10 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
           screen_print_enabled: screenPrint,
           embroidery_enabled: embroidery,
           dtf_enabled: dtf,
+          price_override: num(priceOverride),
+          fundraising_enabled: fundraisingEnabled,
+          fundraising_amount_per_unit: num(fundraisingAmount),
+          fundraising_percentage: num(fundraisingPct),
         })
         .eq("id", item.id);
       if (error) throw error;
@@ -130,6 +144,36 @@ export function ProductEditorOverviewTab({ item, storeId, categories }: Props) {
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={dtf} onCheckedChange={(v) => { setDtf(!!v); m(); }} /> DTF
           </label>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* ── Pricing ── */}
+      <div className="space-y-4">
+        <Label className="font-medium">Pricing</Label>
+        <div className="space-y-1.5">
+          <Label>Price Override ($)</Label>
+          <Input type="number" step="0.01" min="0" value={priceOverride} onChange={(e) => { setPriceOverride(e.target.value); m(); }} placeholder="Leave blank for default" className="w-48" />
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <Switch checked={fundraisingEnabled} onCheckedChange={(v) => { setFundraisingEnabled(v); m(); }} />
+            <Label>Fundraising</Label>
+          </div>
+          {fundraisingEnabled && (
+            <div className="space-y-3 pl-12">
+              <div className="space-y-1.5">
+                <Label>Amount per Unit ($)</Label>
+                <Input type="number" step="0.01" min="0" value={fundraisingAmount} onChange={(e) => { setFundraisingAmount(e.target.value); m(); }} placeholder="e.g. 5.00" className="w-40" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Fundraising Percentage (%)</Label>
+                <Input type="number" step="0.1" min="0" max="100" value={fundraisingPct} onChange={(e) => { setFundraisingPct(e.target.value); m(); }} placeholder="e.g. 15" className="w-40" />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
