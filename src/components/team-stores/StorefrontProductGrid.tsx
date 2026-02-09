@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
 import { getProductImage, handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
+import { useStoreVariantImages, getBestImageForColor } from "@/hooks/useVariantImages";
 
 interface RawLogoAssignment extends LogoAssignment {
   team_store_item_id: string;
@@ -67,6 +68,20 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
     },
     enabled: productIds.length > 0,
   });
+
+  // Fetch variant images for all products
+  const { data: allVariantImages = [] } = useStoreVariantImages(productIds);
+
+  // Build lookup: productId -> variant images
+  const variantImagesByProduct = useMemo(() => {
+    const map = new Map<string, typeof allVariantImages>();
+    for (const img of allVariantImages) {
+      const arr = map.get(img.team_store_product_id) || [];
+      arr.push(img);
+      map.set(img.team_store_product_id, arr);
+    }
+    return map;
+  }, [allVariantImages]);
 
   // Group logos by product id
   const logosByProduct = useMemo(() => {
@@ -205,7 +220,12 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
             {section.items.map((item) => {
               const style = item.catalog_styles;
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
-              const imgSrc = getProductImage(item);
+              // Use variant image for first enabled color if available
+              const productVariantImgs = variantImagesByProduct.get(item.id) || [];
+              const firstColorImg = productVariantImgs.length > 0
+                ? (productVariantImgs.find((v) => v.is_primary) || productVariantImgs[0])?.image_url
+                : null;
+              const imgSrc = firstColorImg || getProductImage(item);
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
               return (

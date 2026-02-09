@@ -1906,6 +1906,50 @@ export type Database = {
           },
         ]
       }
+      team_store_product_variant_images: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          image_type: string
+          image_url: string
+          is_primary: boolean
+          sort_order: number
+          team_store_product_id: string
+          updated_at: string
+        }
+        Insert: {
+          color: string
+          created_at?: string
+          id?: string
+          image_type?: string
+          image_url: string
+          is_primary?: boolean
+          sort_order?: number
+          team_store_product_id: string
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          image_type?: string
+          image_url?: string
+          is_primary?: boolean
+          sort_order?: number
+          team_store_product_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_product_variant_images_team_store_product_id_fkey"
+            columns: ["team_store_product_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_products: {
         Row: {
           active: boolean

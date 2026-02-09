@@ -21,6 +21,7 @@ import { getProductGallery, handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
+import { useProductVariantImages, getGalleryForColor } from "@/hooks/useVariantImages";
 
 interface ColorOption {
   name: string;
@@ -105,6 +106,7 @@ export default function TeamStoreProductDetail() {
   const storeId = store?.id ?? "";
   const { data: persDefaults } = useStorePersonalizationDefaults(storeId);
   const { data: decoDefaults } = useStoreDecorationPricingDefaults(storeId);
+  const { data: variantImages = [] } = useProductVariantImages(itemId);
 
   const persSettings = useMemo(
     () => resolvePersonalization(persDefaults, storeProduct as any),
@@ -198,13 +200,18 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
+    // Priority: variant images for selected color > product overrides > SS images
+    if (selectedColor) {
+      const colorGallery = getGalleryForColor(variantImages, selectedColor);
+      if (colorGallery.length > 0) return colorGallery;
+    }
     const ssImgs = activeColor
       ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
     return getProductGallery(storeProduct ?? {}, ssImgs);
-  }, [activeColor, storeProduct]);
+  }, [activeColor, storeProduct, selectedColor, variantImages]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
