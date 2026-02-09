@@ -109,6 +109,14 @@ function PaymentForm({
   );
 }
 
+/* ─── Fulfillment option mapping ─── */
+const FULFILLMENT_MAP: Record<string, { value: string; label: string }> = {
+  ship_to_customer: { value: "ship", label: "Ship to me" },
+  organization_pickup: { value: "pickup", label: "Organization Pickup" },
+  deliver_to_organization: { value: "local_delivery", label: "Deliver to Organization" },
+  local_pickup: { value: "local_pickup", label: "Local Pickup" },
+};
+
 /* ─── Main checkout page ─── */
 export default function TeamStoreCheckout() {
   const { slug } = useParams<{ slug: string }>();
@@ -118,6 +126,58 @@ export default function TeamStoreCheckout() {
   const storeId = storeItems[0]?.storeId;
   const storeName = storeItems[0]?.storeName || "Store";
   const subtotal = storeItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+
+  // ═══ Fetch store fulfillment config ═══
+  const [storeFulfillmentMethods, setStoreFulfillmentMethods] = useState<{ value: string; label: string }[]>([]);
+  const [pickupLocation, setPickupLocationInfo] = useState("");
+
+  useEffect(() => {
+    if (!storeId) return;
+    (async () => {
+      // Load store-level setting
+      const { data: store } = await supabase
+        .from("team_stores")
+        .select("fulfillment_method, pickup_location")
+        .eq("id", storeId)
+        .single();
+
+      let methods: string[] = [];
+      let pickup = "";
+
+      if (store?.fulfillment_method) {
+        methods = (store.fulfillment_method as string).split(",").filter(Boolean);
+        pickup = (store as any).pickup_location || "";
+      }
+
+      // Fallback to global defaults if store has none
+      if (methods.length === 0) {
+        const { data: settings } = await supabase
+          .from("team_store_settings")
+          .select("default_fulfillment_method, default_pickup_location")
+          .limit(1)
+          .single();
+        if (settings?.default_fulfillment_method) {
+          methods = (settings.default_fulfillment_method as string).split(",").filter(Boolean);
+        }
+        if (!pickup) pickup = (settings as any)?.default_pickup_location || "";
+      }
+
+      // Default fallback
+      if (methods.length === 0) methods = ["ship_to_customer"];
+
+      const mapped = methods
+        .map((m) => FULFILLMENT_MAP[m])
+        .filter(Boolean);
+
+      setStoreFulfillmentMethods(mapped);
+      setPickupLocationInfo(pickup);
+
+      // Set default fulfillment to first available method
+      if (mapped.length > 0) {
+        setFulfillment(mapped[0].value);
+      }
+    })();
+  }, [storeId]);
 
   // ═══ Billing fields ═══
   const [billingName, setBillingName] = useState("");
@@ -426,20 +486,25 @@ export default function TeamStoreCheckout() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <RadioGroup value={fulfillment} onValueChange={setFulfillment} disabled={locked}>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="ship" id="ship" />
-                      <Label htmlFor="ship">Ship to me</Label>
+                  {storeFulfillmentMethods.length > 1 ? (
+                    <RadioGroup value={fulfillment} onValueChange={setFulfillment} disabled={locked}>
+                      {storeFulfillmentMethods.map((opt) => (
+                        <div key={opt.value} className="flex items-center space-x-2">
+                          <RadioGroupItem value={opt.value} id={opt.value} />
+                          <Label htmlFor={opt.value}>{opt.label}</Label>
+                        </div>
+                      ))}
+                    </RadioGroup>
+                  ) : storeFulfillmentMethods.length === 1 ? (
+                    <p className="text-sm font-medium text-foreground">{storeFulfillmentMethods[0].label}</p>
+                  ) : null}
+
+                  {fulfillment === "local_pickup" && pickupLocation && (
+                    <div className="p-3 rounded-md bg-muted/50 border border-border text-sm">
+                      <p className="font-medium text-foreground mb-0.5">Pickup Location</p>
+                      <p className="text-muted-foreground">{pickupLocation}</p>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="pickup" id="pickup" />
-                      <Label htmlFor="pickup">Pickup</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="local_delivery" id="local_delivery" />
-                      <Label htmlFor="local_delivery">Local delivery</Label>
-                    </div>
-                  </RadioGroup>
+                  )}
 
                   {fulfillment === "ship" && (
                     <div className="space-y-3 pt-2">
