@@ -18,8 +18,8 @@ import { ProductEditorOverviewTab } from "@/components/admin/team-stores/Product
 import { ProductPersonalizationTab } from "@/components/admin/team-stores/ProductPersonalizationTab";
 import { ProductDecorationPricingTab } from "@/components/admin/team-stores/ProductDecorationPricingTab";
 import { getProductImage, handleImageError } from "@/lib/productImages";
+import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import type { StoreProduct } from "@/components/admin/team-stores/ProductListPane";
-
 
 export default function StoreProductEditor() {
   const { store } = useTeamStoreContext();
@@ -56,6 +56,17 @@ export default function StoreProductEditor() {
       return data as StoreProduct | null;
     },
     enabled: !!productId,
+  });
+
+  // Fallback: fetch style info from SS Activewear when catalog_styles is missing
+  const { data: ssStyle } = useQuery<SSStyle | null>({
+    queryKey: ["ss-style-info", item?.style_id],
+    queryFn: async () => {
+      const styles = await getStyles({ style: String(item!.style_id) });
+      return styles?.[0] ?? null;
+    },
+    enabled: !!item && !item.catalog_styles,
+    staleTime: 1000 * 60 * 30,
   });
 
   const categoryOptions = visibleCategories.map((c) => ({
@@ -113,7 +124,10 @@ export default function StoreProductEditor() {
   }
 
   const style = item.catalog_styles;
-  const displayName = item.display_name || style?.style_name || `Style #${item.style_id}`;
+  const resolvedName = item.display_name || style?.style_name || ssStyle?.styleName || `Style #${item.style_id}`;
+  const resolvedBrand = style?.brand_name || ssStyle?.brandName;
+  const resolvedSku = style?.style_id || ssStyle?.partNumber || ssStyle?.styleID;
+  const resolvedImage = getProductImage(item) || ssStyle?.styleImage;
 
   return (
     <div className="space-y-4">
@@ -123,20 +137,19 @@ export default function StoreProductEditor() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Products
         </Button>
         <div className="flex items-start gap-3 min-w-0 flex-1">
-          {getProductImage(item) && (
+          {resolvedImage && (
             <img
-              src={getProductImage(item)}
+              src={resolvedImage}
               alt=""
               className="w-12 h-12 object-contain rounded border bg-muted p-0.5 shrink-0"
               onError={handleImageError}
             />
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg font-bold text-foreground truncate">{displayName}</h2>
+            <h2 className="text-lg font-bold text-foreground truncate">{resolvedName}</h2>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
-              {style?.style_id && <span>SKU: {style.style_id}</span>}
-              {style?.brand_name && <span>Vendor: {style.brand_name}</span>}
-              {(style as any)?.part_number && <span>Part #: {(style as any).part_number}</span>}
+              {resolvedSku && <span>SKU: {resolvedSku}</span>}
+              {resolvedBrand && <span>Vendor: {resolvedBrand}</span>}
             </div>
           </div>
           <div className="flex items-center gap-2 shrink-0 mt-1">
