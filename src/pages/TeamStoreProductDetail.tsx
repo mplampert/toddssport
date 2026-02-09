@@ -599,7 +599,9 @@ export default function TeamStoreProductDetail() {
               {/* ═══ LEFT: Image Gallery ═══ */}
               <div className="space-y-4">
                 <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group" style={{ aspectRatio: "4/5" }}>
-                  {galleryImages[activeImageIdx] ? (
+                  {loading ? (
+                    <div className="w-full h-full animate-pulse bg-muted rounded-2xl" />
+                  ) : galleryImages[activeImageIdx] ? (
                     <img
                       src={galleryImages[activeImageIdx]}
                       alt={`${activeColor?.name || "Product"} view`}
