@@ -22,6 +22,7 @@ import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
 import { useProductVariantImages, getGalleryForColor } from "@/hooks/useVariantImages";
+import { getStorefrontHero, getDefaultColor } from "@/lib/storefrontHero";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 
@@ -137,6 +138,19 @@ export default function TeamStoreProductDetail() {
     return total;
   }, [persSettings, persName, persNumber]);
 
+  // Determine deterministic default color from allowed_colors (same as grid)
+  const determinedDefaultColor = useMemo(
+    () => getDefaultColor(storeProduct?.allowed_colors),
+    [storeProduct?.allowed_colors]
+  );
+
+  // Set initial selectedColor to the deterministic default once product loads
+  useEffect(() => {
+    if (determinedDefaultColor && !selectedColor) {
+      setSelectedColor(determinedDefaultColor);
+    }
+  }, [determinedDefaultColor]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch full product data from SS API
   useEffect(() => {
     if (!ssStyleId) return;
@@ -149,7 +163,10 @@ export default function TeamStoreProductDetail() {
         ]);
         const results = Array.isArray(productsData) ? productsData : [];
         setProducts(results);
-        if (results[0]?.colorName) setSelectedColor(results[0].colorName);
+        // Only set selectedColor from SS data if we don't already have a deterministic default
+        if (!determinedDefaultColor && results[0]?.colorName && !selectedColor) {
+          setSelectedColor(results[0].colorName);
+        }
 
         const styles = Array.isArray(stylesData) ? stylesData : [];
         const match = styles.find((s) => String(s.styleID) === String(ssStyleId));
@@ -161,7 +178,7 @@ export default function TeamStoreProductDetail() {
       }
     };
     load();
-  }, [ssStyleId]);
+  }, [ssStyleId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── derived data ── */
   // Parse allowed_colors from the store product (if set, filter to only those)
