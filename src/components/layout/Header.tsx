@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { trackCTAClick, trackOutboundClick } from "@/lib/ga4";
 import {
   DropdownMenu,
@@ -10,6 +11,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import toddsLogo from "@/assets/todds-logo.png";
+import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
+import { openCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 
 const serviceLinks = [
   { name: "Team Uniforms", path: "/uniforms" },
@@ -31,6 +34,16 @@ export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const location = useLocation();
+  const { items, itemsForStore } = useTeamStoreCart();
+
+  // Detect if we're on a team store storefront page
+  const storeSlugMatch = location.pathname.match(/^\/team-stores\/([^/]+)/);
+  const isStorefront = !!storeSlugMatch && location.pathname !== "/team-stores" && !location.pathname.startsWith("/team-stores/browse");
+
+  // Get cart count for the current store
+  const displayCount = isStorefront
+    ? items.filter(i => i.storeSlug === storeSlugMatch![1]).reduce((s, i) => s + i.quantity, 0)
+    : 0;
 
   const isServiceActive = serviceLinks.some(link => location.pathname === link.path);
 
@@ -125,21 +138,51 @@ export function Header() {
             </Link>
           </nav>
 
-          {/* CTA Button */}
-          <div className="hidden md:block">
+          {/* CTA Button + Cart */}
+          <div className="hidden md:flex items-center gap-3">
+            {isStorefront && (
+              <button
+                onClick={() => openCartDrawer()}
+                className="relative p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label={`Cart (${displayCount} items)`}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {displayCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-destructive text-destructive-foreground">
+                    {displayCount}
+                  </Badge>
+                )}
+              </button>
+            )}
             <Button onClick={scrollToQuote} className="btn-cta px-6">
               Get a Quote
             </Button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <button
-            className="md:hidden p-2"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+          {/* Mobile: Cart + Menu Button */}
+          <div className="md:hidden flex items-center gap-2">
+            {isStorefront && (
+              <button
+                onClick={() => openCartDrawer()}
+                className="relative p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label={`Cart (${displayCount} items)`}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {displayCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-destructive text-destructive-foreground">
+                    {displayCount}
+                  </Badge>
+                )}
+              </button>
+            )}
+            <button
+              className="p-2"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Toggle menu"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
