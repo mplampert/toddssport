@@ -589,7 +589,7 @@ export default function TeamStoreProductDetail() {
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
               {/* ═══ LEFT: Image Gallery ═══ */}
               <div className="space-y-4">
-                <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group mx-auto w-full" style={{ aspectRatio: "4/5", maxHeight: "420px" }}>
+                <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group" style={{ aspectRatio: "4/5" }}>
                   {galleryImages[activeImageIdx] ? (
                     <img
                       src={galleryImages[activeImageIdx]}
