@@ -13,6 +13,7 @@ import { ProductMessagesPanel } from "@/components/admin/team-stores/ProductMess
 import { ProductOverridesPanel } from "@/components/admin/team-stores/ProductOverridesPanel";
 import { ProductEditorOverviewTab } from "@/components/admin/team-stores/ProductEditorOverviewTab";
 import { ProductEditorPricingTab } from "@/components/admin/team-stores/ProductEditorPricingTab";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 import type { StoreProduct } from "@/components/admin/team-stores/ProductListPane";
 
 export default function StoreProductEditor() {
@@ -97,11 +98,12 @@ export default function StoreProductEditor() {
           <ArrowLeft className="w-4 h-4 mr-1" /> Products
         </Button>
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          {(item.primary_image_url || style?.style_image) && (
+          {getProductImage(item) && (
             <img
-              src={item.primary_image_url || style?.style_image || ""}
+              src={getProductImage(item)}
               alt=""
               className="w-10 h-10 object-contain rounded border bg-muted p-0.5 shrink-0"
+              onError={handleImageError}
             />
           )}
           <div className="min-w-0">

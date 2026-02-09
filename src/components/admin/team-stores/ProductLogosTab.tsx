@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Plus, Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 
 /* ─── Types ─── */
 
@@ -262,7 +263,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const garmentImage = item.primary_image_url || item.catalog_styles?.style_image || "";
+  const garmentImage = getProductImage(item);
   const active = activePlacementIdx !== null ? placements[activePlacementIdx] : null;
 
   if (isLoading) {

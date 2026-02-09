@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { ShoppingBag } from "lucide-react";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 
 interface LogoAssignment {
   id: string;
@@ -206,7 +207,7 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
             {section.items.map((item) => {
               const style = item.catalog_styles;
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
-              const imgSrc = item.primary_image_url || style?.style_image;
+              const imgSrc = getProductImage(item);
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
@@ -214,7 +215,7 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
                   <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full">
                     {imgSrc && (
                       <div className="relative aspect-square bg-muted flex items-center justify-center p-4">
-                        <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" />
+                        <img src={imgSrc} alt={name} className="max-h-full max-w-full object-contain" onError={handleImageError} />
                         {/* Primary logo overlay only */}
                         {(() => {
                           const primaryLogo = itemLogos.find((l) => l.is_primary) || itemLogos[0];

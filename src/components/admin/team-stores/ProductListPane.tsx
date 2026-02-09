@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Trash2, Eye, EyeOff, Package } from "lucide-react";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 import type { EffectiveCategory } from "./StoreCategoryManager";
 
 export interface StoreProduct {
@@ -189,7 +190,7 @@ export function ProductListPane({
               const style = item.catalog_styles;
               const name = item.display_name || style?.style_name || `Style #${item.style_id}`;
               const isActive = selectedId === item.id;
-              const img = item.primary_image_url || style?.style_image;
+              const img = getProductImage(item);
               return (
                 <div
                   key={item.id}

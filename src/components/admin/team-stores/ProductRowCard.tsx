@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { getProductImage, handleImageError } from "@/lib/productImages";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -99,8 +100,8 @@ export function ProductRowCard({ item, storeId, onRemove, categories = [] }: Pro
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {item.catalog_styles?.style_image && (
-            <img src={item.catalog_styles.style_image} alt="" className="w-10 h-10 object-contain rounded" />
+          {getProductImage(item) && (
+            <img src={getProductImage(item)} alt="" className="w-10 h-10 object-contain rounded" onError={handleImageError} />
           )}
           <div>
             <p className="text-sm font-medium">{item.catalog_styles?.style_name ?? `Style #${item.style_id}`}</p>
