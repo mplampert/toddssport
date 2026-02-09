@@ -1622,10 +1622,12 @@ export type Database = {
           created_at: string
           dtf_enabled: boolean
           embroidery_enabled: boolean
+          file_type: string
           file_url: string
           id: string
           is_default: boolean
           name: string
+          original_file_url: string | null
           screen_print_enabled: boolean
           store_logo_id: string
           updated_at: string
@@ -1636,10 +1638,12 @@ export type Database = {
           created_at?: string
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          file_type?: string
           file_url: string
           id?: string
           is_default?: boolean
           name: string
+          original_file_url?: string | null
           screen_print_enabled?: boolean
           store_logo_id: string
           updated_at?: string
@@ -1650,10 +1654,12 @@ export type Database = {
           created_at?: string
           dtf_enabled?: boolean
           embroidery_enabled?: boolean
+          file_type?: string
           file_url?: string
           id?: string
           is_default?: boolean
           name?: string
+          original_file_url?: string | null
           screen_print_enabled?: boolean
           store_logo_id?: string
           updated_at?: string
@@ -1671,33 +1677,39 @@ export type Database = {
       store_logos: {
         Row: {
           created_at: string
+          file_type: string
           file_url: string
           id: string
           is_primary: boolean
           method: string
           name: string
+          original_file_url: string | null
           placement: string | null
           team_store_id: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          file_type?: string
           file_url: string
           id?: string
           is_primary?: boolean
           method: string
           name: string
+          original_file_url?: string | null
           placement?: string | null
           team_store_id: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          file_type?: string
           file_url?: string
           id?: string
           is_primary?: boolean
           method?: string
           name?: string
+          original_file_url?: string | null
           placement?: string | null
           team_store_id?: string
           updated_at?: string

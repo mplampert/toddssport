@@ -21,6 +21,23 @@ function getPublicUrl(path: string) {
   return `${SUPABASE_URL}/storage/v1/object/public/store-logos/${path}`;
 }
 
+/** Detect file type from extension */
+function detectFileType(filename: string): "svg" | "ai" | "eps" | "image" {
+  const ext = filename.split(".").pop()?.toLowerCase();
+  if (ext === "svg") return "svg";
+  if (ext === "ai") return "ai";
+  if (ext === "eps") return "eps";
+  return "image";
+}
+
+/** File type badge labels */
+const FILE_TYPE_LABELS: Record<string, string> = {
+  svg: "SVG",
+  ai: "AI",
+  eps: "EPS",
+  image: "Raster",
+};
+
 const PLACEMENTS = [
   { value: "left_front", label: "Left Front / Left Chest" },
   { value: "right_front", label: "Right Front / Right Chest" },
@@ -158,6 +175,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
+      const fileType = detectFileType(file.name);
       const path = `${storeId}/deco-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("store-logos")
@@ -165,13 +183,16 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
       if (uploadError) throw uploadError;
 
       const publicUrl = getPublicUrl(path);
+      const isVector = fileType !== "image";
       const { data: newLogo, error } = await supabase.from("store_logos").insert({
         team_store_id: storeId,
         name: decoName.trim(),
         method: "multi",
         placement: decoPlacement,
         file_url: publicUrl,
-      }).select("id").single();
+        file_type: fileType,
+        original_file_url: isVector ? publicUrl : null,
+      } as any).select("id").single();
       if (error) throw error;
 
       await supabase.from("store_logo_variants").insert({
@@ -184,11 +205,13 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
         dtf_enabled: false,
         background_rule: "any",
         is_default: true,
-      });
+        file_type: fileType,
+        original_file_url: isVector ? publicUrl : null,
+      } as any);
 
       queryClient.invalidateQueries({ queryKey: ["store-logos-with-variants", storeId] });
       setDecoName("");
-      toast.success("Logo added with default variant");
+      toast.success(`Logo added (${FILE_TYPE_LABELS[fileType]}) with default variant`);
     } catch (e: any) {
       toast.error(e.message);
     } finally {
@@ -241,6 +264,8 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
+      const fileType = detectFileType(file.name);
+      const isVector = fileType !== "image";
       const path = `${storeId}/variant-${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("store-logos")
@@ -266,11 +291,13 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
         dtf_enabled: variantDtf,
         background_rule: variantBgRule,
         is_default: variantIsDefault,
-      });
+        file_type: fileType,
+        original_file_url: isVector ? publicUrl : null,
+      } as any);
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ["store-logos-with-variants", storeId] });
-      toast.success("Variant added");
+      toast.success(`Variant added (${FILE_TYPE_LABELS[fileType]})`);
       setVariantDialog(null);
       resetVariantForm();
     } catch (e: any) {
@@ -323,7 +350,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
             <input
               ref={primaryInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.svg"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -373,7 +400,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
         <input
           ref={decoInputRef}
           type="file"
-          accept="image/*"
+            accept="image/*,.svg,.ai,.eps"
           className="hidden"
           onChange={(e) => {
             const file = e.target.files?.[0];
@@ -389,6 +416,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
           <Plus className="w-4 h-4 mr-2" />
           {uploading ? "Uploading…" : "Upload & Add Logo"}
         </Button>
+        <p className="text-xs text-muted-foreground">Accepts SVG, AI, EPS, PNG, JPG. Vector files are kept as originals for production.</p>
       </div>
 
       {/* Existing logos list */}
@@ -574,7 +602,7 @@ export function LogoLibrary({ storeId, logoUrl }: LogoLibraryProps) {
             <input
               ref={variantInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,.svg,.ai,.eps"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
