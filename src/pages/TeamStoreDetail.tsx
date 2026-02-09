@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -12,6 +13,8 @@ import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawe
 import { StorefrontProductGrid } from "@/components/team-stores/StorefrontProductGrid";
 import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { StorePopupMessage } from "@/components/team-stores/StorePopupMessage";
+
+const OG_DEFAULT_IMAGE = "https://toddssportinggoods.com/og-image.jpg";
 
 interface StoreData {
   id: string;
@@ -214,6 +217,18 @@ export default function TeamStoreDetail() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Helmet>
+        <title>{storePublic?.hero_title || store?.name || "Team Store"} | Todd's Sporting Goods</title>
+        <meta property="og:title" content={storePublic?.hero_title || store?.name || "Team Store"} />
+        <meta property="og:description" content={storePublic?.hero_subtitle || `Shop gear for ${store?.name || "your team"}`} />
+        <meta property="og:image" content={storePublic?.hero_image_url || OG_DEFAULT_IMAGE} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={`https://toddssportinggoods.com/team-stores/${slug}`} />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:image" content={storePublic?.hero_image_url || OG_DEFAULT_IMAGE} />
+      </Helmet>
       <Header />
       <main className="flex-1">
         {/* Hero */}
