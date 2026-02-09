@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.generate-store-hero]
 verify_jwt = false
+
+[functions.generate-sample-orders]
+verify_jwt = false
+
+[functions.delete-sample-orders]
+verify_jwt = false

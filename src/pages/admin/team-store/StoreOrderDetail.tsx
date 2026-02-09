@@ -99,6 +99,7 @@ export default function StoreOrderDetail() {
           <h2 className="text-xl font-bold">{order.order_number}</h2>
           <Badge variant={order.source === "manual" ? "outline" : "secondary"}>{order.source}</Badge>
           <Badge>{order.status}</Badge>
+          {order.is_sample && <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">Sample</Badge>}
         </div>
         <Button onClick={handleSave} disabled={!dirty || updateOrder.isPending}>
           <Save className="w-4 h-4 mr-1" /> Save
