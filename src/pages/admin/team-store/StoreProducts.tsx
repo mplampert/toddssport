@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
+import { useStoreVariantImages, type VariantImage } from "@/hooks/useVariantImages";
 import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCategoryManager";
 import { StoreCategoryManager } from "@/components/admin/team-stores/StoreCategoryManager";
 import { AddProductsWizard } from "@/components/admin/team-stores/AddProductsWizard";
@@ -49,6 +50,9 @@ export default function StoreProducts() {
       return data as StoreProduct[];
     },
   });
+
+  const productIds = products.map((p) => p.id);
+  const { data: variantImages = [] } = useStoreVariantImages(productIds);
 
   const attachedStyleIds = new Set(products.map((p) => p.style_id));
 
@@ -161,7 +165,8 @@ export default function StoreProducts() {
 
       {/* Full-width Product List */}
       <div className="border rounded-lg overflow-hidden bg-card">
-        <ProductListPane
+          <ProductListPane
+            variantImages={variantImages}
           products={products}
           categories={visibleCategories}
           selectedId={null}
