@@ -59,7 +59,7 @@ Deno.serve(async (req: Request) => {
     // Fetch store to validate it's open
     const { data: store, error: storeErr } = await supabase
       .from("team_stores")
-      .select("id, name, slug, status")
+      .select("id, name, slug, status, flat_rate_shipping")
       .eq("id", storeId)
       .single();
 
@@ -290,7 +290,11 @@ Deno.serve(async (req: Request) => {
       log("Promo applied", promoSnapshot);
     }
 
-    const total = Math.max(0.5, subtotal - discountTotal); // Stripe minimum
+    // Apply shipping based on fulfillment method
+    const fulfillmentMethod = fulfillment?.method || "ship";
+    const shippingTotal = fulfillmentMethod === "ship" ? (Number(store.flat_rate_shipping) || 0) : 0;
+
+    const total = Math.max(0.5, subtotal - discountTotal + shippingTotal); // Stripe minimum
 
     // Generate order number
     const orderNumber = `TS-${Date.now().toString(36).toUpperCase()}`;
@@ -310,7 +314,7 @@ Deno.serve(async (req: Request) => {
       sms_opt_in: recipient.smsOptIn || false,
     } : null;
 
-    const fulfillmentMethod = fulfillment?.method || "ship";
+    // fulfillmentMethod already extracted above for shipping calc
     const fulfillmentSnapshot = {
       method: fulfillmentMethod,
       ...(fulfillmentMethod === "ship" ? {
@@ -379,7 +383,7 @@ Deno.serve(async (req: Request) => {
         subtotal,
         total,
         tax_total: 0,
-        shipping_total: 0,
+        shipping_total: shippingTotal,
         discount_total: discountTotal,
       } as any)
       .select()
@@ -497,6 +501,7 @@ Deno.serve(async (req: Request) => {
         orderNumber,
         total,
         discountTotal,
+        shippingTotal,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
