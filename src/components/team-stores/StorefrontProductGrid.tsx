@@ -25,6 +25,7 @@ interface StorefrontProduct {
   primary_image_type: string | null;
   extra_image_urls: string[] | null;
   extra_image_types: string[] | null;
+  allowed_colors?: any;
   catalog_styles: {
     id: number;
     style_id: number;
@@ -222,9 +223,21 @@ export function StorefrontProductGrid({ storeId, slug, products, urlSuffix = "",
               const productUrl = `${base}/product/${item.id}${urlSuffix}`;
               // Use variant image for first enabled color if available
               const productVariantImgs = variantImagesByProduct.get(item.id) || [];
-              const firstColorImg = productVariantImgs.length > 0
-                ? (productVariantImgs.find((v) => v.is_primary) || productVariantImgs[0])?.image_url
-                : null;
+              let firstColorImg: string | null = null;
+              if (productVariantImgs.length > 0) {
+                // Determine the first enabled color
+                const allowedColors = Array.isArray(item.allowed_colors) ? item.allowed_colors : [];
+                const firstColorName = allowedColors.length > 0 ? allowedColors[0]?.name : null;
+                if (firstColorName) {
+                  // Find the primary for that color, or first image for that color
+                  const colorImgs = productVariantImgs.filter((v) => v.color === firstColorName);
+                  firstColorImg = (colorImgs.find((v) => v.is_primary) || colorImgs[0])?.image_url ?? null;
+                }
+                // If no match for first color, use any primary
+                if (!firstColorImg) {
+                  firstColorImg = (productVariantImgs.find((v) => v.is_primary) || productVariantImgs[0])?.image_url ?? null;
+                }
+              }
               const imgSrc = firstColorImg || getProductImage(item);
               const name = item.display_name || style?.style_name || "Product";
               const itemLogos = logosByProduct.get(item.id) || [];
