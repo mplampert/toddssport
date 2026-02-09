@@ -589,19 +589,19 @@ export default function TeamStoreProductDetail() {
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
               {/* ═══ LEFT: Image Gallery ═══ */}
               <div className="space-y-4">
-                <div className="relative bg-card rounded-2xl border border-border overflow-hidden aspect-square flex items-center justify-center group">
+                <div className="relative bg-card rounded-2xl border border-border overflow-hidden flex items-center justify-center group" style={{ aspectRatio: "4/5" }}>
                   {galleryImages[activeImageIdx] ? (
                     <img
                       src={galleryImages[activeImageIdx]}
                       alt={`${activeColor?.name || "Product"} view`}
-                      className="w-full h-full object-contain p-8 transition-transform duration-300 group-hover:scale-105"
+                      className="w-full h-full object-contain p-6 transition-transform duration-300 group-hover:scale-105"
                       onError={handleImageError}
                     />
                   ) : catalogStyle?.style_image ? (
                     <img
                       src={catalogStyle.style_image}
                       alt={catalogStyle.style_name}
-                      className="w-full h-full object-contain p-8"
+                      className="w-full h-full object-contain p-6"
                     />
                   ) : (
                     <Package className="w-24 h-24 text-muted-foreground/20" />
