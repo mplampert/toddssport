@@ -130,6 +130,7 @@ export default function TeamStoreCheckout() {
   // ═══ Fetch store fulfillment config ═══
   const [storeFulfillmentMethods, setStoreFulfillmentMethods] = useState<{ value: string; label: string }[]>([]);
   const [pickupLocation, setPickupLocationInfo] = useState("");
+  const [flatRateShipping, setFlatRateShipping] = useState(0);
 
   useEffect(() => {
     if (!storeId) return;
@@ -137,7 +138,7 @@ export default function TeamStoreCheckout() {
       // Load store-level setting
       const { data: store } = await supabase
         .from("team_stores")
-        .select("fulfillment_method, pickup_location")
+        .select("fulfillment_method, pickup_location, flat_rate_shipping")
         .eq("id", storeId)
         .single();
 
@@ -148,6 +149,7 @@ export default function TeamStoreCheckout() {
         methods = (store.fulfillment_method as string).split(",").filter(Boolean);
         pickup = (store as any).pickup_location || "";
       }
+      setFlatRateShipping(Number(store?.flat_rate_shipping) || 0);
 
       // Fallback to global defaults if store has none
       if (methods.length === 0) {
@@ -213,6 +215,8 @@ export default function TeamStoreCheckout() {
   const [promoCode, setPromoCode] = useState("");
   const [promoApplied, setPromoApplied] = useState(false);
   const [promoError, setPromoError] = useState("");
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [promoValidating, setPromoValidating] = useState(false);
 
   // ═══ Checkout state ═══
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -220,6 +224,7 @@ export default function TeamStoreCheckout() {
   const [orderNumber, setOrderNumber] = useState("");
   const [serverTotal, setServerTotal] = useState(subtotal);
   const [serverDiscount, setServerDiscount] = useState(0);
+  const [serverShipping, setServerShipping] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paid, setPaid] = useState(false);
@@ -244,6 +249,11 @@ export default function TeamStoreCheckout() {
   }, []);
 
   const locked = !!clientSecret;
+
+  // Client-side computed shipping
+  const displayShipping = locked ? serverShipping : (fulfillment === "ship" ? flatRateShipping : 0);
+  const displayDiscount = locked ? serverDiscount : promoDiscount;
+  const displayTotal = locked ? serverTotal : Math.max(0, subtotal - displayDiscount + displayShipping);
 
   const validate = () => {
     if (!billingName.trim()) return "Billing name is required";
@@ -340,6 +350,7 @@ export default function TeamStoreCheckout() {
       setOrderNumber(data.orderNumber);
       setServerTotal(data.total);
       setServerDiscount(data.discountTotal || 0);
+      setServerShipping(data.shippingTotal || 0);
     } catch (err: any) {
       setError(err.message || "Failed to start checkout");
     } finally {
@@ -657,7 +668,7 @@ export default function TeamStoreCheckout() {
                             {promoCode.toUpperCase()}
                           </Badge>
                           <button
-                            onClick={() => { setPromoApplied(false); setPromoCode(""); setPromoError(""); }}
+                            onClick={() => { setPromoApplied(false); setPromoCode(""); setPromoError(""); setPromoDiscount(0); }}
                             className="text-muted-foreground hover:text-foreground"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -674,17 +685,53 @@ export default function TeamStoreCheckout() {
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={!promoCode.trim()}
-                            onClick={() => {
+                            disabled={!promoCode.trim() || promoValidating}
+                            onClick={async () => {
                               if (!billingEmail.trim()) {
                                 setPromoError("Enter your billing email first");
                                 return;
                               }
-                              setPromoApplied(true);
+                              setPromoValidating(true);
                               setPromoError("");
+                              try {
+                                const { data: promo } = await supabase
+                                  .from("team_store_promo_codes")
+                                  .select("id, code, discount_type, discount_value, starts_at, ends_at, active, allowed_emails, allowed_email_domains, max_redemptions_total, max_redemptions_per_email")
+                                  .eq("store_id", storeId)
+                                  .ilike("code", promoCode.trim().toUpperCase())
+                                  .eq("active", true)
+                                  .maybeSingle();
+
+                                if (!promo) {
+                                  setPromoError("Invalid promo code");
+                                  return;
+                                }
+                                const now = new Date();
+                                if (promo.starts_at && new Date(promo.starts_at) > now) {
+                                  setPromoError("Promo code is not yet active");
+                                  return;
+                                }
+                                if (promo.ends_at && new Date(promo.ends_at) < now) {
+                                  setPromoError("Promo code has expired");
+                                  return;
+                                }
+                                // Calculate preview discount
+                                let disc = 0;
+                                if (promo.discount_type === "percent") {
+                                  disc = Math.round(subtotal * (Number(promo.discount_value) / 100) * 100) / 100;
+                                } else {
+                                  disc = Math.min(Number(promo.discount_value), subtotal);
+                                }
+                                setPromoDiscount(disc);
+                                setPromoApplied(true);
+                              } catch {
+                                setPromoError("Failed to validate promo code");
+                              } finally {
+                                setPromoValidating(false);
+                              }
                             }}
                           >
-                            Apply
+                            {promoValidating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Apply"}
                           </Button>
                         </div>
                       )}
@@ -694,14 +741,14 @@ export default function TeamStoreCheckout() {
                     </div>
                   )}
 
-                  {locked && serverDiscount > 0 && (
+                  {promoApplied && displayDiscount > 0 && (
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary" className="text-sm">
                         <Tag className="w-3 h-3 mr-1" />
                         {promoCode.toUpperCase()}
                       </Badge>
                       <span className="text-sm text-green-600 dark:text-green-400">
-                        -${serverDiscount.toFixed(2)}
+                        -${displayDiscount.toFixed(2)}
                       </span>
                     </div>
                   )}
@@ -713,15 +760,15 @@ export default function TeamStoreCheckout() {
                       <span className="text-muted-foreground">Subtotal</span>
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
-                    {(locked ? serverDiscount : 0) > 0 && (
+                    {displayDiscount > 0 && (
                       <div className="flex justify-between text-green-600 dark:text-green-400">
                         <span>Discount</span>
-                        <span>-${serverDiscount.toFixed(2)}</span>
+                        <span>-${displayDiscount.toFixed(2)}</span>
                       </div>
                     )}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Shipping</span>
-                      <span>$0.00</span>
+                      <span>{displayShipping > 0 ? `$${displayShipping.toFixed(2)}` : "Free"}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tax</span>
@@ -733,7 +780,7 @@ export default function TeamStoreCheckout() {
 
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total</span>
-                    <span>${(locked ? serverTotal : subtotal).toFixed(2)}</span>
+                    <span>${displayTotal.toFixed(2)}</span>
                   </div>
                 </CardContent>
               </Card>
