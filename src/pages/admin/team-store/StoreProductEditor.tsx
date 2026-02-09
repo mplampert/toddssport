@@ -143,12 +143,7 @@ export default function StoreProductEditor() {
             <ProductEditorPricingTab item={item} storeId={store.id} />
           </TabsContent>
           <TabsContent value="images" className="m-0">
-            <div className="space-y-8">
-              <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
-              <div className="border-t pt-6">
-                <ProductVariantImagesTab item={item} storeId={store.id} />
-              </div>
-            </div>
+            <ProductOverridesPanel item={item} storeId={store.id} onDirty={() => {}} />
           </TabsContent>
           <TabsContent value="logos" className="m-0">
             <div className="max-w-2xl">
