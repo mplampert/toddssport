@@ -43,6 +43,30 @@ export function TeamStoreProducts({ storeId }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: async ({ id1, order1, id2, order2 }: { id1: string; order1: number; id2: string; order2: number }) => {
+      const { error: e1 } = await supabase.from("team_store_products").update({ sort_order: order2 }).eq("id", id1);
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.from("team_store_products").update({ sort_order: order1 }).eq("id", id2);
+      if (e2) throw e2;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const handleMove = (index: number, direction: "up" | "down") => {
+    const list = categoryFilter === "uncategorized"
+      ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
+      : filtered;
+    const swapIndex = direction === "up" ? index - 1 : index + 1;
+    if (swapIndex < 0 || swapIndex >= list.length) return;
+    const a = list[index];
+    const b = list[swapIndex];
+    reorderMutation.mutate({ id1: a.id, order1: a.sort_order, id2: b.id, order2: b.sort_order });
+  };
+
   const attachedStyleIds = new Set(attached.map((a: any) => a.style_id));
 
   // Filter by category (match on category_id or store_category_override_id)
@@ -123,18 +147,24 @@ export function TeamStoreProducts({ storeId }: Props) {
           <p className="text-sm text-muted-foreground">No products attached yet. Click "Add Products" to get started.</p>
         ) : (
           <div className="space-y-3">
-            {(categoryFilter === "uncategorized"
-              ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
-              : filtered
-            ).map((item: any) => (
-              <ProductRowCard
-                key={item.id}
-                item={item}
-                storeId={storeId}
-                onRemove={() => detachMutation.mutate(item.id)}
-                categories={categoryOptions}
-              />
-            ))}
+            {(() => {
+              const list = categoryFilter === "uncategorized"
+                ? attached.filter((a: any) => !a.category_id && !a.store_category_override_id)
+                : filtered;
+              return list.map((item: any, idx: number) => (
+                <ProductRowCard
+                  key={item.id}
+                  item={item}
+                  storeId={storeId}
+                  onRemove={() => detachMutation.mutate(item.id)}
+                  onMoveUp={() => handleMove(idx, "up")}
+                  onMoveDown={() => handleMove(idx, "down")}
+                  isFirst={idx === 0}
+                  isLast={idx === list.length - 1}
+                  categories={categoryOptions}
+                />
+              ));
+            })()}
           </div>
         )}
       </CardContent>
