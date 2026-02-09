@@ -288,6 +288,7 @@ export default function TeamStoreCheckout() {
             sku: i.sku,
             quantity: i.quantity,
             basePrice: i.basePrice,
+            sizeUpcharge: i.sizeUpcharge,
             decoUpcharge: i.decoUpcharge,
             persUpcharge: i.persUpcharge,
             imageUrl: i.imageUrl,

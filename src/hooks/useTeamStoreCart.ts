@@ -14,8 +14,9 @@ export interface TeamStoreCartItem {
   size: string;
   sku: string;
   quantity: number;
-  unitPrice: number; // base + decoration + personalization
+  unitPrice: number; // base + sizeUpcharge + decoration + personalization
   basePrice: number;
+  sizeUpcharge: number;
   decoUpcharge: number;
   persUpcharge: number;
   imageUrl: string | null;

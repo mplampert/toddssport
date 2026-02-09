@@ -40,6 +40,7 @@ function CartLine({
         {/* Price breakdown */}
         <div className="text-xs text-muted-foreground mt-1 space-y-0.5">
           <span>Base: ${item.basePrice.toFixed(2)}</span>
+          {item.sizeUpcharge > 0 && <span> · Size: +${item.sizeUpcharge.toFixed(2)}</span>}
           {item.decoUpcharge > 0 && <span> · Deco: +${item.decoUpcharge.toFixed(2)}</span>}
           {item.persUpcharge > 0 && <span> · Pers: +${item.persUpcharge.toFixed(2)}</span>}
         </div>

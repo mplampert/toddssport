@@ -2693,6 +2693,7 @@ export type Database = {
           primary_image_type: string
           primary_image_url: string | null
           screen_print_enabled: boolean
+          size_upcharges: Json | null
           sort_order: number
           store_category_override_id: string | null
           style_id: number
@@ -2729,6 +2730,7 @@ export type Database = {
           primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
+          size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
           style_id: number
@@ -2765,6 +2767,7 @@ export type Database = {
           primary_image_type?: string
           primary_image_url?: string | null
           screen_print_enabled?: boolean
+          size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
           style_id?: number
