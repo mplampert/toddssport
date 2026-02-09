@@ -130,7 +130,7 @@ export default function StoreProductEditor() {
   const catalogNameIsNumeric = style?.style_name && /^\d+$/.test(style.style_name);
   const resolvedName = item.display_name || ssStyle?.styleName || (!catalogNameIsNumeric ? style?.style_name : null) || `Style #${item.style_id}`;
   const resolvedBrand = ssStyle?.brandName || style?.brand_name;
-  const resolvedSku = ssStyle?.partNumber || style?.style_id || ssStyle?.styleID;
+  const resolvedSku = ssStyle?.partNumber || (style as any)?.part_number || style?.style_id || ssStyle?.styleID;
   const resolvedImage = getProductImage(item) || ssStyle?.styleImage;
 
   return (
