@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
-  Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink,
+  Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -36,6 +36,7 @@ const teamStoresNavItems = [
   { path: "/admin/team-stores/stores", label: "Stores", icon: Store },
   { path: "/admin/team-stores/orders", label: "Orders", icon: ShoppingCart },
   { path: "/admin/team-stores/fundraising", label: "Fundraising", icon: Heart },
+  { path: "/admin/team-stores/reports", label: "Reports", icon: BarChart3 },
   { path: "/admin/team-stores/logos", label: "Logos", icon: Image },
   { path: "/admin/team-stores/settings", label: "Settings", icon: Settings },
 ];

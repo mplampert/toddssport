@@ -61,6 +61,7 @@ import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
 import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
 import TeamStoresFundraising from "./pages/admin/team-stores/TeamStoresFundraising";
+import TeamStoresReports from "./pages/admin/team-stores/TeamStoresReports";
 import TeamStoresLogos from "./pages/admin/team-stores/TeamStoresLogos";
 import TeamStoresSettings from "./pages/admin/team-stores/TeamStoresSettings";
 import PromoProductDetail from "./pages/PromoProductDetail";
@@ -129,6 +130,7 @@ const App = () => (
             <Route path="stores" element={<TeamStoresStores />} />
             <Route path="orders" element={<TeamStoresOrders />} />
             <Route path="fundraising" element={<TeamStoresFundraising />} />
+            <Route path="reports" element={<TeamStoresReports />} />
             <Route path="logos" element={<TeamStoresLogos />} />
             <Route path="settings" element={<TeamStoresSettings />} />
             <Route path="new" element={<NewTeamStoreWizard />} />
