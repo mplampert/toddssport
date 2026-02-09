@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -210,6 +210,19 @@ export default function StoreProducts() {
     bulkMutation.mutate({ action, ids });
   }, [bulkMutation]);
 
+  const handleReorder = useCallback(async (fromIndex: number, toIndex: number, filteredList: StoreProduct[]) => {
+    const reordered = [...filteredList];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    // Batch update sort_order for all items in the reordered list
+    for (let i = 0; i < reordered.length; i++) {
+      if (reordered[i].sort_order !== i) {
+        await supabase.from("team_store_products").update({ sort_order: i }).eq("id", reordered[i].id);
+      }
+    }
+    invalidateAll();
+  }, [invalidateAll]);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -250,6 +263,7 @@ export default function StoreProducts() {
           onBulkAction={handleBulkAction}
           onBulkEdit={(mode) => setBulkEditMode(mode)}
           onUpdate={handleInlineUpdate}
+          onReorder={handleReorder}
           isLoading={isLoading}
           initialSearch={searchParams.get("search") || ""}
           initialCategory={searchParams.get("category") || "all"}
