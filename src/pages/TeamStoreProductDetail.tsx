@@ -220,24 +220,43 @@ export default function TeamStoreProductDetail() {
   );
 
   const galleryImages = useMemo(() => {
+    // Compute the hero image using the SAME resolver as the grid tile
+    const heroResult = getStorefrontHero(storeProduct ?? {}, variantImages);
+    const heroUrl = heroResult.heroImageUrl;
+
     // If variant images exist for the selected color, show ONLY those
     if (selectedColor) {
       const colorGallery = getGalleryForColor(variantImages, selectedColor);
-      if (colorGallery.length > 0) return colorGallery;
+      if (colorGallery.length > 0) {
+        // If the selected color IS the default color, ensure hero is first
+        if (selectedColor === determinedDefaultColor && heroUrl && !colorGallery.includes(heroUrl)) {
+          return [heroUrl, ...colorGallery];
+        }
+        return colorGallery;
+      }
     }
     // If the product has variant images for ANY color, don't mix in SS/override images
-    // — this means a color without uploaded images shows the default product image only
     if (variantImages.length > 0) {
-      return getProductGallery(storeProduct ?? {}, []);
+      const fallback = getProductGallery(storeProduct ?? {}, []);
+      // Ensure hero is first if it isn't already
+      if (heroUrl && fallback[0] !== heroUrl) {
+        return [heroUrl, ...fallback.filter((u) => u !== heroUrl)];
+      }
+      return fallback;
     }
-    // No variant images at all — use SS catalog images as before
+    // No variant images at all — use SS catalog images
     const ssImgs = activeColor
       ? [activeColor.frontImage, activeColor.backImage, activeColor.sideImage].filter(
           (img): img is string => !!img && img.length > 0
         )
       : [];
-    return getProductGallery(storeProduct ?? {}, ssImgs);
-  }, [activeColor, storeProduct, selectedColor, variantImages]);
+    const gallery = getProductGallery(storeProduct ?? {}, ssImgs);
+    // Ensure hero is first
+    if (heroUrl && gallery[0] !== heroUrl) {
+      return [heroUrl, ...gallery.filter((u) => u !== heroUrl)];
+    }
+    return gallery;
+  }, [activeColor, storeProduct, selectedColor, variantImages, determinedDefaultColor]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
