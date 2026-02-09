@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,8 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
-import { Search } from "lucide-react";
+import { Search, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 type StoreStatus = "scheduled" | "open" | "closed";
 
@@ -36,7 +38,21 @@ const statusBadge: Record<StoreStatus, { label: string; variant: "default" | "se
 
 export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+
+  const deleteMutation = useMutation({
+    mutationFn: async (storeId: string) => {
+      const { error } = await supabase.from("team_stores").delete().eq("id", storeId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-all-stores-table"] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-kpis"] });
+      toast.success("Store deleted");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
 
   const { data: stores = [], isLoading } = useQuery<StoreRow[]>({
     queryKey: ["team-store-all-stores-table"],
@@ -158,12 +174,38 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          onClick={() => navigate(`/admin/team-stores/${s.id}`)}
-                        >
-                          {s.status === "closed" ? "View Report" : "Manage"}
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            onClick={() => navigate(`/admin/team-stores/${s.id}`)}
+                          >
+                            {s.status === "closed" ? "View Report" : "Manage"}
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete "{s.name}"?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete this store and cannot be undone. Orders and related data may become orphaned.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={() => deleteMutation.mutate(s.id)}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
