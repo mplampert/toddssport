@@ -1677,6 +1677,7 @@ export type Database = {
       store_logos: {
         Row: {
           created_at: string
+          decoration_type: string
           file_type: string
           file_url: string
           id: string
@@ -1690,6 +1691,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          decoration_type?: string
           file_type?: string
           file_url: string
           id?: string
@@ -1703,6 +1705,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          decoration_type?: string
           file_type?: string
           file_url?: string
           id?: string
