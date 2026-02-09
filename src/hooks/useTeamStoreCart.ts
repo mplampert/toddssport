@@ -27,6 +27,20 @@ export interface TeamStoreCartItem {
     customFields?: Record<string, string>;
     customFieldsUpcharge?: number;
     rosterPlayerId?: string;
+    textLayers?: Array<{
+      view: string;
+      text: string;
+      font_family: string;
+      font_weight: string;
+      font_size_px: number;
+      fill_color: string;
+      outline_color: string | null;
+      outline_thickness: number;
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+    }>;
   };
   addedAt: string;
 }

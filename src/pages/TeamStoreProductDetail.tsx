@@ -28,6 +28,7 @@ import { getDefaultColor } from "@/lib/storefrontHero";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { TeamStoreCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
 import { VIEW_ORDER, getViewLabel, type ViewEnum } from "@/lib/viewLabels";
+import { type TextLayer, resolveTextContent, applyTextTransform } from "@/lib/textLayers";
 
 interface ColorOption {
   name: string;
@@ -111,6 +112,28 @@ export default function TeamStoreProductDetail() {
     () => matchLogosForVariant(allLogos, selectedColor || undefined)
       .filter((l: any) => (l.view || "front") === activeProductView),
     [allLogos, selectedColor, activeProductView]
+  );
+
+  // Fetch text layers for this product
+  const { data: allTextLayers = [] } = useQuery<TextLayer[]>({
+    queryKey: ["item-text-layers-storefront", itemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_item_text_layers")
+        .select("*")
+        .eq("team_store_item_id", itemId!)
+        .eq("active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return data as TextLayer[];
+    },
+    enabled: !!itemId,
+  });
+
+  // Text layers for current view
+  const viewTextLayers = useMemo(
+    () => allTextLayers.filter((t) => (t.view || "front") === activeProductView),
+    [allTextLayers, activeProductView]
   );
 
   const isPreview = store?.status !== "open";
@@ -259,10 +282,10 @@ export default function TeamStoreProductDetail() {
     };
 
     const viewHasDecoration = (v: ViewEnum): boolean => {
-      // Logo placements on this view
       const hasLogos = allLogos.some((l: any) => (l.view || "front") === v);
       if (hasLogos) return true;
-      // Personalization (name/number) counts as back decoration
+      const hasText = allTextLayers.some((t) => (t.view || "front") === v);
+      if (hasText) return true;
       if (v === "back" && (persSettings.enable_name || persSettings.enable_number)) return true;
       return false;
     };
@@ -280,7 +303,7 @@ export default function TeamStoreProductDetail() {
     // Ensure front is always present as first entry
     if (!views.includes("front")) views.unshift("front");
     return views;
-  }, [selectedColor, variantImages, activeColor, allLogos, persSettings.enable_name, persSettings.enable_number]);
+  }, [selectedColor, variantImages, activeColor, allLogos, allTextLayers, persSettings.enable_name, persSettings.enable_number]);
 
   const galleryImages = useMemo(() => {
     const baseUrl = (u: string) => u.split("?")[0];
@@ -405,6 +428,13 @@ export default function TeamStoreProductDetail() {
         customFields: hasCustomFields ? { ...customFieldValues } : undefined,
         customFieldsUpcharge: hasCustomFields ? customFieldsUpcharge : undefined,
         rosterPlayerId: selectedPlayerId || undefined,
+        textLayers: allTextLayers.length > 0 ? allTextLayers.filter(t => t.active).map(t => ({
+          view: t.view,
+          text: applyTextTransform(resolveTextContent(t, { name: persName, number: persNumber, customFields: customFieldValues }), t.text_transform),
+          font_family: t.font_family, font_weight: t.font_weight, font_size_px: t.font_size_px,
+          fill_color: t.fill_color, outline_color: t.outline_color, outline_thickness: t.outline_thickness,
+          x: t.x, y: t.y, scale: t.scale, rotation: t.rotation,
+        })) : undefined,
       } : undefined,
     });
     toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
@@ -525,6 +555,41 @@ export default function TeamStoreProductDetail() {
                           transform: "translate(-50%, -50%)",
                         }}
                       />
+                    );
+                  })}
+
+                  {/* Text layer overlays with live personalization */}
+                  {viewTextLayers.map((t, idx) => {
+                    const rawText = resolveTextContent(t, { name: persName, number: persNumber, customFields: customFieldValues });
+                    const displayText = applyTextTransform(rawText, t.text_transform);
+                    const size = t.scale * 100;
+                    return (
+                      <div
+                        key={`text-${idx}`}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${t.x * 100}%`,
+                          top: `${t.y * 100}%`,
+                          width: `${size}%`,
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      >
+                        <div
+                          className="w-full text-center whitespace-nowrap overflow-hidden select-none"
+                          style={{
+                            fontFamily: t.font_family,
+                            fontWeight: t.font_weight,
+                            fontSize: `${Math.max(8, Math.round(t.font_size_px * (size / 100)))}px`,
+                            color: t.fill_color,
+                            letterSpacing: `${t.letter_spacing}px`,
+                            lineHeight: t.line_height,
+                            textAlign: t.alignment as any,
+                            WebkitTextStroke: t.outline_thickness > 0 ? `${t.outline_thickness}px ${t.outline_color || "#000"}` : undefined,
+                          }}
+                        >
+                          {displayText}
+                        </div>
+                      </div>
                     );
                   })}
 
