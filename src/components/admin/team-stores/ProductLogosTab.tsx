@@ -24,6 +24,7 @@ interface ColorOption {
   name: string;
   frontImage?: string;
   backImage?: string;
+  sideImage?: string;
   swatchImage?: string;
   color1?: string;
   color2?: string;
@@ -236,6 +237,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             name: p.colorName,
             frontImage: p.colorFrontImage,
             backImage: p.colorBackImage,
+            sideImage: p.colorSideImage || p.colorDirectSideImage,
             swatchImage: p.colorSwatchImage,
             color1: p.color1,
             color2: p.color2,
@@ -577,6 +579,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     if (selectedColor) {
       const color = colorOptions.find((c) => c.code === selectedColor);
       if (activeView === "back" && color?.backImage) return { url: color.backImage, source: "ss" as const, variantImageId: null };
+      if ((activeView === "left_sleeve" || activeView === "right_sleeve") && color?.sideImage) return { url: color.sideImage, source: "ss" as const, variantImageId: null };
       if (activeView === "front" && color?.frontImage) return { url: color.frontImage, source: "ss" as const, variantImageId: null };
     }
     // For sleeves (and back without SS image), stay blank — no generic fallback
