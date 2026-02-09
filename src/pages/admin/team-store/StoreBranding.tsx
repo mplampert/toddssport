@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Palette, Save, Info, Plus, X, Wand2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { LogoLibrary } from "@/components/admin/team-stores/LogoLibrary";
 import { HeroGenerator } from "@/components/admin/team-stores/HeroGenerator";
 
 const MAX_COLORS = 4;
@@ -303,18 +302,6 @@ export default function StoreBranding() {
       {/* AI Hero Generator */}
       <HeroGenerator storeId={store.id} storeName={storeName} brandColors={brandColors} />
 
-      {/* Logo Library Card */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Logo Library</CardTitle>
-          <CardDescription>
-            Upload school and mascot logos for this team store. Set a primary logo to drive mockups and color detection.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <LogoLibrary storeId={store.id} logoUrl={store.logo_url} />
-        </CardContent>
-      </Card>
     </div>
   );
 }
