@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -75,6 +75,7 @@ interface Props {
   onBulkAction: (action: "show" | "hide" | "delete", ids: string[]) => void;
   onBulkEdit?: (mode: "price" | "fundraising" | "personalization") => void;
   onUpdate?: (id: string, fields: Record<string, any>) => Promise<void>;
+  onReorder?: (fromIndex: number, toIndex: number, filteredList: StoreProduct[]) => void;
   isLoading: boolean;
   initialSearch?: string;
   initialCategory?: string;
@@ -95,6 +96,7 @@ export function ProductListPane({
   onBulkAction,
   onBulkEdit,
   onUpdate,
+  onReorder,
   isLoading,
   initialSearch = "",
   initialCategory = "all",
@@ -103,7 +105,8 @@ export function ProductListPane({
   const [search, setSearch] = useState(initialSearch);
   const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
   const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
-
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const filtered = useMemo(() => {
     let list = products;
     if (search.trim()) {
@@ -245,7 +248,7 @@ export function ProductListPane({
             <p className="text-sm text-muted-foreground">No products match your filters.</p>
           </div>
         ) : (
-          <div className="min-w-[600px]">
+          <div className="min-w-[600px]" onDragEnd={() => { dragIndexRef.current = null; setDragOverIndex(null); }}>
             {/* Header */}
             <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
               <Checkbox
@@ -260,7 +263,7 @@ export function ProductListPane({
               <span className="w-14 text-center shrink-0">Status</span>
               <span className="w-6 shrink-0" />
             </div>
-            {filtered.map((item) => (
+            {filtered.map((item, idx) => (
               <InlineProductRow
                 key={item.id}
                 item={item}
@@ -268,9 +271,19 @@ export function ProductListPane({
                 logoOverlays={logoOverlaysMap.get(item.id) || []}
                 isChecked={selectedIds.has(item.id)}
                 isHighlighted={selectedId === item.id}
+                isDragOver={dragOverIndex === idx}
                 onNavigate={() => onSelect(item.id)}
                 onToggleCheck={() => onToggleSelect(item.id)}
                 onUpdate={onUpdate ?? noopUpdate}
+                onDragStart={() => { dragIndexRef.current = idx; }}
+                onDragOver={(e) => { e.preventDefault(); setDragOverIndex(idx); }}
+                onDrop={() => {
+                  if (dragIndexRef.current !== null && dragIndexRef.current !== idx) {
+                    onReorder?.(dragIndexRef.current, idx, filtered);
+                  }
+                  dragIndexRef.current = null;
+                  setDragOverIndex(null);
+                }}
               />
             ))}
           </div>

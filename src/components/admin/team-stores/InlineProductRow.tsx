@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal, RotateCcw } from "lucide-react";
+import { MoreHorizontal, RotateCcw, GripVertical } from "lucide-react";
 import { DecoratedThumbnail } from "./DecoratedThumbnail";
 import type { StoreProduct } from "./ProductListPane";
 
@@ -21,9 +21,13 @@ interface Props {
   logoOverlays?: { logo_url: string; x: number; y: number; scale: number }[];
   isChecked: boolean;
   isHighlighted: boolean;
+  isDragOver?: boolean;
   onNavigate: () => void;
   onToggleCheck: () => void;
   onUpdate: (id: string, fields: Record<string, any>) => Promise<void>;
+  onDragStart?: () => void;
+  onDragOver?: (e: React.DragEvent) => void;
+  onDrop?: () => void;
 }
 
 export function InlineProductRow({
@@ -32,9 +36,13 @@ export function InlineProductRow({
   logoOverlays = [],
   isChecked,
   isHighlighted,
+  isDragOver,
   onNavigate,
   onToggleCheck,
   onUpdate,
+  onDragStart,
+  onDragOver,
+  onDrop,
 }: Props) {
   const style = item.catalog_styles;
   const identity = getInternalIdentity(item);
@@ -96,8 +104,27 @@ export function InlineProductRow({
     <div
       className={`flex items-center gap-2 px-3 py-2 border-b cursor-pointer transition-colors hover:bg-muted/50 ${
         isHighlighted ? "bg-accent/10 border-l-2 border-l-accent" : ""
-      }`}
+      } ${isDragOver ? "border-t-2 border-t-accent bg-accent/5" : ""}`}
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.effectAllowed = "move";
+        onDragStart?.();
+      }}
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        onDragOver?.(e);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop?.();
+      }}
     >
+      {/* Drag handle */}
+      <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0">
+        <GripVertical className="w-3.5 h-3.5" />
+      </div>
+
       {/* Checkbox */}
       <Checkbox
         checked={isChecked}
