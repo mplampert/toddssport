@@ -20,6 +20,7 @@ import { StoreMessages } from "@/components/team-stores/StoreMessages";
 import { handleImageError } from "@/lib/productImages";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStorePersonalizationDefaults, resolvePersonalization } from "@/hooks/useStorePersonalization";
+import { useRosterPlayers, type RosterPlayer } from "@/hooks/useTeamRosters";
 import { useStoreDecorationPricingDefaults, resolveDecorationPricing, calculateDecorationUpcharge, DECORATION_METHODS, DECORATION_PLACEMENTS } from "@/hooks/useStoreDecorationPricing";
 import { useProductVariantImages, getGalleryForColor, hasImagesForView } from "@/hooks/useVariantImages";
 import { getDefaultColor } from "@/lib/storefrontHero";
@@ -55,6 +56,7 @@ export default function TeamStoreProductDetail() {
   const [persName, setPersName] = useState("");
   const [persNumber, setPersNumber] = useState("");
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const { addItem } = useTeamStoreCart();
 
   // Load the team store product row (without team_stores join — RLS may block non-active stores)
@@ -117,6 +119,11 @@ export default function TeamStoreProductDetail() {
   const { data: persDefaults } = useStorePersonalizationDefaults(storeId);
   const { data: decoDefaults } = useStoreDecorationPricingDefaults(storeId);
   const { data: variantImages = [] } = useProductVariantImages(itemId);
+  const rosterEnabled = !!(storeProduct as any)?.team_roster_id;
+  const { data: rosterPlayers = [] } = useRosterPlayers(rosterEnabled ? (storeProduct as any)?.team_roster_id : null);
+  const lockRule = (storeProduct as any)?.number_lock_rule ?? "none";
+  const activePlayers = rosterPlayers.filter((p) => p.status === "active");
+  const selectedPlayer = activePlayers.find((p) => p.id === selectedPlayerId) ?? null;
 
   const persSettings = useMemo(
     () => resolvePersonalization(persDefaults, storeProduct as any),
@@ -371,13 +378,14 @@ export default function TeamStoreProductDetail() {
       decoUpcharge,
       persUpcharge,
       imageUrl: galleryImages[0] ?? catalogStyle?.style_image ?? null,
-      personalization: (persSettings.enable_name || persSettings.enable_number || hasCustomFields) ? {
+      personalization: (persSettings.enable_name || persSettings.enable_number || hasCustomFields || selectedPlayerId) ? {
         name: persName || undefined,
         number: persNumber || undefined,
         namePrice: persSettings.name_price,
         numberPrice: persSettings.number_price,
         customFields: hasCustomFields ? { ...customFieldValues } : undefined,
         customFieldsUpcharge: hasCustomFields ? customFieldsUpcharge : undefined,
+        rosterPlayerId: selectedPlayerId || undefined,
       } : undefined,
     });
     toast.success(`Added ${quantity}× ${selectedVariant.colorName} / ${selectedVariant.sizeName} to cart`);
@@ -385,6 +393,7 @@ export default function TeamStoreProductDetail() {
     setPersName("");
     setPersNumber("");
     setCustomFieldValues({});
+    setSelectedPlayerId(null);
     setQuantity(1);
   };
 
@@ -742,11 +751,52 @@ export default function TeamStoreProductDetail() {
                 )}
 
                 {/* Personalization inputs */}
-                {(persSettings.enable_name || persSettings.enable_number || (persSettings.custom_fields ?? []).length > 0) && (
+                {(persSettings.enable_name || persSettings.enable_number || (persSettings.custom_fields ?? []).length > 0 || rosterEnabled) && (
                   <div className="mb-6 space-y-3">
                     <label className="text-sm font-semibold text-foreground block">Personalization</label>
                     {persSettings.instructions && (
                       <p className="text-xs text-muted-foreground">{persSettings.instructions}</p>
+                    )}
+                    {/* Roster player dropdown */}
+                    {rosterEnabled && activePlayers.length > 0 && (
+                      <div className="space-y-1">
+                        <Label className="text-xs font-semibold">Select Your Player</Label>
+                        <select
+                          value={selectedPlayerId ?? ""}
+                          onChange={(e) => {
+                            const pid = e.target.value || null;
+                            setSelectedPlayerId(pid);
+                            const player = activePlayers.find((p) => p.id === pid);
+                            if (player) {
+                              setPersName(`${player.player_first_name} ${player.player_last_name}`);
+                              setPersNumber(player.jersey_number);
+                              // Prefill grad_year/birth_year if custom fields exist
+                              const cf = { ...customFieldValues };
+                              for (const f of persSettings.custom_fields ?? []) {
+                                const lbl = f.label.toLowerCase();
+                                if (lbl.includes("grad") && player.grad_year) cf[f.id] = String(player.grad_year);
+                                if (lbl.includes("birth") && player.birth_year) cf[f.id] = String(player.birth_year);
+                              }
+                              setCustomFieldValues(cf);
+                            } else {
+                              setPersName("");
+                              setPersNumber("");
+                            }
+                          }}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="">— Choose a player —</option>
+                          {activePlayers.map((p) => {
+                            const isTaken = lockRule === "lock_on_first_order" && !!p.claimed_order_item_id;
+                            const label = `#${p.jersey_number} – ${p.player_first_name} ${p.player_last_name}${p.grad_year ? ` – ${p.grad_year}` : ""}`;
+                            return (
+                              <option key={p.id} value={p.id} disabled={isTaken}>
+                                {label}{isTaken ? " (Taken)" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       {persSettings.enable_name && (

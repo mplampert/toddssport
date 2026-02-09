@@ -150,6 +150,7 @@ Deno.serve(async (req: Request) => {
         line_total: lineTotal,
         personalization_name: item.personalization?.name || null,
         personalization_number: item.personalization?.number || null,
+        team_roster_player_id: item.personalization?.rosterPlayerId || null,
         pricing_snapshot: {
           base_price: serverBasePrice,
           deco_upcharge: decoUpcharge,
@@ -394,6 +395,42 @@ Deno.serve(async (req: Request) => {
 
     if (itemsErr) {
       log("Error creating order items", { error: itemsErr.message });
+    }
+
+    // Claim roster players (lock_on_first_order)
+    if (!itemsErr) {
+      // Get inserted items to map roster player IDs to order item IDs
+      const { data: insertedItems } = await supabase
+        .from("team_store_order_items")
+        .select("id, team_roster_player_id, team_store_product_id")
+        .eq("order_id", order.id);
+
+      const rosterItemIds = (insertedItems || []).filter((i: any) => i.team_roster_player_id);
+      if (rosterItemIds.length > 0) {
+        // Check which products have lock_on_first_order
+        const prodIds = [...new Set(rosterItemIds.map((i: any) => i.team_store_product_id))];
+        const { data: lockProducts } = await supabase
+          .from("team_store_products")
+          .select("id, number_lock_rule")
+          .in("id", prodIds)
+          .eq("number_lock_rule", "lock_on_first_order");
+        const lockProdSet = new Set((lockProducts || []).map((p: any) => p.id));
+
+        for (const item of rosterItemIds) {
+          if (lockProdSet.has(item.team_store_product_id)) {
+            await supabase
+              .from("team_roster_players")
+              .update({
+                claimed_order_item_id: item.id,
+                claimed_at: new Date().toISOString(),
+                claimed_by_email: billing.email,
+              } as any)
+              .eq("id", item.team_roster_player_id)
+              .is("claimed_order_item_id", null); // Only claim if not already claimed
+          }
+        }
+        log("Roster players claimed", { count: rosterItemIds.length });
+      }
     }
 
     // Record promo redemption

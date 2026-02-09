@@ -1683,6 +1683,125 @@ export type Database = {
           },
         ]
       }
+      team_roster_players: {
+        Row: {
+          birth_year: number | null
+          claimed_at: string | null
+          claimed_by_email: string | null
+          claimed_order_item_id: string | null
+          created_at: string
+          grad_year: number | null
+          guardian_email: string | null
+          guardian_name: string | null
+          id: string
+          jersey_number: string
+          notes: string | null
+          player_email: string | null
+          player_first_name: string
+          player_last_name: string
+          player_phone: string | null
+          position: string | null
+          status: Database["public"]["Enums"]["roster_player_status"]
+          team_roster_id: string
+          updated_at: string
+        }
+        Insert: {
+          birth_year?: number | null
+          claimed_at?: string | null
+          claimed_by_email?: string | null
+          claimed_order_item_id?: string | null
+          created_at?: string
+          grad_year?: number | null
+          guardian_email?: string | null
+          guardian_name?: string | null
+          id?: string
+          jersey_number: string
+          notes?: string | null
+          player_email?: string | null
+          player_first_name: string
+          player_last_name: string
+          player_phone?: string | null
+          position?: string | null
+          status?: Database["public"]["Enums"]["roster_player_status"]
+          team_roster_id: string
+          updated_at?: string
+        }
+        Update: {
+          birth_year?: number | null
+          claimed_at?: string | null
+          claimed_by_email?: string | null
+          claimed_order_item_id?: string | null
+          created_at?: string
+          grad_year?: number | null
+          guardian_email?: string | null
+          guardian_name?: string | null
+          id?: string
+          jersey_number?: string
+          notes?: string | null
+          player_email?: string | null
+          player_first_name?: string
+          player_last_name?: string
+          player_phone?: string | null
+          position?: string | null
+          status?: Database["public"]["Enums"]["roster_player_status"]
+          team_roster_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_roster_players_team_roster_id_fkey"
+            columns: ["team_roster_id"]
+            isOneToOne: false
+            referencedRelation: "team_rosters"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_rosters: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          season: string | null
+          sport: string | null
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          season?: string | null
+          sport?: string | null
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          season?: string | null
+          sport?: string | null
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_rosters_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_rosters_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_categories: {
         Row: {
           created_at: string
@@ -2028,6 +2147,7 @@ export type Database = {
           pricing_snapshot: Json | null
           product_name_snapshot: string
           quantity: number
+          team_roster_player_id: string | null
           team_store_product_id: string | null
           unit_price: number
           updated_at: string
@@ -2044,6 +2164,7 @@ export type Database = {
           pricing_snapshot?: Json | null
           product_name_snapshot: string
           quantity?: number
+          team_roster_player_id?: string | null
           team_store_product_id?: string | null
           unit_price?: number
           updated_at?: string
@@ -2060,6 +2181,7 @@ export type Database = {
           pricing_snapshot?: Json | null
           product_name_snapshot?: string
           quantity?: number
+          team_roster_player_id?: string | null
           team_store_product_id?: string | null
           unit_price?: number
           updated_at?: string
@@ -2071,6 +2193,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "team_store_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_order_items_team_roster_player_id_fkey"
+            columns: ["team_roster_player_id"]
+            isOneToOne: false
+            referencedRelation: "team_roster_players"
             referencedColumns: ["id"]
           },
           {
@@ -2447,6 +2576,7 @@ export type Database = {
           id: string
           internal_notes: string | null
           notes: string | null
+          number_lock_rule: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config: Json | null
           personalization_enabled: boolean
           personalization_override_enabled: boolean
@@ -2459,6 +2589,7 @@ export type Database = {
           sort_order: number
           store_category_override_id: string | null
           style_id: number
+          team_roster_id: string | null
           team_store_id: string
           updated_at: string
         }
@@ -2481,6 +2612,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           notes?: string | null
+          number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
           personalization_enabled?: boolean
           personalization_override_enabled?: boolean
@@ -2493,6 +2625,7 @@ export type Database = {
           sort_order?: number
           store_category_override_id?: string | null
           style_id: number
+          team_roster_id?: string | null
           team_store_id: string
           updated_at?: string
         }
@@ -2515,6 +2648,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           notes?: string | null
+          number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
           personalization_enabled?: boolean
           personalization_override_enabled?: boolean
@@ -2527,6 +2661,7 @@ export type Database = {
           sort_order?: number
           store_category_override_id?: string | null
           style_id?: number
+          team_roster_id?: string | null
           team_store_id?: string
           updated_at?: string
         }
@@ -2550,6 +2685,13 @@ export type Database = {
             columns: ["style_id"]
             isOneToOne: false
             referencedRelation: "catalog_styles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_products_team_roster_id_fkey"
+            columns: ["team_roster_id"]
+            isOneToOne: false
+            referencedRelation: "team_rosters"
             referencedColumns: ["id"]
           },
           {
@@ -3026,6 +3168,8 @@ export type Database = {
     Enums: {
       app_role: "admin" | "moderator" | "user"
       champro_order_type: "CUSTOM" | "STOCK"
+      number_lock_rule: "none" | "lock_on_first_order"
+      roster_player_status: "active" | "inactive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3155,6 +3299,8 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "moderator", "user"],
       champro_order_type: ["CUSTOM", "STOCK"],
+      number_lock_rule: ["none", "lock_on_first_order"],
+      roster_player_status: ["active", "inactive"],
     },
   },
 } as const

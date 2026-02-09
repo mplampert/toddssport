@@ -21,6 +21,7 @@ import {
   UserCheck,
   DollarSign,
   Tag,
+  Users,
 } from "lucide-react";
 
 const STORE_TABS = [
@@ -36,6 +37,7 @@ const STORE_TABS = [
   { label: "Fulfillment", path: "fulfillment", icon: Truck },
   { label: "Marketing", path: "marketing", icon: Megaphone },
   { label: "Personalization", path: "personalization", icon: UserCheck },
+  { label: "Rosters", path: "rosters", icon: Users },
   { label: "Decoration $", path: "decoration-pricing", icon: DollarSign },
   { label: "Settings", path: "settings", icon: Settings },
 ] as const;
