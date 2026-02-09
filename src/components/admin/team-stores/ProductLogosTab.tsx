@@ -65,7 +65,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [applyToAllColors, setApplyToAllColors] = useState(true);
   const [loadingVariants, setLoadingVariants] = useState(true);
-  const [activeView, setActiveView] = useState<"front" | "back">("front");
+  const [activeView, setActiveView] = useState<"front" | "back" | "left_sleeve" | "right_sleeve">("front");
 
   // ── Placement state ──
   const [placements, setPlacements] = useState<LogoPlacement[]>([]);
@@ -174,11 +174,13 @@ export function ProductLogosTab({ item, storeId }: Props) {
     return parts.length > 0 ? parts.join(" + ") : "Not placed";
   }
 
-  function getFirstView(logoId: string): "front" | "back" | undefined {
+  function getFirstView(logoId: string): "front" | "back" | "left_sleeve" | "right_sleeve" | undefined {
     const views = logoViewUsage.get(logoId);
     if (!views) return undefined;
     if (views.has("front")) return "front";
     if (views.has("back")) return "back";
+    if (views.has("left_sleeve")) return "left_sleeve";
+    if (views.has("right_sleeve")) return "right_sleeve";
     return undefined;
   }
 
@@ -292,7 +294,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   // Add a store logo to this product with default placement + auto-pick variant
   const addLogoToProduct = (logo: StoreLogo) => {
-    const defaultPreset = presets.find((p) => p.code === (activeView === "back" ? "upper_back" : "left_chest")) || presets[0];
+    const defaultPresetCode = activeView === "back" ? "upper_back"
+      : activeView === "left_sleeve" ? "left_sleeve"
+      : activeView === "right_sleeve" ? "right_sleeve"
+      : "left_chest";
+    const defaultPreset = presets.find((p) => p.code === defaultPresetCode) || presets[0];
     const logoVariants = variantsByLogo.get(logo.id) || [];
     const garmentColor = selectedColor
       ? colorOptions.find((c) => c.code === selectedColor)?.color1
@@ -468,6 +474,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
     if (selectedColor) {
       const color = colorOptions.find((c) => c.code === selectedColor);
       if (activeView === "back" && color?.backImage) return color.backImage;
+      // For sleeves, try side image, then fall back to front
+      if ((activeView === "left_sleeve" || activeView === "right_sleeve") && (color as any)?.sideImage) return (color as any).sideImage;
       if (color?.frontImage) return color.frontImage;
     }
     return item.primary_image_url || item.catalog_styles?.style_image || "";
@@ -563,29 +571,34 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
         )}
 
-        {/* ─── Front / Back View Toggle ─── */}
+        {/* ─── View Toggle (Front / Back / L Sleeve / R Sleeve) ─── */}
         <div className="flex items-center gap-2">
           <Label className="text-sm font-semibold">View:</Label>
           <div className="flex rounded-lg border overflow-hidden">
-            {(["front", "back"] as const).map((v) => (
+            {([
+              { key: "front", label: "Front" },
+              { key: "back", label: "Back" },
+              { key: "left_sleeve", label: "L Sleeve" },
+              { key: "right_sleeve", label: "R Sleeve" },
+            ] as const).map(({ key, label }) => (
               <button
-                key={v}
+                key={key}
                 onClick={() => {
-                  setActiveView(v);
+                  setActiveView(key);
                   setActivePlacementIdx(null);
                   if (existingPlacements) {
                     const all = JSON.parse(savedSnapshot) as LogoPlacement[];
                     const hasColorOverrides = all.some((p) => p.variant_color != null);
-                    setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, v));
+                    setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, key));
                   }
                 }}
-                className={`px-4 py-1.5 text-xs font-medium capitalize transition-colors ${
-                  activeView === v
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeView === key
                     ? "bg-accent text-accent-foreground"
                     : "bg-card text-muted-foreground hover:bg-muted"
                 }`}
               >
-                {v}
+                {label}
               </button>
             ))}
           </div>
@@ -593,7 +606,10 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
         {/* ─── Placement Canvas ─── */}
         <div className="space-y-1.5">
-          <Label className="text-sm font-semibold">Placement Canvas — {activeView === "front" ? "Front" : "Back"}</Label>
+          <Label className="text-sm font-semibold">Placement Canvas — {
+            activeView === "front" ? "Front" : activeView === "back" ? "Back"
+            : activeView === "left_sleeve" ? "Left Sleeve" : "Right Sleeve"
+          }</Label>
           <PlacementCanvas
             image={canvasImage}
             placements={placements}

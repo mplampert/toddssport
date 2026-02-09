@@ -234,6 +234,12 @@ export default function TeamStoreProductDetail() {
       }
       if (v === "front" && activeColor?.frontImage) { views.push(v); continue; }
       if (v === "back" && activeColor?.backImage) { views.push(v); continue; }
+      if ((v === "left_sleeve" || v === "right_sleeve") && activeColor?.sideImage) { views.push(v); continue; }
+      // Also show sleeve views if they have logo placements
+      if ((v === "left_sleeve" || v === "right_sleeve")) {
+        const hasLogos = allLogos.some((l: any) => (l.view || "front") === v);
+        if (hasLogos) { views.push(v); continue; }
+      }
     }
     if (!views.includes("front")) views.unshift("front");
     return views;
@@ -263,7 +269,9 @@ export default function TeamStoreProductDetail() {
     const ssColorImgs = activeColor
       ? activeProductView === "back"
         ? [activeColor.backImage].filter((img): img is string => !!img && img.length > 0)
-        : [activeColor.frontImage, activeColor.sideImage].filter((img): img is string => !!img && img.length > 0)
+        : (activeProductView === "left_sleeve" || activeProductView === "right_sleeve")
+          ? [activeColor.sideImage].filter((img): img is string => !!img && img.length > 0)
+          : [activeColor.frontImage, activeColor.sideImage].filter((img): img is string => !!img && img.length > 0)
       : [];
 
     // Add any override images from the product as additional gallery shots (front only)
@@ -505,7 +513,9 @@ export default function TeamStoreProductDetail() {
                         ? activeColor?.frontImage
                         : v === "back"
                           ? activeColor?.backImage
-                          : undefined;
+                          : (v === "left_sleeve" || v === "right_sleeve")
+                            ? activeColor?.sideImage
+                            : undefined;
                       const thumbSrc = variantThumb || ssThumb || catalogStyle?.style_image;
 
                       const viewLogos = matchLogosForVariant(allLogos, selectedColor || undefined)
