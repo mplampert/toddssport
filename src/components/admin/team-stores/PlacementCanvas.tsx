@@ -187,7 +187,7 @@ export function PlacementCanvas({ image, placements, textLayers = [], presetMap,
         <img
           src={image}
           alt="Garment"
-          className="w-full h-full object-contain p-6 pointer-events-none"
+          className="w-full h-full object-contain pointer-events-none" style={{ padding: "8%" }}
           draggable={false}
           onError={handleImageError}
         />
