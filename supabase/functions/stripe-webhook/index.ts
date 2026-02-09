@@ -685,7 +685,64 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // Always return 200 to Stripe so payment stays successful
+    // ---- TEAM STORE PAYMENT INTENT EVENTS ----
+    if (event.type === "payment_intent.succeeded") {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      if (pi.metadata?.source === "team_store_manual") {
+        const orderId = pi.metadata.order_id;
+        logStep("Team store PaymentIntent succeeded", { piId: pi.id, orderId, amount: pi.amount });
+
+        if (supabaseUrl && supabaseServiceKey && orderId) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+          // Check if ledger entry already exists (idempotency)
+          const { data: existing } = await supabase
+            .from("team_store_payments")
+            .select("id")
+            .eq("provider_ref", pi.id)
+            .eq("type", "payment")
+            .maybeSingle();
+
+          if (!existing) {
+            await supabase.from("team_store_payments").insert({
+              order_id: orderId,
+              type: "payment",
+              method: "card",
+              amount: pi.amount / 100,
+              provider: "stripe",
+              provider_ref: pi.id,
+              note: `Stripe PaymentIntent ${pi.id}`,
+            });
+            logStep("Payment ledger entry created via webhook", { orderId, piId: pi.id });
+          } else {
+            logStep("Payment ledger entry already exists, skipping", { orderId, piId: pi.id });
+          }
+        }
+      }
+    }
+
+    if (event.type === "payment_intent.payment_failed") {
+      const pi = event.data.object as Stripe.PaymentIntent;
+      if (pi.metadata?.source === "team_store_manual") {
+        logStep("Team store PaymentIntent failed", {
+          piId: pi.id,
+          orderId: pi.metadata.order_id,
+          error: pi.last_payment_error?.message,
+        });
+      }
+    }
+
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as Stripe.Charge;
+      const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
+      if (piId) {
+        logStep("Charge refunded event", { chargeId: charge.id, piId, amountRefunded: charge.amount_refunded });
+        // Refund ledger entries are created by our edge function at refund time,
+        // so the webhook serves as reconciliation / logging.
+      }
+    }
+
+    // Always return 200 to Stripe
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
