@@ -52,6 +52,9 @@ interface Props {
   onSelectAll: (ids: string[]) => void;
   onBulkAction: (action: "show" | "hide" | "delete", ids: string[]) => void;
   isLoading: boolean;
+  initialSearch?: string;
+  initialCategory?: string;
+  initialStatus?: string;
 }
 
 export function ProductListPane({
@@ -64,10 +67,13 @@ export function ProductListPane({
   onSelectAll,
   onBulkAction,
   isLoading,
+  initialSearch = "",
+  initialCategory = "all",
+  initialStatus = "all",
 }: Props) {
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [search, setSearch] = useState(initialSearch);
+  const [categoryFilter, setCategoryFilter] = useState<string>(initialCategory);
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatus);
 
   const filtered = useMemo(() => {
     let list = products;

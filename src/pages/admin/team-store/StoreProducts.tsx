@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
@@ -6,17 +7,18 @@ import { useEffectiveCategories } from "@/components/admin/team-stores/StoreCate
 import { StoreCategoryManager } from "@/components/admin/team-stores/StoreCategoryManager";
 import { AddProductsWizard } from "@/components/admin/team-stores/AddProductsWizard";
 import { ProductListPane, type StoreProduct } from "@/components/admin/team-stores/ProductListPane";
-import { ProductDetailPane } from "@/components/admin/team-stores/ProductDetailPane";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
 export default function StoreProducts() {
   const { store } = useTeamStoreContext();
   const queryClient = useQueryClient();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [addSingleOpen, setAddSingleOpen] = useState(false);
   const [singleSearch, setSingleSearch] = useState("");
@@ -48,7 +50,6 @@ export default function StoreProducts() {
 
   const attachedStyleIds = new Set(products.map((p) => p.style_id));
 
-  // Single product search
   const { data: searchResults = [], isFetching: searching } = useQuery({
     queryKey: ["catalog-style-search", singleSearch],
     queryFn: async () => {
@@ -96,13 +97,23 @@ export default function StoreProducts() {
     onSuccess: (_, { action, ids }) => {
       queryClient.invalidateQueries({ queryKey: ["team-store-products", store.id] });
       setSelectedIds(new Set());
-      if (action === "delete" && ids.includes(selectedId || "")) setSelectedId(null);
       toast.success(action === "delete" ? `${ids.length} product(s) removed` : `${ids.length} product(s) updated`);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const handleSelect = useCallback((id: string) => setSelectedId(id), []);
+  // Navigate to product editor, preserving list filters in query params
+  const handleSelect = useCallback((id: string) => {
+    const params = new URLSearchParams();
+    const s = searchParams.get("search");
+    const c = searchParams.get("category");
+    const st = searchParams.get("status");
+    if (s) params.set("ls", s);
+    if (c) params.set("lc", c);
+    if (st) params.set("lst", st);
+    const q = params.toString();
+    navigate(`/admin/team-stores/${store.id}/products/${id}${q ? `?${q}` : ""}`);
+  }, [navigate, store.id, searchParams]);
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -121,16 +132,6 @@ export default function StoreProducts() {
     if (action === "delete" && !confirm(`Delete ${ids.length} product(s)? This cannot be undone.`)) return;
     bulkMutation.mutate({ action, ids });
   }, [bulkMutation]);
-
-  const selectedItem = products.find((p) => p.id === selectedId) || null;
-
-  const categoryOptions = visibleCategories.map((c) => ({
-    id: c.globalCategoryId ?? c.id,
-    name: c.name,
-    slug: c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-    overrideId: c.overrideId,
-    isCustom: c.isCustom,
-  }));
 
   return (
     <div className="space-y-4">
@@ -151,41 +152,22 @@ export default function StoreProducts() {
         </div>
       </div>
 
-      {/* Two-Pane Layout */}
-      <div className="border rounded-lg overflow-hidden flex" style={{ height: "calc(100vh - 220px)" }}>
-        {/* Left: Product List */}
-        <div className="w-[400px] shrink-0 border-r flex flex-col overflow-hidden bg-card">
-          <ProductListPane
-            products={products}
-            categories={visibleCategories}
-            selectedId={selectedId}
-            selectedIds={selectedIds}
-            onSelect={handleSelect}
-            onToggleSelect={handleToggleSelect}
-            onSelectAll={handleSelectAll}
-            onBulkAction={handleBulkAction}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* Right: Detail Panel */}
-        <div className="flex-1 overflow-hidden bg-background">
-          {selectedItem ? (
-            <ProductDetailPane
-              key={selectedItem.id}
-              item={selectedItem}
-              storeId={store.id}
-              categories={categoryOptions}
-            />
-          ) : (
-            <div className="h-full flex items-center justify-center">
-              <div className="text-center">
-                <Package className="w-10 h-10 mx-auto text-muted-foreground/30 mb-3" />
-                <p className="text-sm text-muted-foreground">Select a product to view details</p>
-              </div>
-            </div>
-          )}
-        </div>
+      {/* Full-width Product List */}
+      <div className="border rounded-lg overflow-hidden bg-card">
+        <ProductListPane
+          products={products}
+          categories={visibleCategories}
+          selectedId={null}
+          selectedIds={selectedIds}
+          onSelect={handleSelect}
+          onToggleSelect={handleToggleSelect}
+          onSelectAll={handleSelectAll}
+          onBulkAction={handleBulkAction}
+          isLoading={isLoading}
+          initialSearch={searchParams.get("search") || ""}
+          initialCategory={searchParams.get("category") || "all"}
+          initialStatus={searchParams.get("status") || "all"}
+        />
       </div>
 
       {/* Add Single Product Dialog */}
