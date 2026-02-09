@@ -17,8 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Save, Loader2, RotateCcw, Plus, Trash2, GripVertical, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
+import { supabase as sb } from "@/integrations/supabase/client";
+import { DEFAULT_TEXT_LAYER, type TextLayer } from "@/lib/textLayers";
 
 interface Props {
   item: {
@@ -171,6 +174,27 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
   // Roster state
   const [rosterId, setRosterId] = useState<string | null>(item.team_roster_id ?? null);
   const [lockRule, setLockRule] = useState<string>(item.number_lock_rule ?? "none");
+  const [showBackText, setShowBackText] = useState(false);
+  const [backTextChecked, setBackTextChecked] = useState(false);
+
+  // Check if a back name_number_template text layer already exists
+  useEffect(() => {
+    let cancelled = false;
+    sb.from("team_store_item_text_layers")
+      .select("id")
+      .eq("team_store_item_id", item.id)
+      .eq("view", "back")
+      .eq("source", "name_number_template")
+      .limit(1)
+      .then(({ data }) => {
+        if (!cancelled) {
+          const exists = (data?.length ?? 0) > 0;
+          setShowBackText(exists);
+          setBackTextChecked(exists);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [item.id]);
 
   const effective = resolvePersonalization(storeDefaults, {
     personalization_override_enabled: overrideEnabled,
@@ -240,12 +264,54 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
         } as any)
         .eq("id", item.id);
       if (error) throw error;
+
+      // Auto-create or remove back name+number text layer
+      if (showBackText && !backTextChecked) {
+        // Turned ON → create default back text layer
+        const newLayer = {
+          team_store_item_id: item.id,
+          source: "name_number_template" as const,
+          view: "back",
+          x: DEFAULT_TEXT_LAYER.x,
+          y: 0.35,
+          scale: 0.4,
+          rotation: 0,
+          z_index: 10,
+          static_text: null,
+          text_pattern: "{LAST_NAME}\n{NUMBER}",
+          custom_field_id: null,
+          font_family: "Impact",
+          font_weight: "bold",
+          font_size_px: 48,
+          text_transform: "uppercase",
+          fill_color: "#FFFFFF",
+          outline_color: "#000000",
+          outline_thickness: 2,
+          letter_spacing: 2,
+          line_height: 1.2,
+          alignment: "center",
+          variant_color: null,
+          active: true,
+          sort_order: 0,
+        };
+        const { error: textErr } = await sb.from("team_store_item_text_layers").insert(newLayer as any);
+        if (textErr) throw textErr;
+      } else if (!showBackText && backTextChecked) {
+        // Turned OFF → remove auto-created back text layer
+        await sb.from("team_store_item_text_layers")
+          .delete()
+          .eq("team_store_item_id", item.id)
+          .eq("view", "back")
+          .eq("source", "name_number_template");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-store-product-editor", item.id] });
       queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] });
+      queryClient.invalidateQueries({ queryKey: ["item-text-layers", item.id] });
       toast.success("Personalization settings saved");
       setDirty(false);
+      setBackTextChecked(showBackText);
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -454,7 +520,30 @@ export function ProductPersonalizationTab({ item, storeId }: Props) {
         </CardContent>
       </Card>
 
-      {/* Custom Fields */}
+      {/* Back Name + Number */}
+      {(display.enable_name || display.enable_number) && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Back of Garment Text</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <Checkbox
+                checked={showBackText}
+                onCheckedChange={(v) => { setShowBackText(!!v); setDirty(true); }}
+              />
+              <Label>Show Name + Number on back of garment</Label>
+            </div>
+            {showBackText && (
+              <p className="text-xs text-muted-foreground pl-7">
+                A text layer using the pattern <code className="bg-muted px-1 rounded">{"LAST_NAME"} {"NUMBER"}</code> will be auto-created on the Back view.
+                You can fine-tune its placement and styling in the <strong>Logos &amp; Design</strong> tab.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
