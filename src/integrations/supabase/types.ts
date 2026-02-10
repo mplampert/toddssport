@@ -871,6 +871,7 @@ export type Database = {
           created_at: string
           cutoff_datetime: string
           id: string
+          is_sample: boolean
           notes: string | null
           order_ids: string[]
           status: string
@@ -882,6 +883,7 @@ export type Database = {
           created_at?: string
           cutoff_datetime?: string
           id?: string
+          is_sample?: boolean
           notes?: string | null
           order_ids?: string[]
           status?: string
@@ -893,6 +895,7 @@ export type Database = {
           created_at?: string
           cutoff_datetime?: string
           id?: string
+          is_sample?: boolean
           notes?: string | null
           order_ids?: string[]
           status?: string
@@ -922,6 +925,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          is_sample: boolean
           notes: string | null
           paid_at: string
           team_store_id: string
@@ -931,6 +935,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_sample?: boolean
           notes?: string | null
           paid_at?: string
           team_store_id: string
@@ -940,6 +945,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          is_sample?: boolean
           notes?: string | null
           paid_at?: string
           team_store_id?: string
@@ -2387,6 +2393,7 @@ export type Database = {
           created_at: string
           decoration_snapshot: Json | null
           id: string
+          is_sample: boolean
           line_total: number
           order_id: string
           personalization_name: string | null
@@ -2407,6 +2414,7 @@ export type Database = {
           created_at?: string
           decoration_snapshot?: Json | null
           id?: string
+          is_sample?: boolean
           line_total?: number
           order_id: string
           personalization_name?: string | null
@@ -2427,6 +2435,7 @@ export type Database = {
           created_at?: string
           decoration_snapshot?: Json | null
           id?: string
+          is_sample?: boolean
           line_total?: number
           order_id?: string
           personalization_name?: string | null
@@ -2833,6 +2842,7 @@ export type Database = {
           fundraising_percentage: number | null
           id: string
           internal_notes: string | null
+          is_sample: boolean
           notes: string | null
           number_lock_rule: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config: Json | null
@@ -2874,6 +2884,7 @@ export type Database = {
           fundraising_percentage?: number | null
           id?: string
           internal_notes?: string | null
+          is_sample?: boolean
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -2915,6 +2926,7 @@ export type Database = {
           fundraising_percentage?: number | null
           id?: string
           internal_notes?: string | null
+          is_sample?: boolean
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -3149,6 +3161,7 @@ export type Database = {
           hero_subtitle: string | null
           hero_title: string | null
           id: string
+          is_sample: boolean
           logo_url: string | null
           mascot_name: string | null
           name: string
@@ -3192,6 +3205,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          is_sample?: boolean
           logo_url?: string | null
           mascot_name?: string | null
           name: string
@@ -3235,6 +3249,7 @@ export type Database = {
           hero_subtitle?: string | null
           hero_title?: string | null
           id?: string
+          is_sample?: boolean
           logo_url?: string | null
           mascot_name?: string | null
           name?: string
