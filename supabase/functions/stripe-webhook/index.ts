@@ -724,7 +724,29 @@ Deno.serve(async (req: Request) => {
               .eq("id", orderId)
               .eq("payment_status", "unpaid");
 
-            // Send team store order confirmation emails
+            // Send order confirmation notification (email + SMS via templates)
+            try {
+              const notifRes = await fetch(
+                `${supabaseUrl}/functions/v1/send-notification`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${supabaseServiceKey}`,
+                  },
+                  body: JSON.stringify({
+                    order_id: orderId,
+                    template_key: "order_confirmation",
+                    source: "standard_store",
+                  }),
+                }
+              );
+              logStep("Order confirmation notification triggered", { status: notifRes.status });
+            } catch (notifErr) {
+              logStep("Error sending notification (non-fatal)", { error: String(notifErr) });
+            }
+
+            // Send detailed order emails (customer receipt + internal alert)
             try {
               const { data: order } = await supabase
                 .from("team_store_orders")
