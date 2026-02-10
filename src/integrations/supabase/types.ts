@@ -865,6 +865,51 @@ export type Database = {
           },
         ]
       }
+      fundraising_payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          paid_at: string
+          team_store_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          team_store_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          paid_at?: string
+          team_store_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fundraising_payouts_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fundraising_payouts_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       global_notification_settings: {
         Row: {
           created_at: string
