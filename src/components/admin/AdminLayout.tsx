@@ -28,7 +28,7 @@ const globalNavItems = [
   { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
   { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
   { path: "/admin/team-stores", label: "Team Stores", icon: Store },
-  { path: "/admin/reports", label: "Reports", icon: FileText },
+  
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
 ];
