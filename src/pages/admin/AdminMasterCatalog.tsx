@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Loader2, Package, Search } from "lucide-react";
 import { useState } from "react";
+import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
 
 interface BrandWithCount {
   id: string;
@@ -91,9 +92,12 @@ export default function AdminMasterCatalog() {
       <div className="space-y-6">
         {/* Hero */}
         <div className="bg-gradient-to-r from-accent/10 to-accent/5 rounded-xl p-8">
-          <div className="flex items-center gap-3 mb-2">
-            <Package className="w-8 h-8 text-accent" />
-            <h1 className="text-3xl font-bold text-foreground">Master Product Catalog</h1>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Package className="w-8 h-8 text-accent" />
+              <h1 className="text-3xl font-bold text-foreground">Master Product Catalog</h1>
+            </div>
+            <SSImportDialog />
           </div>
           <p className="text-muted-foreground max-w-2xl">
             Unified catalog of all products from Champro, S&S Activewear, ImprintID, and internal sources.
