@@ -111,6 +111,8 @@ import AdminMasterCatalog from "./pages/admin/AdminMasterCatalog";
 import AdminMasterCatalogBrand from "./pages/admin/AdminMasterCatalogBrand";
 import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
 import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
+import AdminCustomers from "./pages/admin/AdminCustomers";
+import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail";
 
 const queryClient = new QueryClient();
 
@@ -181,6 +183,8 @@ const App = () => (
           <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
           <Route path="/admin/orders" element={<AdminGlobalOrders />} />
           <Route path="/admin/sample-data" element={<AdminSampleData />} />
+          <Route path="/admin/customers" element={<AdminCustomers />} />
+          <Route path="/admin/customers/:id" element={<AdminCustomerDetail />} />
           <Route path="/admin/staff" element={<AdminStaffUsers />} />
           <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
