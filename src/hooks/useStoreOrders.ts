@@ -172,7 +172,7 @@ export function useCreateOrder(storeId: string) {
         supabase.functions.invoke("send-notification", {
           body: {
             order_id: data.id,
-            template_key: "order_confirmation",
+            template_key: "order_placed",
             source: "standard_store",
           },
         }).catch(() => { /* non-fatal */ });
