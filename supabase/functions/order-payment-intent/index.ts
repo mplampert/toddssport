@@ -95,12 +95,21 @@ Deno.serve(async (req: Request) => {
         }
       }
 
+      // Look up store_id from the order
+      const { data: orderRow } = await supabase
+        .from("team_store_orders")
+        .select("store_id, team_stores(name)")
+        .eq("id", orderId)
+        .single();
+
       const pi = await stripe.paymentIntents.create({
         amount: Math.round(amount), // in cents
         currency: "usd",
         customer: customerId,
         metadata: {
           order_id: orderId,
+          store_id: orderRow?.store_id || "",
+          store_name: (orderRow?.team_stores as any)?.name || "",
           source: "team_store_manual",
         },
         automatic_payment_methods: { enabled: true },

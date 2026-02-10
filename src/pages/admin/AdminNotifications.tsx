@@ -1,4 +1,5 @@
 import { useState } from "react";
+import StoreNotificationSettings from "@/components/admin/team-stores/StoreNotificationSettings";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -500,12 +501,14 @@ export default function AdminNotifications() {
       <Tabs defaultValue="settings">
         <TabsList>
           <TabsTrigger value="settings"><Settings className="w-4 h-4 mr-1" /> Settings</TabsTrigger>
-          <TabsTrigger value="templates"><Mail className="w-4 h-4 mr-1" /> Templates</TabsTrigger>
+          <TabsTrigger value="defaults"><Bell className="w-4 h-4 mr-1" /> Default Templates</TabsTrigger>
+          <TabsTrigger value="templates"><Mail className="w-4 h-4 mr-1" /> Legacy Templates</TabsTrigger>
           <TabsTrigger value="customers"><Users className="w-4 h-4 mr-1" /> Customers</TabsTrigger>
           <TabsTrigger value="log"><Eye className="w-4 h-4 mr-1" /> Send Log</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings" className="mt-4"><GlobalSettingsTab /></TabsContent>
+        <TabsContent value="defaults" className="mt-4"><StoreNotificationSettings /></TabsContent>
         <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
         <TabsContent value="customers" className="mt-4"><CustomersTab /></TabsContent>
         <TabsContent value="log" className="mt-4"><SendLogTab /></TabsContent>

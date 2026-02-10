@@ -17,6 +17,7 @@ interface SendRequest {
   template_key: string;
   variables?: Record<string, string>;
   force_channel?: "email" | "sms";
+  source?: string; // 'standard_store' | 'champro_builder'
 }
 
 function renderTemplate(body: string, vars: Record<string, string>): string {
@@ -120,7 +121,7 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body: SendRequest = await req.json();
-    const { order_id, template_key, variables = {}, force_channel } = body;
+    const { order_id, template_key, variables = {}, force_channel, source = "standard_store" } = body;
 
     // Fetch order
     const { data: order, error: orderErr } = await supabase
@@ -151,45 +152,88 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .single();
 
-    // Fetch templates
+    // Check per-store notification settings override
+    // First try store-specific, then fall back to global default (store_id IS NULL)
+    const storeId = order.store_id;
+    const { data: storeOverrides } = await supabase
+      .from("store_notification_settings")
+      .select("*")
+      .eq("event_type", template_key)
+      .eq("source", source)
+      .or(`store_id.eq.${storeId},store_id.is.null`)
+      .order("store_id", { ascending: false, nullsFirst: false }); // store-specific first
+
+    // Build a map of overrides: key = channel+send_to, store-specific wins over global
+    const overrideMap = new Map<string, any>();
+    for (const row of (storeOverrides || [])) {
+      const key = `${row.channel}:${row.send_to}`;
+      if (!overrideMap.has(key)) {
+        overrideMap.set(key, row); // first match wins (store-specific before global)
+      }
+    }
+
+    // Fetch legacy templates as fallback
     const { data: templates } = await supabase
       .from("notification_templates")
       .select("*")
       .eq("template_key", template_key)
       .eq("is_active", true);
 
-    if (!templates || templates.length === 0) {
-      return new Response(JSON.stringify({ error: "No active templates found", template_key }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const storeName = (order.team_stores as any)?.name || "Todd's Sport";
-    const allVars = {
+    const allVars: Record<string, string> = {
       customer_name: order.customer_name || "Customer",
       order_number: order.order_number || order.id,
       store_name: storeName,
+      order_total: String(order.total || 0),
+      item_count: String(0),
       ...variables,
     };
 
     const results: any[] = [];
 
-    for (const tmpl of templates) {
-      if (force_channel && tmpl.channel !== force_channel) continue;
+    // Process per-store overrides first (these take priority)
+    for (const [key, override] of overrideMap) {
+      if (!override.enabled) continue;
+      if (force_channel && override.channel !== force_channel) continue;
 
-      if (tmpl.channel === "email" && settings?.default_email_enabled) {
-        const rendered = renderTemplate(tmpl.body, allVars);
-        const subject = tmpl.subject ? renderTemplate(tmpl.subject, allVars) : `Update on order ${allVars.order_number}`;
+      const rendered = renderTemplate(override.template_text, allVars);
+      const subject = override.template_subject ? renderTemplate(override.template_subject, allVars) : `Update on order ${allVars.order_number}`;
 
-        // Log event
+      // Determine recipient
+      let recipientAddress: string;
+      let recipientPhone: string | null = null;
+
+      if (override.send_to === "internal" || override.send_to === "coach") {
+        if (override.channel === "sms") {
+          recipientPhone = override.to_phone;
+          if (!recipientPhone) continue;
+          recipientAddress = recipientPhone;
+        } else {
+          recipientAddress = override.to_email || Deno.env.get("ORDER_ALERT_EMAIL") || "";
+          if (!recipientAddress) continue;
+        }
+      } else {
+        // customer
+        if (override.channel === "sms") {
+          const phoneResult = await selectSmsPhone(supabase, order);
+          if (!phoneResult) {
+            results.push({ channel: "sms", status: "skipped", reason: "no_eligible_phone", override: key });
+            continue;
+          }
+          recipientAddress = phoneResult.phone;
+        } else {
+          recipientAddress = order.customer_email;
+        }
+      }
+
+      if (override.channel === "email" && settings?.default_email_enabled) {
         const { data: evt } = await supabase.from("notification_events").insert({
           order_id,
           customer_id: customerId,
           channel: "email",
           template_key,
-          recipient_address: order.customer_email,
-          payload_snapshot: { subject, body: rendered, variables: allVars },
+          recipient_address: recipientAddress,
+          payload_snapshot: { subject, body: rendered, variables: allVars, source, store_override: !!override.store_id },
           status: "pending",
         }).select("id").single();
 
@@ -200,44 +244,30 @@ Deno.serve(async (req: Request) => {
             const fromEmail = settings?.email_from_address || "orders@toddssport.com";
             await resend.emails.send({
               from: `${storeName} <${fromEmail}>`,
-              to: [order.customer_email],
+              to: [recipientAddress],
               subject,
               html: rendered,
             });
             await supabase.from("notification_events").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", evt?.id);
-            results.push({ channel: "email", status: "sent" });
+            results.push({ channel: "email", status: "sent", override: key });
           } else {
             await supabase.from("notification_events").update({ status: "failed", error: "No RESEND_API_KEY" }).eq("id", evt?.id);
             results.push({ channel: "email", status: "failed", error: "No RESEND_API_KEY" });
           }
         } catch (e: any) {
-          await supabase.from("notification_events").update({
-            status: "failed",
-            error: e.message,
-            retry_count: 1,
-          }).eq("id", evt?.id);
+          await supabase.from("notification_events").update({ status: "failed", error: e.message }).eq("id", evt?.id);
           results.push({ channel: "email", status: "failed", error: e.message });
         }
       }
 
-      if (tmpl.channel === "sms" && settings?.default_sms_enabled) {
-        const phoneResult = await selectSmsPhone(supabase, order);
-
-        if (!phoneResult) {
-          results.push({ channel: "sms", status: "skipped", reason: "no_eligible_phone" });
-          continue;
-        }
-
-        const rendered = renderTemplate(tmpl.body, allVars);
-
+      if (override.channel === "sms" && settings?.default_sms_enabled) {
         const { data: evt } = await supabase.from("notification_events").insert({
           order_id,
           customer_id: customerId,
           channel: "sms",
           template_key,
-          recipient_address: phoneResult.phone,
-          payload_snapshot: { body: rendered, variables: allVars },
-          phone_selection_reason: phoneResult.reason,
+          recipient_address: recipientAddress,
+          payload_snapshot: { body: rendered, variables: allVars, source, store_override: !!override.store_id },
           status: "pending",
         }).select("id").single();
 
@@ -249,23 +279,102 @@ Deno.serve(async (req: Request) => {
           if (twilioSid && twilioAuth && twilioFrom) {
             const client = Twilio(twilioSid, twilioAuth);
             await client.messages.create({
-              body: rendered,
+              body: rendered + (override.send_to === "customer" ? "\nReply STOP to opt out." : ""),
               from: twilioFrom,
-              to: phoneResult.phone,
+              to: recipientAddress,
             });
             await supabase.from("notification_events").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", evt?.id);
-            results.push({ channel: "sms", status: "sent", phone: phoneResult.phone, reason: phoneResult.reason });
+            results.push({ channel: "sms", status: "sent", override: key });
           } else {
             await supabase.from("notification_events").update({ status: "failed", error: "Twilio not configured" }).eq("id", evt?.id);
             results.push({ channel: "sms", status: "failed", error: "Twilio not configured" });
           }
         } catch (e: any) {
-          await supabase.from("notification_events").update({
-            status: "failed",
-            error: e.message,
-            retry_count: 1,
-          }).eq("id", evt?.id);
+          await supabase.from("notification_events").update({ status: "failed", error: e.message }).eq("id", evt?.id);
           results.push({ channel: "sms", status: "failed", error: e.message });
+        }
+      }
+    }
+
+    // If no per-store overrides were found, fall back to legacy notification_templates
+    if (overrideMap.size === 0 && templates && templates.length > 0) {
+      for (const tmpl of templates) {
+        if (force_channel && tmpl.channel !== force_channel) continue;
+
+        if (tmpl.channel === "email" && settings?.default_email_enabled) {
+          const rendered = renderTemplate(tmpl.body, allVars);
+          const subject = tmpl.subject ? renderTemplate(tmpl.subject, allVars) : `Update on order ${allVars.order_number}`;
+
+          const { data: evt } = await supabase.from("notification_events").insert({
+            order_id,
+            customer_id: customerId,
+            channel: "email",
+            template_key,
+            recipient_address: order.customer_email,
+            payload_snapshot: { subject, body: rendered, variables: allVars },
+            status: "pending",
+          }).select("id").single();
+
+          try {
+            const resendKey = Deno.env.get("RESEND_API_KEY");
+            if (resendKey) {
+              const resend = new Resend(resendKey);
+              const fromEmail = settings?.email_from_address || "orders@toddssport.com";
+              await resend.emails.send({
+                from: `${storeName} <${fromEmail}>`,
+                to: [order.customer_email],
+                subject,
+                html: rendered,
+              });
+              await supabase.from("notification_events").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", evt?.id);
+              results.push({ channel: "email", status: "sent" });
+            } else {
+              await supabase.from("notification_events").update({ status: "failed", error: "No RESEND_API_KEY" }).eq("id", evt?.id);
+              results.push({ channel: "email", status: "failed", error: "No RESEND_API_KEY" });
+            }
+          } catch (e: any) {
+            await supabase.from("notification_events").update({ status: "failed", error: e.message, retry_count: 1 }).eq("id", evt?.id);
+            results.push({ channel: "email", status: "failed", error: e.message });
+          }
+        }
+
+        if (tmpl.channel === "sms" && settings?.default_sms_enabled) {
+          const phoneResult = await selectSmsPhone(supabase, order);
+          if (!phoneResult) {
+            results.push({ channel: "sms", status: "skipped", reason: "no_eligible_phone" });
+            continue;
+          }
+
+          const rendered = renderTemplate(tmpl.body, allVars);
+          const { data: evt } = await supabase.from("notification_events").insert({
+            order_id,
+            customer_id: customerId,
+            channel: "sms",
+            template_key,
+            recipient_address: phoneResult.phone,
+            payload_snapshot: { body: rendered, variables: allVars },
+            phone_selection_reason: phoneResult.reason,
+            status: "pending",
+          }).select("id").single();
+
+          try {
+            const twilioSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+            const twilioAuth = Deno.env.get("TWILIO_AUTH_TOKEN");
+            const twilioFrom = settings?.sms_sender_phone || Deno.env.get("TWILIO_FROM_PHONE");
+
+            if (twilioSid && twilioAuth && twilioFrom) {
+              const client = Twilio(twilioSid, twilioAuth);
+              await client.messages.create({ body: rendered, from: twilioFrom, to: phoneResult.phone });
+              await supabase.from("notification_events").update({ status: "sent", sent_at: new Date().toISOString() }).eq("id", evt?.id);
+              results.push({ channel: "sms", status: "sent", phone: phoneResult.phone, reason: phoneResult.reason });
+            } else {
+              await supabase.from("notification_events").update({ status: "failed", error: "Twilio not configured" }).eq("id", evt?.id);
+              results.push({ channel: "sms", status: "failed", error: "Twilio not configured" });
+            }
+          } catch (e: any) {
+            await supabase.from("notification_events").update({ status: "failed", error: e.message, retry_count: 1 }).eq("id", evt?.id);
+            results.push({ channel: "sms", status: "failed", error: e.message });
+          }
         }
       }
     }

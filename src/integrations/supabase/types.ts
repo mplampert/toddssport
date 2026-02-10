@@ -1836,6 +1836,69 @@ export type Database = {
           },
         ]
       }
+      store_notification_settings: {
+        Row: {
+          channel: string
+          created_at: string
+          enabled: boolean
+          event_type: string
+          id: string
+          send_to: string
+          source: string
+          store_id: string | null
+          template_subject: string | null
+          template_text: string
+          to_email: string | null
+          to_phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          channel?: string
+          created_at?: string
+          enabled?: boolean
+          event_type: string
+          id?: string
+          send_to?: string
+          source?: string
+          store_id?: string | null
+          template_subject?: string | null
+          template_text?: string
+          to_email?: string | null
+          to_phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          channel?: string
+          created_at?: string
+          enabled?: boolean
+          event_type?: string
+          id?: string
+          send_to?: string
+          source?: string
+          store_id?: string | null
+          template_subject?: string | null
+          template_text?: string
+          to_email?: string | null
+          to_phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "store_notification_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "store_notification_settings_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_roster_players: {
         Row: {
           birth_year: number | null
