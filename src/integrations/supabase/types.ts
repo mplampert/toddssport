@@ -773,6 +773,48 @@ export type Database = {
         }
         Relationships: []
       }
+      design_templates: {
+        Row: {
+          active: boolean
+          category: string
+          code: string
+          created_at: string
+          id: string
+          image_url: string | null
+          name: string
+          sort_order: number
+          sport: string
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          category?: string
+          code: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          sort_order?: number
+          sport?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          category?: string
+          code?: string
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          sort_order?: number
+          sport?: string
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       employee_profiles: {
         Row: {
           created_at: string
@@ -1005,6 +1047,47 @@ export type Database = {
             columns: ["team_store_id"]
             isOneToOne: false
             referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fulfillment_logs: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          is_bulk_operation: boolean
+          new_status: string
+          notes: string | null
+          old_status: string
+          order_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          is_bulk_operation?: boolean
+          new_status: string
+          notes?: string | null
+          old_status: string
+          order_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          is_bulk_operation?: boolean
+          new_status?: string
+          notes?: string | null
+          old_status?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fulfillment_logs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "team_store_orders"
             referencedColumns: ["id"]
           },
         ]
@@ -1401,6 +1484,132 @@ export type Database = {
           updated_at?: string
           variables?: Json | null
           version?: number
+        }
+        Relationships: []
+      }
+      pennant_media: {
+        Row: {
+          color: string | null
+          created_at: string
+          height: number | null
+          id: string
+          image_type: string | null
+          image_url: string
+          pennant_sku: string
+          sort_order: number | null
+          view: string | null
+          width: number | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_type?: string | null
+          image_url: string
+          pennant_sku: string
+          sort_order?: number | null
+          view?: string | null
+          width?: number | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          height?: number | null
+          id?: string
+          image_type?: string | null
+          image_url?: string
+          pennant_sku?: string
+          sort_order?: number | null
+          view?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
+      pennant_pricing: {
+        Row: {
+          created_at: string
+          currency: string | null
+          discount_code: string | null
+          id: string
+          last_synced_at: string | null
+          min_qty: number
+          pennant_sku: string
+          retail_price: number | null
+          wholesale_price: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: string | null
+          discount_code?: string | null
+          id?: string
+          last_synced_at?: string | null
+          min_qty?: number
+          pennant_sku: string
+          retail_price?: number | null
+          wholesale_price: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string | null
+          discount_code?: string | null
+          id?: string
+          last_synced_at?: string | null
+          min_qty?: number
+          pennant_sku?: string
+          retail_price?: number | null
+          wholesale_price?: number
+        }
+        Relationships: []
+      }
+      pennant_products: {
+        Row: {
+          brand: string | null
+          category: string | null
+          colors: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          keywords: string[] | null
+          last_synced_at: string | null
+          name: string
+          pennant_sku: string
+          sizes: Json | null
+          specs: Json | null
+          sub_category: string | null
+          updated_at: string
+        }
+        Insert: {
+          brand?: string | null
+          category?: string | null
+          colors?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_synced_at?: string | null
+          name: string
+          pennant_sku: string
+          sizes?: Json | null
+          specs?: Json | null
+          sub_category?: string | null
+          updated_at?: string
+        }
+        Update: {
+          brand?: string | null
+          category?: string | null
+          colors?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          keywords?: string[] | null
+          last_synced_at?: string | null
+          name?: string
+          pennant_sku?: string
+          sizes?: Json | null
+          specs?: Json | null
+          sub_category?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2874,6 +3083,8 @@ export type Database = {
           subtotal: number
           tax_total: number
           total: number
+          tracking_carrier: string | null
+          tracking_number: string | null
           updated_at: string
         }
         Insert: {
@@ -2927,6 +3138,8 @@ export type Database = {
           subtotal?: number
           tax_total?: number
           total?: number
+          tracking_carrier?: string | null
+          tracking_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -2980,6 +3193,8 @@ export type Database = {
           subtotal?: number
           tax_total?: number
           total?: number
+          tracking_carrier?: string | null
+          tracking_number?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -3198,6 +3413,7 @@ export type Database = {
           internal_notes: string | null
           is_sample: boolean
           master_product_id: string | null
+          msrp: number | null
           notes: string | null
           number_lock_rule: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config: Json | null
@@ -3208,6 +3424,7 @@ export type Database = {
           price_override: number | null
           primary_image_type: string
           primary_image_url: string | null
+          product_cost: number | null
           screen_print_enabled: boolean
           short_description_override: string | null
           size_chart_display_mode: string
@@ -3215,7 +3432,7 @@ export type Database = {
           size_upcharges: Json | null
           sort_order: number
           store_category_override_id: string | null
-          style_id: number
+          style_id: number | null
           team_roster_id: string | null
           team_store_id: string
           updated_at: string
@@ -3241,6 +3458,7 @@ export type Database = {
           internal_notes?: string | null
           is_sample?: boolean
           master_product_id?: string | null
+          msrp?: number | null
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -3251,6 +3469,7 @@ export type Database = {
           price_override?: number | null
           primary_image_type?: string
           primary_image_url?: string | null
+          product_cost?: number | null
           screen_print_enabled?: boolean
           short_description_override?: string | null
           size_chart_display_mode?: string
@@ -3258,7 +3477,7 @@ export type Database = {
           size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
-          style_id: number
+          style_id?: number | null
           team_roster_id?: string | null
           team_store_id: string
           updated_at?: string
@@ -3284,6 +3503,7 @@ export type Database = {
           internal_notes?: string | null
           is_sample?: boolean
           master_product_id?: string | null
+          msrp?: number | null
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -3294,6 +3514,7 @@ export type Database = {
           price_override?: number | null
           primary_image_type?: string
           primary_image_url?: string | null
+          product_cost?: number | null
           screen_print_enabled?: boolean
           short_description_override?: string | null
           size_chart_display_mode?: string
@@ -3301,7 +3522,7 @@ export type Database = {
           size_upcharges?: Json | null
           sort_order?: number
           store_category_override_id?: string | null
-          style_id?: number
+          style_id?: number | null
           team_roster_id?: string | null
           team_store_id?: string
           updated_at?: string

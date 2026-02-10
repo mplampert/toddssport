@@ -100,6 +100,7 @@ import ReportStores from "./pages/admin/reports/ReportStores";
 import ReportProducts from "./pages/admin/reports/ReportProducts";
 import ReportFulfillment from "./pages/admin/reports/ReportFulfillment";
 import ReportOrganizations from "./pages/admin/reports/ReportOrganizations";
+import DesignLibrary from "./pages/DesignLibrary";
 import NotFound from "./pages/NotFound";
 import AccountLogin from "./pages/account/AccountLogin";
 import AccountRegister from "./pages/account/AccountRegister";
@@ -155,6 +156,7 @@ const App = () => (
           <Route path="/ss-products/brand/:brandName" element={<SSBrandProducts />} />
           <Route path="/ss-products/brand/:brandName/:category" element={<SSBrandCategoryProducts />} />
           <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
+          <Route path="/designs" element={<DesignLibrary />} />
           <Route path="/preview/team-store/:slug" element={<TeamStorePreview />} />
           <Route path="/preview/team-store/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
           {/* Customer Portal */}
