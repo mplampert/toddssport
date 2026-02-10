@@ -17,7 +17,6 @@ import {
   Megaphone,
   Settings,
   FileText,
-  MessageSquare,
   UserCheck,
   DollarSign,
   Tag,
@@ -38,7 +37,6 @@ const STORE_TABS = [
   { label: "Personalization", path: "personalization", icon: UserCheck },
   { label: "Rosters", path: "rosters", icon: Users },
   { label: "Decoration $", path: "decoration-pricing", icon: DollarSign },
-  { label: "Messages", path: "messages", icon: MessageSquare },
   { label: "Settings", path: "settings", icon: Settings },
 ] as const;
 
