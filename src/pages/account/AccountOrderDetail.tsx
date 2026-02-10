@@ -6,8 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Package } from "lucide-react";
 import { format } from "date-fns";
 
 export default function AccountOrderDetail() {
@@ -109,37 +108,51 @@ export default function AccountOrderDetail() {
           <Card className="mb-6">
             <CardHeader><CardTitle className="text-lg">Items</CardTitle></CardHeader>
             <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead className="text-center">Qty</TableHead>
-                    <TableHead>Personalization</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => {
-                    const variant = item.variant_snapshot as any;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium">
+              <div className="divide-y divide-border">
+                {items.map((item: any) => {
+                  const variant = item.variant_snapshot as any;
+                  const imgUrl = variant?.imageUrl || variant?.image_url || null;
+                  return (
+                    <div key={item.id} className="flex gap-4 p-4">
+                      {/* Product image */}
+                      <div className="w-16 h-16 shrink-0 rounded-lg border bg-muted overflow-hidden">
+                        {imgUrl ? (
+                          <img src={imgUrl} alt="" className="w-full h-full object-contain p-1" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            <Package className="w-6 h-6" />
+                          </div>
+                        )}
+                      </div>
+                      {/* Details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-foreground">
                           {item.store_display_name || item.product_name_snapshot || "Product"}
-                        </TableCell>
-                        <TableCell>{variant?.size || variant?.color || "—"}</TableCell>
-                        <TableCell className="text-center">{item.quantity}</TableCell>
-                        <TableCell>
-                          {item.personalization_name || item.personalization_number
-                            ? [item.personalization_name, item.personalization_number && `#${item.personalization_number}`].filter(Boolean).join(" ")
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">{fmt(item.line_total)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {[variant?.color, variant?.size].filter(Boolean).join(" / ") || "—"}
+                          {variant?.brandName && <span className="ml-1">· {variant.brandName}</span>}
+                        </p>
+                        {(item.personalization_name || item.personalization_number) && (
+                          <p className="text-sm text-muted-foreground">
+                            {item.personalization_name && <>Name: {item.personalization_name}</>}
+                            {item.personalization_name && item.personalization_number && " · "}
+                            {item.personalization_number && <>#{item.personalization_number}</>}
+                          </p>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-0.5">Qty: {item.quantity}</p>
+                      </div>
+                      {/* Price */}
+                      <div className="text-right shrink-0">
+                        <p className="font-semibold">{fmt(item.line_total)}</p>
+                        {item.quantity > 1 && (
+                          <p className="text-xs text-muted-foreground">{fmt(item.unit_price)} ea</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
 
@@ -151,6 +164,9 @@ export default function AccountOrderDetail() {
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>{fmt(order.subtotal)}</span></div>
                 {order.discount_total > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Discount</span><span className="text-accent">-{fmt(order.discount_total)}</span></div>}
                 {order.shipping_total > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Shipping</span><span>{fmt(order.shipping_total)}</span></div>}
+                {Array.isArray(order.fees_json) && order.fees_json.map((fee: any, idx: number) => (
+                  <div key={idx} className="flex justify-between"><span className="text-muted-foreground">{fee.name}</span><span>{fmt(fee.amount)}</span></div>
+                ))}
                 {order.tax_total > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Tax</span><span>{fmt(order.tax_total)}</span></div>}
                 <div className="border-t border-border pt-2 flex justify-between font-bold">
                   <span>Total</span><span>{fmt(order.total)}</span>
