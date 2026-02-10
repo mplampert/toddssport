@@ -9,13 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { AllStoresTable } from "@/components/admin/team-stores/AllStoresTable";
+import type { LifecycleTab } from "@/pages/admin/team-stores/TeamStoresDashboard";
 
-type StatusTab = "all" | "scheduled" | "open" | "closed";
+type StatusTab = "all" | "active" | "closed";
 
 const tabs: { value: StatusTab; label: string }[] = [
   { value: "all", label: "All" },
-  { value: "open", label: "Open" },
-  { value: "scheduled", label: "Scheduled" },
+  { value: "active", label: "Active" },
   { value: "closed", label: "Closed" },
 ];
 
@@ -102,7 +102,7 @@ export default function TeamStoresStores() {
         ))}
       </nav>
 
-      <AllStoresTable statusFilter={statusTab} />
+      <AllStoresTable lifecycleFilter={statusTab as LifecycleTab} />
     </div>
   );
 }

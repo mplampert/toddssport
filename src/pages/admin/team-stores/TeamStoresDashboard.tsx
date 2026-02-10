@@ -11,13 +11,13 @@ import { toast } from "sonner";
 import { TeamStoreKpis } from "@/components/admin/team-stores/TeamStoreKpis";
 import { AllStoresTable } from "@/components/admin/team-stores/AllStoresTable";
 
-type StatusTab = "all" | "scheduled" | "open" | "closed";
+export type LifecycleTab = "active" | "batched" | "closed" | "all";
 
-const tabs: { value: StatusTab; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "open", label: "Live" },
-  { value: "scheduled", label: "Not Launched" },
-  { value: "closed", label: "Closed" },
+const tabs: { value: LifecycleTab; label: string; description: string }[] = [
+  { value: "active", label: "Active", description: "Live & Not Launched" },
+  { value: "batched", label: "Batched", description: "Ready to Process" },
+  { value: "closed", label: "Closed / Archived", description: "Reports & Payouts" },
+  { value: "all", label: "All", description: "" },
 ];
 
 export default function TeamStoresDashboard() {
@@ -25,7 +25,7 @@ export default function TeamStoresDashboard() {
   const navigate = useNavigate();
   const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
-  const [statusTab, setStatusTab] = useState<StatusTab>("all");
+  const [lifecycleTab, setLifecycleTab] = useState<LifecycleTab>("active");
 
   const createMutation = useMutation({
     mutationFn: async (name: string) => {
@@ -121,14 +121,14 @@ export default function TeamStoresDashboard() {
         </Button>
       </div>
 
-      {/* Status Tabs */}
+      {/* Lifecycle Tabs */}
       <nav className="flex border-b border-border gap-1">
         {tabs.map((tab) => (
           <button
             key={tab.value}
-            onClick={() => setStatusTab(tab.value)}
+            onClick={() => setLifecycleTab(tab.value)}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors ${
-              statusTab === tab.value
+              lifecycleTab === tab.value
                 ? "border-accent text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground hover:border-muted"
             }`}
@@ -138,8 +138,8 @@ export default function TeamStoresDashboard() {
         ))}
       </nav>
 
-      {/* All Stores Table */}
-      <AllStoresTable statusFilter={statusTab} />
+      {/* Stores Table */}
+      <AllStoresTable lifecycleFilter={lifecycleTab} />
     </div>
   );
 }

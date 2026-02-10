@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,17 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useState, useMemo } from "react";
-import { Search, Trash2, Eye, BarChart3, Heart, X } from "lucide-react";
+import { Search, Trash2, Eye, BarChart3, Heart, X, Truck, Layers } from "lucide-react";
 import { toast } from "sonner";
-
-type StoreStatus = "scheduled" | "open" | "closed";
+import type { LifecycleTab } from "@/pages/admin/team-stores/TeamStoresDashboard";
 
 interface StoreRow {
   id: string;
   name: string;
   slug: string;
   active: boolean;
-  status: StoreStatus;
+  status: string;
   start_date: string | null;
   end_date: string | null;
   description: string | null;
@@ -31,8 +30,14 @@ interface StoreRow {
   fundsRaised: number;
 }
 
+interface BatchInfo {
+  team_store_id: string;
+  openBatches: number;
+  openBatchItems: number;
+}
+
 interface AllStoresTableProps {
-  statusFilter: StoreStatus | "all";
+  lifecycleFilter: LifecycleTab;
 }
 
 const statusBadge: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -42,7 +47,7 @@ const statusBadge: Record<string, { label: string; variant: "default" | "seconda
   draft: { label: "Draft", variant: "outline" },
 };
 
-export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
+export function AllStoresTable({ lifecycleFilter }: AllStoresTableProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -59,6 +64,7 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["team-store-all-stores-table"] });
       queryClient.invalidateQueries({ queryKey: ["team-store-kpis"] });
+      queryClient.invalidateQueries({ queryKey: ["team-store-batched-info"] });
       toast.success("Store deleted");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -73,7 +79,6 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
-      // Fetch real order data
       const { data: orders } = await supabase
         .from("team_store_orders")
         .select("id, store_id, total")
@@ -102,6 +107,38 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
     },
   });
 
+  // Fetch batch info for "batched" view
+  const { data: batchInfo = [] } = useQuery<BatchInfo[]>({
+    queryKey: ["team-store-batched-info"],
+    queryFn: async () => {
+      const { data: batches } = await supabase
+        .from("fulfillment_batches")
+        .select("id, team_store_id, order_ids, status")
+        .in("status", ["ready", "in_production"]);
+
+      const map = new Map<string, { openBatches: number; openBatchItems: number }>();
+      (batches ?? []).forEach((b: any) => {
+        const entry = map.get(b.team_store_id) ?? { openBatches: 0, openBatchItems: 0 };
+        entry.openBatches += 1;
+        entry.openBatchItems += (b.order_ids?.length ?? 0);
+        map.set(b.team_store_id, entry);
+      });
+
+      return Array.from(map.entries()).map(([team_store_id, info]) => ({
+        team_store_id,
+        ...info,
+      }));
+    },
+  });
+
+  const batchMap = useMemo(() => {
+    const m = new Map<string, BatchInfo>();
+    batchInfo.forEach((b) => m.set(b.team_store_id, b));
+    return m;
+  }, [batchInfo]);
+
+  const batchedStoreIds = useMemo(() => new Set(batchInfo.map((b) => b.team_store_id)), [batchInfo]);
+
   const orgOptions = useMemo(() => {
     const set = new Set<string>();
     stores.forEach((s) => { if (s.organization) set.add(s.organization); });
@@ -117,8 +154,13 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
   const filtered = useMemo(() => {
     let result = stores;
 
-    if (statusFilter !== "all") {
-      result = result.filter((s) => s.status === statusFilter);
+    // Lifecycle filter
+    if (lifecycleFilter === "active") {
+      result = result.filter((s) => s.status === "open" || s.status === "scheduled" || s.status === "draft");
+    } else if (lifecycleFilter === "batched") {
+      result = result.filter((s) => batchedStoreIds.has(s.id));
+    } else if (lifecycleFilter === "closed") {
+      result = result.filter((s) => s.status === "closed");
     }
 
     if (search.trim()) {
@@ -132,23 +174,16 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
       );
     }
 
-    if (orgFilter !== "all") {
-      result = result.filter((s) => s.organization === orgFilter);
-    }
-    if (seasonFilter !== "all") {
-      result = result.filter((s) => s.season === seasonFilter);
-    }
-    if (dateFrom) {
-      result = result.filter((s) => (s.start_date ?? "") >= dateFrom || (s.end_date ?? "") >= dateFrom);
-    }
-    if (dateTo) {
-      result = result.filter((s) => (s.start_date ?? "") <= dateTo || (s.end_date ?? "") <= dateTo);
-    }
+    if (orgFilter !== "all") result = result.filter((s) => s.organization === orgFilter);
+    if (seasonFilter !== "all") result = result.filter((s) => s.season === seasonFilter);
+    if (dateFrom) result = result.filter((s) => (s.start_date ?? "") >= dateFrom || (s.end_date ?? "") >= dateFrom);
+    if (dateTo) result = result.filter((s) => (s.start_date ?? "") <= dateTo || (s.end_date ?? "") <= dateTo);
 
     return result;
-  }, [stores, search, statusFilter, orgFilter, seasonFilter, dateFrom, dateTo]);
+  }, [stores, search, lifecycleFilter, orgFilter, seasonFilter, dateFrom, dateTo, batchedStoreIds]);
 
   const hasExtraFilters = orgFilter !== "all" || seasonFilter !== "all" || dateFrom || dateTo;
+  const isBatchedView = lifecycleFilter === "batched";
 
   return (
     <div className="space-y-4">
@@ -203,7 +238,9 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
           {isLoading ? (
             <p className="text-sm text-muted-foreground py-6 px-4">Loading stores…</p>
           ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 px-4">No stores found.</p>
+            <p className="text-sm text-muted-foreground py-6 px-4">
+              {isBatchedView ? "No stores have batches ready to process." : "No stores found."}
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
@@ -213,17 +250,27 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
                     <TableHead>Organization</TableHead>
                     <TableHead>Season</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Open</TableHead>
-                    <TableHead>Close</TableHead>
-                    <TableHead className="text-right">Orders</TableHead>
-                    <TableHead className="text-right">Sales</TableHead>
-                    <TableHead className="text-right">Raised</TableHead>
+                    {isBatchedView ? (
+                      <>
+                        <TableHead className="text-right">Open Batches</TableHead>
+                        <TableHead className="text-right">Orders in Batches</TableHead>
+                      </>
+                    ) : (
+                      <>
+                        <TableHead>Open</TableHead>
+                        <TableHead>Close</TableHead>
+                        <TableHead className="text-right">Orders</TableHead>
+                        <TableHead className="text-right">Sales</TableHead>
+                        <TableHead className="text-right">Raised</TableHead>
+                      </>
+                    )}
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((s) => {
-                    const badge = statusBadge[s.status] ?? statusBadge.scheduled;
+                    const badge = statusBadge[s.status] ?? statusBadge.draft;
+                    const bi = batchMap.get(s.id);
                     return (
                       <TableRow key={s.id}>
                         <TableCell className="font-medium text-sm">{s.name}</TableCell>
@@ -232,70 +279,104 @@ export function AllStoresTable({ statusFilter }: AllStoresTableProps) {
                         <TableCell>
                           <Badge variant={badge.variant}>{badge.label}</Badge>
                         </TableCell>
-                        <TableCell className="text-sm">{s.start_date ?? "—"}</TableCell>
-                        <TableCell className="text-sm">{s.end_date ?? "—"}</TableCell>
-                        <TableCell className="text-right text-sm">{s.ordersCount}</TableCell>
-                        <TableCell className="text-right text-sm font-medium">
-                          ${s.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </TableCell>
-                        <TableCell className="text-right text-sm font-medium">
-                          ${s.fundsRaised.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </TableCell>
+                        {isBatchedView ? (
+                          <>
+                            <TableCell className="text-right text-sm font-medium">{bi?.openBatches ?? 0}</TableCell>
+                            <TableCell className="text-right text-sm">{bi?.openBatchItems ?? 0}</TableCell>
+                          </>
+                        ) : (
+                          <>
+                            <TableCell className="text-sm">{s.start_date ?? "—"}</TableCell>
+                            <TableCell className="text-sm">{s.end_date ?? "—"}</TableCell>
+                            <TableCell className="text-right text-sm">{s.ordersCount}</TableCell>
+                            <TableCell className="text-right text-sm font-medium">
+                              ${s.totalSales.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right text-sm font-medium">
+                              ${s.fundsRaised.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </TableCell>
+                          </>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-1">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => navigate(`/admin/team-stores/${s.id}`)}
-                              title="View store"
-                            >
-                              <Eye className="w-3.5 h-3.5 mr-1" /> Store
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-xs"
-                              onClick={() => navigate(`/admin/team-stores/${s.id}/reports/summary`)}
-                              title="View reports"
-                            >
-                              <BarChart3 className="w-3.5 h-3.5 mr-1" /> Reports
-                            </Button>
-                            {(s.fundraising_percent ?? 0) > 0 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs"
-                                onClick={() => navigate(`/admin/team-stores/${s.id}/reports/fundraising`)}
-                                title="View fundraising"
-                              >
-                                <Heart className="w-3.5 h-3.5 mr-1" /> Fund
-                              </Button>
-                            )}
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive hover:text-destructive">
-                                  <Trash2 className="w-3.5 h-3.5" />
+                            {isBatchedView ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => navigate(`/admin/team-stores/${s.id}/fulfillment`)}
+                                  title="Go to fulfillment"
+                                >
+                                  <Truck className="w-3.5 h-3.5 mr-1" /> Fulfillment
                                 </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete "{s.name}"?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    This will permanently delete this store and cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    onClick={() => deleteMutation.mutate(s.id)}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => navigate(`/admin/team-stores/${s.id}`)}
+                                  title="View store"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" /> Store
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => navigate(`/admin/team-stores/${s.id}`)}
+                                  title="View store"
+                                >
+                                  <Eye className="w-3.5 h-3.5 mr-1" /> Store
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs"
+                                  onClick={() => navigate(`/admin/team-stores/${s.id}/reports/summary`)}
+                                  title="View reports"
+                                >
+                                  <BarChart3 className="w-3.5 h-3.5 mr-1" /> Reports
+                                </Button>
+                                {(s.fundraising_percent ?? 0) > 0 && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => navigate(`/admin/team-stores/${s.id}/reports/fundraising`)}
+                                    title="View fundraising"
                                   >
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                                    <Heart className="w-3.5 h-3.5 mr-1" /> Fund
+                                  </Button>
+                                )}
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button size="sm" variant="ghost" className="h-7 px-1.5 text-destructive hover:text-destructive">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete "{s.name}"?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete this store and cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                        onClick={() => deleteMutation.mutate(s.id)}
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
