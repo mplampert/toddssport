@@ -77,6 +77,10 @@ serve(async (req: Request) => {
         const existing = users?.find((u: any) => u.email === email);
         if (!existing) throw new Error("User exists but could not be found");
 
+        // Reset password so we can send fresh credentials
+        const newTempPassword = crypto.randomUUID().slice(0, 16);
+        await supabaseAdmin.auth.admin.updateUserById(existing.id, { password: newTempPassword });
+
         // Upsert employee profile
         const { error: epError } = await supabaseAdmin
           .from("employee_profiles")
@@ -89,7 +93,7 @@ serve(async (req: Request) => {
             role: "admin",
             staff_role,
             is_active: true,
-            invite_status: "active",
+            invite_status: "invited",
           }, { onConflict: "id" });
 
         if (epError) throw epError;
@@ -100,7 +104,32 @@ serve(async (req: Request) => {
           { onConflict: "user_id,role" }
         );
 
-        return new Response(JSON.stringify({ success: true, message: "Existing user linked as staff" }), {
+        // Send invite email for existing user
+        const resendKeyExisting = Deno.env.get("RESEND_API_KEY");
+        const fromEmailExisting = Deno.env.get("RESEND_FROM_EMAIL") || "noreply@toddssportinggoods.com";
+        if (resendKeyExisting) {
+          const resendExisting = new Resend(resendKeyExisting);
+          const siteUrlExisting = Deno.env.get("SITE_URL") || "https://toddssportinggoods.com";
+          await resendExisting.emails.send({
+            from: `Todd's Sporting Goods <${fromEmailExisting}>`,
+            to: [email],
+            subject: "You've been invited to Todd's Admin",
+            html: `
+              <h1>Welcome to Todd's Sporting Goods Admin</h1>
+              <p>Hi ${first_name},</p>
+              <p>You've been invited as a <strong>${staff_role}</strong> to the Todd's admin panel.</p>
+              <p>Your login credentials:</p>
+              <ul>
+                <li><strong>Email:</strong> ${email}</li>
+                <li><strong>Password:</strong> ${newTempPassword}</li>
+              </ul>
+              <p><a href="${siteUrlExisting}/auth">Log in here</a></p>
+              <p>Please change your password after your first login.</p>
+            `,
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true, userId: existing.id }), {
           headers: { "Content-Type": "application/json", ...corsHeaders },
         });
       }
