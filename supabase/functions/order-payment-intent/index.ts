@@ -10,6 +10,26 @@ const corsHeaders = {
 const log = (step: string, data?: unknown) =>
   console.log(`[ORDER-PI] ${step}${data ? ` – ${JSON.stringify(data)}` : ""}`);
 
+async function requireAdmin(req: Request, supabaseUrl: string, supabaseAnonKey: string, supabaseServiceKey: string) {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) return false;
+
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getUser();
+  if (claimsErr || !claimsData?.user) return false;
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roleRow } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", claimsData.user.id)
+    .eq("role", "admin")
+    .maybeSingle();
+  return !!roleRow;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -27,48 +47,122 @@ Deno.serve(async (req: Request) => {
     });
   }
 
-  // Auth check – admin only
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: claimsData, error: claimsErr } = await supabaseAuth.auth.getUser();
-  if (claimsErr || !claimsData?.user) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  // Check admin role
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const { data: roleRow } = await supabase
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", claimsData.user.id)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (!roleRow) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
   try {
     const body = await req.json();
     const { action } = body;
 
-    // ---- CREATE PAYMENT INTENT ----
+    // ---- RECORD PAYMENT (storefront checkout – no auth required) ----
+    // Security: We verify the payment with Stripe server-side before recording.
+    if (action === "record_payment") {
+      const { orderId, paymentIntentId } = body;
+      if (!orderId || typeof orderId !== "string" || orderId.length > 100) {
+        return new Response(JSON.stringify({ error: "Valid orderId required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!paymentIntentId || typeof paymentIntentId !== "string" || !paymentIntentId.startsWith("pi_")) {
+        return new Response(JSON.stringify({ error: "Valid paymentIntentId required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      log("Recording payment", { orderId, paymentIntentId });
+
+      // Verify payment with Stripe
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (pi.status !== "succeeded") {
+        return new Response(JSON.stringify({ error: "Payment not successful" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify order exists and PI matches metadata
+      const { data: order } = await supabase
+        .from("team_store_orders")
+        .select("id, total, payment_intent_id")
+        .eq("id", orderId)
+        .single();
+
+      if (!order) {
+        return new Response(JSON.stringify({ error: "Order not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify PI matches what's on the order
+      if (order.payment_intent_id && order.payment_intent_id !== paymentIntentId) {
+        return new Response(JSON.stringify({ error: "Payment intent mismatch" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Also verify PI metadata matches (prevents using a PI from a different order)
+      if (pi.metadata?.order_id && pi.metadata.order_id !== orderId) {
+        return new Response(JSON.stringify({ error: "Payment intent does not belong to this order" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check for duplicate payment record
+      const { data: existingPayment } = await supabase
+        .from("team_store_payments")
+        .select("id")
+        .eq("order_id", orderId)
+        .eq("provider_ref", paymentIntentId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        log("Payment already recorded, skipping", { orderId, paymentIntentId });
+        return new Response(
+          JSON.stringify({ success: true, alreadyRecorded: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update order status
+      await supabase
+        .from("team_store_orders")
+        .update({ status: "confirmed", payment_status: "paid" })
+        .eq("id", orderId);
+
+      // Insert payment record
+      await supabase.from("team_store_payments").insert({
+        order_id: orderId,
+        type: "payment",
+        method: "card",
+        amount: pi.amount / 100,
+        provider: "stripe",
+        provider_ref: paymentIntentId,
+        note: `Online checkout – PI ${paymentIntentId}`,
+      });
+
+      log("Payment recorded", { orderId, amount: pi.amount / 100 });
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ---- All other actions require admin auth ----
+    const isAdmin = await requireAdmin(req, supabaseUrl, supabaseAnonKey, supabaseServiceKey);
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ---- CREATE PAYMENT INTENT (admin only) ----
     if (action === "create_intent") {
       const { orderId, amount, customerEmail, customerName } = body;
       if (!orderId || !amount || amount < 50) {
@@ -123,91 +217,7 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // ---- RECORD PAYMENT (storefront checkout) ----
-    if (action === "record_payment") {
-      const { orderId, paymentIntentId } = body;
-      if (!orderId || !paymentIntentId) {
-        return new Response(JSON.stringify({ error: "orderId and paymentIntentId required" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      log("Recording payment", { orderId, paymentIntentId });
-
-      // Verify payment with Stripe
-      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
-      if (pi.status !== "succeeded") {
-        return new Response(JSON.stringify({ error: "Payment not successful" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Verify order exists and amount matches
-      const { data: order } = await supabase
-        .from("team_store_orders")
-        .select("id, total, payment_intent_id")
-        .eq("id", orderId)
-        .single();
-
-      if (!order) {
-        return new Response(JSON.stringify({ error: "Order not found" }), {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Verify PI matches what's on the order
-      if (order.payment_intent_id && order.payment_intent_id !== paymentIntentId) {
-        return new Response(JSON.stringify({ error: "Payment intent mismatch" }), {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Check for duplicate payment record
-      const { data: existingPayment } = await supabase
-        .from("team_store_payments")
-        .select("id")
-        .eq("order_id", orderId)
-        .eq("provider_ref", paymentIntentId)
-        .maybeSingle();
-
-      if (existingPayment) {
-        log("Payment already recorded, skipping", { orderId, paymentIntentId });
-        return new Response(
-          JSON.stringify({ success: true, alreadyRecorded: true }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      // Update order status
-      await supabase
-        .from("team_store_orders")
-        .update({ status: "confirmed", payment_status: "paid" })
-        .eq("id", orderId);
-
-      // Insert payment record
-      await supabase.from("team_store_payments").insert({
-        order_id: orderId,
-        type: "payment",
-        method: "card",
-        amount: pi.amount / 100,
-        provider: "stripe",
-        provider_ref: paymentIntentId,
-        note: `Online checkout – PI ${paymentIntentId}`,
-      });
-
-      log("Payment recorded", { orderId, amount: pi.amount / 100 });
-
-      return new Response(
-        JSON.stringify({ success: true }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ---- REFUND ----
+    // ---- REFUND (admin only) ----
     if (action === "refund") {
       const { paymentIntentId, amount, orderId, note } = body;
       if (!paymentIntentId) {
