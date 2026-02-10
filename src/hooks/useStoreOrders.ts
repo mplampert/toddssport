@@ -163,9 +163,20 @@ export function useCreateOrder(storeId: string) {
       }
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       qc.invalidateQueries({ queryKey: ["team-store-orders", storeId] });
       toast.success("Order created");
+
+      // Fire order confirmation notification (email + SMS) for manual orders
+      if (data?.id) {
+        supabase.functions.invoke("send-notification", {
+          body: {
+            order_id: data.id,
+            template_key: "order_confirmation",
+            source: "standard_store",
+          },
+        }).catch(() => { /* non-fatal */ });
+      }
     },
     onError: (e: any) => toast.error(e.message),
   });
