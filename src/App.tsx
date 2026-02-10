@@ -151,7 +151,15 @@ const App = () => (
             <Route path="orders" element={<TeamStoresOrders />} />
             <Route path="fundraising" element={<TeamStoresFundraising />} />
             <Route path="fundraising/:storeId" element={<TeamStoresFundraisingDetail />} />
-            <Route path="reports" element={<TeamStoresReports />} />
+            <Route path="reports" element={<AdminReports />}>
+              <Route index element={<ReportFundraising />} />
+              <Route path="fundraising" element={<ReportFundraising />} />
+              <Route path="personalization" element={<ReportPersonalization />} />
+              <Route path="stores" element={<ReportStores />} />
+              <Route path="products" element={<ReportProducts />} />
+              <Route path="fulfillment" element={<ReportFulfillment />} />
+              <Route path="organizations" element={<ReportOrganizations />} />
+            </Route>
             <Route path="logos" element={<TeamStoresLogos />} />
             <Route path="notifications" element={<AdminNotifications />} />
             <Route path="settings" element={<TeamStoresSettings />} />
@@ -179,15 +187,6 @@ const App = () => (
               <Route path="decoration-pricing" element={<StoreDecorationPricing />} />
               <Route path="names-numbers" element={<StoreNamesNumbers />} />
             </Route>
-          </Route>
-          <Route path="/admin/reports" element={<AdminReports />}>
-            <Route index element={<ReportFundraising />} />
-            <Route path="fundraising" element={<ReportFundraising />} />
-            <Route path="personalization" element={<ReportPersonalization />} />
-            <Route path="stores" element={<ReportStores />} />
-            <Route path="products" element={<ReportProducts />} />
-            <Route path="fulfillment" element={<ReportFulfillment />} />
-            <Route path="organizations" element={<ReportOrganizations />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
