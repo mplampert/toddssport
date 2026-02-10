@@ -123,7 +123,7 @@ serve(async (req: Request) => {
                 <li><strong>Email:</strong> ${email}</li>
                 <li><strong>Password:</strong> ${newTempPassword}</li>
               </ul>
-              <p><a href="${siteUrlExisting}/auth">Log in here</a></p>
+              <p><a href="${siteUrlExisting}/auth?returnTo=/admin&changePassword=1">Log in here</a></p>
               <p>Please change your password after your first login.</p>
             `,
           });
@@ -182,7 +182,7 @@ serve(async (req: Request) => {
             <li><strong>Email:</strong> ${email}</li>
             <li><strong>Password:</strong> ${tempPassword}</li>
           </ul>
-          <p><a href="${siteUrl}/auth">Log in here</a></p>
+          <p><a href="${siteUrl}/auth?returnTo=/admin&changePassword=1">Log in here</a></p>
           <p>Please change your password after your first login.</p>
         `,
       });
