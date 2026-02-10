@@ -147,7 +147,29 @@ Deno.serve(async (req: Request) => {
 
       log("Payment recorded", { orderId, amount: pi.amount / 100 });
 
-      // Send order confirmation emails
+      // Send order confirmation email + SMS via send-notification
+      try {
+        const notifRes = await fetch(
+          `${supabaseUrl}/functions/v1/send-notification`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${supabaseServiceKey}`,
+            },
+            body: JSON.stringify({
+              order_id: orderId,
+              template_key: "order_confirmation",
+              source: "standard_store",
+            }),
+          }
+        );
+        log("Order confirmation notification triggered", { status: notifRes.status });
+      } catch (notifErr: any) {
+        log("Error sending order notification (non-fatal)", { message: notifErr.message });
+      }
+
+      // Also send order detail emails (customer receipt + internal alert)
       try {
         const { data: fullOrder } = await supabase
           .from("team_store_orders")
@@ -166,34 +188,6 @@ Deno.serve(async (req: Request) => {
           const shipTo = fullOrder.fulfillment_snapshot || {};
           const storeName = (fullOrder.team_stores as any)?.name || "";
 
-          const emailPayload = {
-            orderId,
-            po: fullOrder.order_number || orderId,
-            orderDate: fullOrder.created_at || new Date().toISOString(),
-            customerEmail: fullOrder.billing_email || fullOrder.customer_email || "",
-            customerName: fullOrder.billing_name || fullOrder.customer_name || "",
-            customerPhone: fullOrder.billing_phone || fullOrder.customer_phone || "",
-            shipTo: {
-              firstName: shipTo.shipping_name?.split(" ")[0] || "",
-              lastName: shipTo.shipping_name?.split(" ").slice(1).join(" ") || "",
-              address: shipTo.shipping_address1 || "",
-              address2: shipTo.shipping_address2 || "",
-              city: shipTo.shipping_city || "",
-              stateCode: shipTo.shipping_state || "",
-              zipCode: shipTo.shipping_zip || "",
-              countryCode: "US",
-              phone: shipTo.shipping_phone || "",
-            },
-            items,
-            subtotal: fullOrder.subtotal || 0,
-            tax: fullOrder.tax_total || 0,
-            shipping: fullOrder.shipping_total || 0,
-            total: fullOrder.total || 0,
-            teamName: storeName || undefined,
-            stripeSessionId: paymentIntentId,
-          };
-
-          // Call send-order-emails function
           const emailRes = await fetch(
             `${supabaseUrl}/functions/v1/send-order-emails`,
             {
@@ -202,10 +196,35 @@ Deno.serve(async (req: Request) => {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${supabaseServiceKey}`,
               },
-              body: JSON.stringify(emailPayload),
+              body: JSON.stringify({
+                orderId,
+                po: fullOrder.order_number || orderId,
+                orderDate: fullOrder.created_at || new Date().toISOString(),
+                customerEmail: fullOrder.billing_email || fullOrder.customer_email || "",
+                customerName: fullOrder.billing_name || fullOrder.customer_name || "",
+                customerPhone: fullOrder.billing_phone || fullOrder.customer_phone || "",
+                shipTo: {
+                  firstName: shipTo.shipping_name?.split(" ")[0] || "",
+                  lastName: shipTo.shipping_name?.split(" ").slice(1).join(" ") || "",
+                  address: shipTo.shipping_address1 || "",
+                  address2: shipTo.shipping_address2 || "",
+                  city: shipTo.shipping_city || "",
+                  stateCode: shipTo.shipping_state || "",
+                  zipCode: shipTo.shipping_zip || "",
+                  countryCode: "US",
+                  phone: shipTo.shipping_phone || "",
+                },
+                items,
+                subtotal: fullOrder.subtotal || 0,
+                tax: fullOrder.tax_total || 0,
+                shipping: fullOrder.shipping_total || 0,
+                total: fullOrder.total || 0,
+                teamName: storeName || undefined,
+                stripeSessionId: paymentIntentId,
+              }),
             }
           );
-          log("Order emails triggered", { status: emailRes.status });
+          log("Order detail emails triggered", { status: emailRes.status });
         }
       } catch (emailErr: any) {
         log("Error sending order emails (non-fatal)", { message: emailErr.message });
