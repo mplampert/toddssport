@@ -20,10 +20,11 @@ export default function ReportStores() {
   const { data: stores = [] } = useQuery({
     queryKey: ["report-stores-list"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("team_stores")
         .select("id, name, mascot_name, sport, status, start_date, end_date")
         .order("name");
+      if (error) console.error("ReportStores: stores query error", error);
       return data ?? [];
     },
   });
@@ -31,9 +32,10 @@ export default function ReportStores() {
   const { data: allOrders = [], isLoading } = useQuery({
     queryKey: ["report-stores-orders"],
     queryFn: async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("team_store_orders")
         .select("id, store_id, total, status, created_at");
+      if (error) console.error("ReportStores: orders query error", error);
       return data ?? [];
     },
   });
