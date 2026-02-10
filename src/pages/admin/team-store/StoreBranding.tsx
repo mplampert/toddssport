@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Palette, Save, Info, Plus, X, Wand2, Loader2, ImageIcon, Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { HeroGenerator } from "@/components/admin/team-stores/HeroGenerator";
+import { StoreMessagesManager } from "@/components/admin/team-stores/StoreMessagesManager";
 
 const MAX_COLORS = 4;
 const HEX_PATTERN = /^#[0-9A-Fa-f]{0,6}$/;
@@ -390,6 +391,9 @@ export default function StoreBranding() {
 
       {/* AI Hero Generator */}
       <HeroGenerator storeId={store.id} storeName={storeName} brandColors={brandColors} />
+
+      {/* Store Messages */}
+      <StoreMessagesManager storeId={store.id} />
 
     </div>
   );
