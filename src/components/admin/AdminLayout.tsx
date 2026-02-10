@@ -8,10 +8,11 @@ import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
   Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
-  Bell, ListOrdered, FileText,
+  Bell, ListOrdered, FileText, Truck,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
+import { AdminGlobalSearch } from "./AdminGlobalSearch";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -28,7 +29,8 @@ const globalNavItems = [
   { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
   { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
   { path: "/admin/team-stores", label: "Team Stores", icon: Store },
-  
+  { path: "/admin/orders", label: "All Orders", icon: ShoppingCart },
+  { path: "/admin/fulfillment/batches", label: "Fulfillment Batches", icon: Truck },
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
 ];
@@ -237,6 +239,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <AdminGlobalSearch />
             <span className="text-sm text-muted-foreground hidden sm:block">{user.email}</span>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
               <LogOut className="w-4 h-4 mr-2" />
