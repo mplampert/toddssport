@@ -13,6 +13,8 @@ interface OrderItem {
   quantity: number;
   price: number;
   imageUrl?: string;
+  personalizationName?: string;
+  personalizationNumber?: string;
 }
 
 interface ShipTo {
@@ -90,19 +92,23 @@ function buildItemRowHtml(item: OrderItem): string {
   const lineTotal = item.quantity * item.price;
   const imgCell = item.imageUrl
     ? `<td style="padding:12px 8px;border-bottom:1px solid #eee;width:56px;vertical-align:top;">
-        <img src="${item.imageUrl}" alt="" width="48" height="48" style="border-radius:6px;object-fit:cover;display:block;" />
+        <img src="${item.imageUrl}" alt="" width="48" height="48" style="border-radius:6px;object-fit:contain;display:block;" />
        </td>`
     : `<td style="padding:12px 8px;border-bottom:1px solid #eee;width:56px;vertical-align:top;">
         <div style="width:48px;height:48px;background:#f3f4f6;border-radius:6px;"></div>
        </td>`;
 
   const variant = [item.size, item.color].filter(Boolean).join(" / ");
+  const persDetails: string[] = [];
+  if (item.personalizationName) persDetails.push(`Name: ${item.personalizationName}`);
+  if (item.personalizationNumber) persDetails.push(`#${item.personalizationNumber}`);
 
   return `<tr>
     ${imgCell}
     <td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:top;">
       <div style="font-weight:600;color:#111;">${item.name}</div>
       ${variant ? `<div style="font-size:13px;color:#6b7280;margin-top:2px;">${variant}</div>` : ""}
+      ${persDetails.length > 0 ? `<div style="font-size:12px;color:#9ca3af;margin-top:2px;">${persDetails.join(" · ")}</div>` : ""}
     </td>
     <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:center;vertical-align:top;color:#374151;">${item.quantity}</td>
     <td style="padding:12px 8px;border-bottom:1px solid #eee;text-align:right;vertical-align:top;color:#374151;">${fmtDollars(item.price)}</td>

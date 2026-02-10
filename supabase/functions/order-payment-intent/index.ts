@@ -179,12 +179,14 @@ Deno.serve(async (req: Request) => {
 
         if (fullOrder && (fullOrder.billing_email || fullOrder.customer_email)) {
           const items = (fullOrder.team_store_order_items || []).map((i: any) => ({
-            name: i.product_name_snapshot || "Product",
+            name: i.store_display_name || i.product_name_snapshot || "Product",
             size: i.variant_snapshot?.size || "",
             color: i.variant_snapshot?.color || "",
             quantity: i.quantity,
             price: i.unit_price,
             imageUrl: i.variant_snapshot?.imageUrl || i.variant_snapshot?.image_url || "",
+            personalizationName: i.personalization_name || undefined,
+            personalizationNumber: i.personalization_number || undefined,
           }));
 
           const shipTo = fullOrder.fulfillment_snapshot || {};
