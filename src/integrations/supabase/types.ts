@@ -770,10 +770,14 @@ export type Database = {
           email: string
           first_name: string | null
           id: string
+          invite_status: string
+          invite_token: string | null
           is_active: boolean
+          last_login_at: string | null
           last_name: string | null
           phone: string | null
           role: string
+          staff_role: string
           updated_at: string
         }
         Insert: {
@@ -781,10 +785,14 @@ export type Database = {
           email: string
           first_name?: string | null
           id: string
+          invite_status?: string
+          invite_token?: string | null
           is_active?: boolean
+          last_login_at?: string | null
           last_name?: string | null
           phone?: string | null
           role?: string
+          staff_role?: string
           updated_at?: string
         }
         Update: {
@@ -792,10 +800,14 @@ export type Database = {
           email?: string
           first_name?: string | null
           id?: string
+          invite_status?: string
+          invite_token?: string | null
           is_active?: boolean
+          last_login_at?: string | null
           last_name?: string | null
           phone?: string | null
           role?: string
+          staff_role?: string
           updated_at?: string
         }
         Relationships: []
@@ -1894,6 +1906,41 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      staff_permissions: {
+        Row: {
+          can_view: boolean
+          created_at: string
+          employee_id: string
+          id: string
+          tab_key: string
+          updated_at: string
+        }
+        Insert: {
+          can_view?: boolean
+          created_at?: string
+          employee_id: string
+          id?: string
+          tab_key: string
+          updated_at?: string
+        }
+        Update: {
+          can_view?: boolean
+          created_at?: string
+          employee_id?: string
+          id?: string
+          tab_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_permissions_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "employee_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       store_logo_variants: {
         Row: {

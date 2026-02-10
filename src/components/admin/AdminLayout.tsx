@@ -33,6 +33,7 @@ const globalNavItems = [
   { path: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { path: "/admin/fulfillment/batches", label: "Fulfillment Batches", icon: Truck },
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
+  { path: "/admin/staff", label: "Staff Users", icon: Users },
   { path: "/admin/sample-data", label: "Sample Data", icon: Database },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
 ];
