@@ -736,7 +736,7 @@ Deno.serve(async (req: Request) => {
                   },
                   body: JSON.stringify({
                     order_id: orderId,
-                    template_key: "order_confirmation",
+                    template_key: "order_placed",
                     source: "standard_store",
                   }),
                 }
