@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import StoreNotificationSettings from "@/components/admin/team-stores/StoreNotificationSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -353,6 +354,9 @@ export default function StoreSettings() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Notification Settings */}
+      <StoreNotificationSettings storeId={store.id} storeName={store.name} />
 
       <Card className="border-destructive/30">
         <CardHeader>

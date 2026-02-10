@@ -480,6 +480,7 @@ Deno.serve(async (req: Request) => {
         order_id: order.id,
         order_number: orderNumber,
         store_id: storeId,
+        store_name: store.name || "",
         source: "team_store_online",
       },
       automatic_payment_methods: { enabled: true },
