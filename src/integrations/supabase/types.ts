@@ -865,6 +865,54 @@ export type Database = {
           },
         ]
       }
+      fulfillment_batches: {
+        Row: {
+          created_at: string
+          cutoff_datetime: string
+          id: string
+          notes: string | null
+          order_ids: string[]
+          status: string
+          team_store_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cutoff_datetime?: string
+          id?: string
+          notes?: string | null
+          order_ids?: string[]
+          status?: string
+          team_store_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cutoff_datetime?: string
+          id?: string
+          notes?: string | null
+          order_ids?: string[]
+          status?: string
+          team_store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fulfillment_batches_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fulfillment_batches_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fundraising_payouts: {
         Row: {
           amount: number
