@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Loader2, Upload, FileSpreadsheet, Check, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import * as XLSX from 'xlsx';
+import readXlsxFile from 'read-excel-file';
 
 interface CatalogImportDialogProps {
   onClose: () => void;
@@ -37,22 +37,16 @@ export function CatalogImportDialog({ onClose, onComplete }: CatalogImportDialog
     }));
   };
 
-  const parseExcel = (file: File): Promise<any[]> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-          resolve(jsonData);
-        } catch (err) {
-          reject(err);
-        }
-      };
-      reader.onerror = reject;
-      reader.readAsArrayBuffer(file);
+  const parseExcel = async (file: File): Promise<any[]> => {
+    const rows = await readXlsxFile(file);
+    if (rows.length < 2) return [];
+    const headers = rows[0].map(h => String(h));
+    return rows.slice(1).map(row => {
+      const obj: Record<string, any> = {};
+      headers.forEach((h, i) => {
+        obj[h] = row[i];
+      });
+      return obj;
     });
   };
 
@@ -60,7 +54,6 @@ export function CatalogImportDialog({ onClose, onComplete }: CatalogImportDialog
     updateStatus(type, { status: 'processing' });
     
     try {
-      // Send in batches to avoid payload limits
       const batchSize = 1000;
       let totalInserted = 0;
 
