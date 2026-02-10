@@ -758,8 +758,10 @@ Deno.serve(async (req: Request) => {
                 const items = (order.team_store_order_items || []).map((i: any) => ({
                   name: i.product_name_snapshot || "Product",
                   size: i.variant_snapshot?.size || "",
+                  color: i.variant_snapshot?.color || "",
                   quantity: i.quantity,
                   price: i.unit_price,
+                  imageUrl: i.variant_snapshot?.imageUrl || i.variant_snapshot?.image_url || "",
                 }));
 
                 const shipTo = order.fulfillment_snapshot || {};
@@ -771,6 +773,10 @@ Deno.serve(async (req: Request) => {
                   customerEmail: order.billing_email || order.customer_email || "",
                   customerName: order.billing_name || order.customer_name || "",
                   customerPhone: order.billing_phone || order.customer_phone || "",
+                  storeName: storeName || undefined,
+                  teamName: storeName || undefined,
+                  fulfillmentMethod: order.fulfillment_method || "ship",
+                  discount: order.discount_total || 0,
                   shipTo: {
                     firstName: shipTo.shipping_name?.split(" ")[0] || "",
                     lastName: shipTo.shipping_name?.split(" ").slice(1).join(" ") || "",
@@ -787,8 +793,8 @@ Deno.serve(async (req: Request) => {
                   tax: order.tax_total || 0,
                   shipping: order.shipping_total || 0,
                   total: order.total || 0,
-                  teamName: storeName || undefined,
                   stripeSessionId: pi.id,
+                  siteUrl: "https://toddssport.lovable.app",
                 });
                 logStep("Team store confirmation emails sent", { orderId });
               }
