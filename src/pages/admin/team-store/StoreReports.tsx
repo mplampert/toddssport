@@ -26,19 +26,19 @@ export default function StoreReports() {
     },
   });
 
+  const orderIds = orders.map((o: any) => o.id);
+
   const { data: items = [] } = useQuery({
-    queryKey: ["store-reports-items", store.id],
+    queryKey: ["store-reports-items", store.id, orderIds],
     queryFn: async () => {
+      if (orderIds.length === 0) return [];
       const { data } = await supabase
         .from("team_store_order_items")
         .select("id, order_id, product_name_snapshot, store_display_name, quantity, unit_price, catalog_sku")
-        .in(
-          "order_id",
-          orders.map((o: any) => o.id)
-        );
+        .in("order_id", orderIds);
       return data ?? [];
     },
-    enabled: orders.length > 0,
+    enabled: orderIds.length > 0,
   });
 
   const totalRevenue = orders.reduce((s: number, o: any) => s + Number(o.total ?? 0), 0);
