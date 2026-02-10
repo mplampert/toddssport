@@ -18,9 +18,13 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Plus, Pencil, UserPlus, Users, Shield, Mail, Loader2,
+  Plus, Pencil, UserPlus, Users, Shield, Mail, Loader2, RotateCcw, Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -114,6 +118,7 @@ export default function AdminStaffUsers() {
   const [editUser, setEditUser] = useState<StaffUser | null>(null);
   const [editPerms, setEditPerms] = useState<Set<TabKey>>(new Set());
   const [invPerms, setInvPerms] = useState<Set<TabKey>>(getDefaultTabs("sales"));
+  const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null);
 
   // Invite form state
   const [invForm, setInvForm] = useState({
@@ -225,6 +230,55 @@ export default function AdminStaffUsers() {
     onSuccess: () => {
       toast({ title: "Saved", description: "Staff user updated" });
       setEditUser(null);
+      qc.invalidateQueries({ queryKey: ["admin-staff-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-staff-permissions"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // ── Resend invite mutation ──
+
+  const resendMut = useMutation({
+    mutationFn: async (user: StaffUser) => {
+      const res = await supabase.functions.invoke("invite-staff", {
+        body: {
+          email: user.email,
+          first_name: user.first_name || "",
+          last_name: user.last_name || "",
+          staff_role: user.staff_role,
+          phone: user.phone || "",
+        },
+      });
+      if (res.error) throw new Error(res.error.message || "Resend failed");
+      if (res.data?.error) throw new Error(res.data.error);
+      return res.data;
+    },
+    onSuccess: (_d, user) => {
+      toast({ title: "Invite resent", description: `New invite sent to ${user.email}` });
+      qc.invalidateQueries({ queryKey: ["admin-staff-users"] });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  // ── Delete staff mutation ──
+
+  const deleteMut = useMutation({
+    mutationFn: async (user: StaffUser) => {
+      // Delete permissions first
+      await supabase.from("staff_permissions").delete().eq("employee_id", user.id);
+      // Delete employee profile
+      const { error: epErr } = await supabase.from("employee_profiles").delete().eq("id", user.id);
+      if (epErr) throw epErr;
+      // Delete user role
+      await supabase.from("user_roles").delete().eq("user_id", user.id);
+    },
+    onSuccess: () => {
+      toast({ title: "Deleted", description: "Staff user removed" });
+      setDeleteTarget(null);
       qc.invalidateQueries({ queryKey: ["admin-staff-users"] });
       qc.invalidateQueries({ queryKey: ["admin-staff-permissions"] });
     },
@@ -372,9 +426,31 @@ export default function AdminStaffUsers() {
                         : "Never"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(u)}>
-                        <Pencil className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {u.invite_status === "invited" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Resend invite"
+                            onClick={() => resendMut.mutate(u)}
+                            disabled={resendMut.isPending}
+                          >
+                            <RotateCcw className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" title="Edit" onClick={() => openEdit(u)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Delete"
+                          className="text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(u)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -587,6 +663,27 @@ export default function AdminStaffUsers() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        {/* ── Delete Confirmation ── */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Staff User</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to remove <strong>{deleteTarget?.email}</strong>? This will delete their profile, permissions, and admin role. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => deleteTarget && deleteMut.mutate(deleteTarget)}
+                disabled={deleteMut.isPending}
+              >
+                {deleteMut.isPending ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AdminLayout>
   );
