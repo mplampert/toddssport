@@ -80,6 +80,13 @@ import SSBrandCategoryProducts from "./pages/SSBrandCategoryProducts";
 import SSProductDetail from "./pages/SSProductDetail";
 import TeamStorePreview from "./pages/TeamStorePreview";
 import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminReports from "./pages/admin/AdminReports";
+import ReportFundraising from "./pages/admin/reports/ReportFundraising";
+import ReportPersonalization from "./pages/admin/reports/ReportPersonalization";
+import ReportStores from "./pages/admin/reports/ReportStores";
+import ReportProducts from "./pages/admin/reports/ReportProducts";
+import ReportFulfillment from "./pages/admin/reports/ReportFulfillment";
+import ReportOrganizations from "./pages/admin/reports/ReportOrganizations";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -172,6 +179,15 @@ const App = () => (
               <Route path="decoration-pricing" element={<StoreDecorationPricing />} />
               <Route path="names-numbers" element={<StoreNamesNumbers />} />
             </Route>
+          </Route>
+          <Route path="/admin/reports" element={<AdminReports />}>
+            <Route index element={<ReportFundraising />} />
+            <Route path="fundraising" element={<ReportFundraising />} />
+            <Route path="personalization" element={<ReportPersonalization />} />
+            <Route path="stores" element={<ReportStores />} />
+            <Route path="products" element={<ReportProducts />} />
+            <Route path="fulfillment" element={<ReportFulfillment />} />
+            <Route path="organizations" element={<ReportOrganizations />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
