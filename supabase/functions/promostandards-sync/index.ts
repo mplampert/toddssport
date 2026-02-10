@@ -465,6 +465,10 @@ function parsePricingResponse(xml: string): any[] {
 
 // ========== Main Handler ==========
 
+const VALID_ACTIONS = ['search', 'sync_product', 'sync_media', 'get_pricing', 'get_sellable'];
+const VALID_SUPPLIERS = Object.keys(SUPPLIER_CONFIGS);
+const MAX_ID_LENGTH = 200;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -475,13 +479,42 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ── Auth check (admin only) ──
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+    if (!roleData) {
+      return new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // ── Input validation ──
     const { action, supplier = 'imprintid', productId, searchTerm, partId } = await req.json() as SyncRequest;
+
+    if (!action || !VALID_ACTIONS.includes(action)) {
+      return new Response(JSON.stringify({ error: `Invalid action. Must be one of: ${VALID_ACTIONS.join(', ')}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (!VALID_SUPPLIERS.includes(supplier)) {
+      return new Response(JSON.stringify({ error: `Invalid supplier. Must be one of: ${VALID_SUPPLIERS.join(', ')}` }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (productId && (typeof productId !== 'string' || productId.length > MAX_ID_LENGTH)) {
+      return new Response(JSON.stringify({ error: 'Invalid productId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (searchTerm && (typeof searchTerm !== 'string' || searchTerm.length > MAX_ID_LENGTH)) {
+      return new Response(JSON.stringify({ error: 'Invalid searchTerm' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    if (partId && (typeof partId !== 'string' || partId.length > MAX_ID_LENGTH)) {
+      return new Response(JSON.stringify({ error: 'Invalid partId' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
 
     // Get supplier config
     const config = SUPPLIER_CONFIGS[supplier];
-    if (!config) {
-      throw new Error(`Unknown supplier: ${supplier}. Valid options: ${Object.keys(SUPPLIER_CONFIGS).join(', ')}`);
-    }
 
     console.log(`[${supplier}] Processing action: ${action}`);
 
@@ -701,7 +734,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in promostandards-sync:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Service temporarily unavailable' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

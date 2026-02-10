@@ -67,20 +67,18 @@ function PaymentForm({
     }
 
     if (result.paymentIntent?.status === "succeeded") {
-      await supabase
-        .from("team_store_orders")
-        .update({ status: "confirmed", payment_status: "paid" } as any)
-        .eq("id", orderId);
-
-      await supabase.from("team_store_payments").insert({
-        order_id: orderId,
-        type: "payment",
-        method: "card",
-        amount: total,
-        provider: "stripe",
-        provider_ref: result.paymentIntent.id,
-        note: `Online checkout – PI ${result.paymentIntent.id}`,
-      } as any);
+      // Record payment server-side to prevent client manipulation
+      try {
+        await supabase.functions.invoke("order-payment-intent", {
+          body: {
+            action: "record_payment",
+            orderId,
+            paymentIntentId: result.paymentIntent.id,
+          },
+        });
+      } catch (err) {
+        console.error("Failed to record payment server-side:", err);
+      }
 
       onSuccess();
     } else {
