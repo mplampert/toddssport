@@ -690,7 +690,9 @@ Deno.serve(async (req: Request) => {
       const pi = event.data.object as Stripe.PaymentIntent;
       if (pi.metadata?.source === "team_store_manual" || pi.metadata?.source === "team_store_online") {
         const orderId = pi.metadata.order_id;
-        logStep("Team store PaymentIntent succeeded", { piId: pi.id, orderId, amount: pi.amount });
+        const storeId = pi.metadata.store_id;
+        const storeName = pi.metadata.store_name;
+        logStep("Team store PaymentIntent succeeded", { piId: pi.id, orderId, storeId, amount: pi.amount });
 
         if (supabaseUrl && supabaseServiceKey && orderId) {
           const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -721,6 +723,56 @@ Deno.serve(async (req: Request) => {
               .update({ status: "confirmed", payment_status: "paid" })
               .eq("id", orderId)
               .eq("payment_status", "unpaid");
+
+            // Send team store order confirmation emails
+            try {
+              const { data: order } = await supabase
+                .from("team_store_orders")
+                .select("*, team_store_order_items(*)")
+                .eq("id", orderId)
+                .single();
+
+              if (order) {
+                const items = (order.team_store_order_items || []).map((i: any) => ({
+                  name: i.product_name_snapshot || "Product",
+                  size: i.variant_snapshot?.size || "",
+                  quantity: i.quantity,
+                  price: i.unit_price,
+                }));
+
+                const shipTo = order.fulfillment_snapshot || {};
+
+                await sendOrderEmails(supabaseUrl, supabaseServiceKey, {
+                  orderId,
+                  po: order.order_number || orderId,
+                  orderDate: order.created_at || new Date().toISOString(),
+                  customerEmail: order.billing_email || order.customer_email || "",
+                  customerName: order.billing_name || order.customer_name || "",
+                  customerPhone: order.billing_phone || order.customer_phone || "",
+                  shipTo: {
+                    firstName: shipTo.shipping_name?.split(" ")[0] || "",
+                    lastName: shipTo.shipping_name?.split(" ").slice(1).join(" ") || "",
+                    address: shipTo.shipping_address1 || "",
+                    address2: shipTo.shipping_address2 || "",
+                    city: shipTo.shipping_city || "",
+                    stateCode: shipTo.shipping_state || "",
+                    zipCode: shipTo.shipping_zip || "",
+                    countryCode: "US",
+                    phone: shipTo.shipping_phone || "",
+                  },
+                  items,
+                  subtotal: order.subtotal || 0,
+                  tax: order.tax_total || 0,
+                  shipping: order.shipping_total || 0,
+                  total: order.total || 0,
+                  teamName: storeName || undefined,
+                  stripeSessionId: pi.id,
+                });
+                logStep("Team store confirmation emails sent", { orderId });
+              }
+            } catch (emailErr) {
+              logStep("Error sending team store confirmation emails", { error: String(emailErr) });
+            }
           } else {
             logStep("Payment ledger entry already exists, skipping", { orderId, piId: pi.id });
           }
