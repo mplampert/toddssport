@@ -64,6 +64,7 @@ import StoreRosters from "./pages/admin/team-store/StoreRosters";
 import StoreDecorationPricing from "./pages/admin/team-store/StoreDecorationPricing";
 import StoreMessagesPage from "./pages/admin/team-store/StoreMessagesPage";
 import StorePromoCodes from "./pages/admin/team-store/StorePromoCodes";
+import StoreNamesNumbers from "./pages/admin/team-store/StoreNamesNumbers";
 import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
 import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
@@ -169,6 +170,7 @@ const App = () => (
               <Route path="personalization" element={<StorePersonalization />} />
               <Route path="rosters" element={<StoreRosters />} />
               <Route path="decoration-pricing" element={<StoreDecorationPricing />} />
+              <Route path="names-numbers" element={<StoreNamesNumbers />} />
             </Route>
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
