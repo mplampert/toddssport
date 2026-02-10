@@ -8,7 +8,7 @@ import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
   Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
-  Bell,
+  Bell, ListOrdered,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -53,6 +53,7 @@ function getStoreNavItems(storeId: string) {
     { path: `${base}/products`, label: "Products", icon: Package },
     { path: `${base}/logos`, label: "Logos", icon: Image },
     { path: `${base}/fundraising`, label: "Fundraising", icon: Heart },
+    { path: `${base}/names-numbers`, label: "Names & Numbers", icon: ListOrdered },
     { path: `${base}/orders`, label: "Orders", icon: ShoppingCart },
     { path: `${base}/settings`, label: "Settings", icon: Settings },
   ];
