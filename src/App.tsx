@@ -42,6 +42,7 @@ import AdminMessageGenerator from "./pages/admin/AdminMessageGenerator";
 import AdminLookbookGenerator from "./pages/admin/AdminLookbookGenerator";
 import AdminCatalogProducts from "./pages/admin/AdminCatalogProducts";
 import AdminPromoProducts from "./pages/admin/AdminPromoProducts";
+import AdminArtLibrary from "./pages/admin/AdminArtLibrary";
 import AdminTeamStores from "./pages/admin/AdminTeamStores";
 import NewTeamStoreWizard from "./pages/admin/NewTeamStoreWizard";
 import AdminTeamStoreDetail from "./pages/admin/AdminTeamStoreDetail";
@@ -182,6 +183,7 @@ const App = () => (
           <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
+          <Route path="/admin/art-library" element={<AdminArtLibrary />} />
           <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
           <Route path="/admin/orders" element={<AdminGlobalOrders />} />
           <Route path="/admin/sample-data" element={<AdminSampleData />} />

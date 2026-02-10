@@ -8,7 +8,7 @@ import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
   Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
-  Bell, ListOrdered, FileText, Truck, AlertCircle, Database,
+  Bell, ListOrdered, FileText, Truck, AlertCircle, Database, Palette,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -29,6 +29,7 @@ const globalNavItems = [
   { path: "/admin/message-generator", label: "AI Message Generator", icon: Sparkles },
   { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
   { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
+  { path: "/admin/art-library", label: "Art Library", icon: Palette },
   { path: "/admin/team-stores", label: "Team Stores", icon: Store },
   { path: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { path: "/admin/fulfillment/batches", label: "Fulfillment Batches", icon: Truck },

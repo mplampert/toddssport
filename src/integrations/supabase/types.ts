@@ -779,12 +779,15 @@ export type Database = {
           category: string
           code: string
           created_at: string
+          default_colors: Json | null
           id: string
           image_url: string | null
           name: string
           sort_order: number
           sport: string
+          svg_url_master: string | null
           tags: string[] | null
+          thumbnail_url: string | null
           updated_at: string
         }
         Insert: {
@@ -792,12 +795,15 @@ export type Database = {
           category?: string
           code: string
           created_at?: string
+          default_colors?: Json | null
           id?: string
           image_url?: string | null
           name: string
           sort_order?: number
           sport?: string
+          svg_url_master?: string | null
           tags?: string[] | null
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -805,12 +811,15 @@ export type Database = {
           category?: string
           code?: string
           created_at?: string
+          default_colors?: Json | null
           id?: string
           image_url?: string | null
           name?: string
           sort_order?: number
           sport?: string
+          svg_url_master?: string | null
           tags?: string[] | null
+          thumbnail_url?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2336,6 +2345,67 @@ export type Database = {
           {
             foreignKeyName: "store_notification_settings_store_id_fkey"
             columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_art: {
+        Row: {
+          created_at: string
+          design_template_id: string | null
+          id: string
+          mascot_name: string | null
+          primary_color: string | null
+          school_name: string | null
+          secondary_color: string | null
+          svg_url_final: string | null
+          team_store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          design_template_id?: string | null
+          id?: string
+          mascot_name?: string | null
+          primary_color?: string | null
+          school_name?: string | null
+          secondary_color?: string | null
+          svg_url_final?: string | null
+          team_store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          design_template_id?: string | null
+          id?: string
+          mascot_name?: string | null
+          primary_color?: string | null
+          school_name?: string | null
+          secondary_color?: string | null
+          svg_url_final?: string | null
+          team_store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_art_design_template_id_fkey"
+            columns: ["design_template_id"]
+            isOneToOne: false
+            referencedRelation: "design_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_art_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_art_team_store_id_fkey"
+            columns: ["team_store_id"]
             isOneToOne: false
             referencedRelation: "team_stores_public"
             referencedColumns: ["id"]
