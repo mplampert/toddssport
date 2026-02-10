@@ -6,10 +6,11 @@
  * This endpoint receives a Champro Custom Builder session ID and places an order
  * via the Champro Order API. The session ID contains the full design configuration
  * that was created in the iframe builder.
- * 
- * Environment variables required:
- * - CHAMPRO_API_KEY: Your Champro API Customer Key
+ *
+ * Requires admin authentication.
  */
+
+import { createClient } from "@supabase/supabase-js";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +23,6 @@ const CHAMPRO_BASE_URL = "https://api.champrosports.com";
 interface OrderRequest {
   champroSessionId: string;
   sportSlug: string;
-  // Optional additional fields for the order
   shipTo?: {
     firstName: string;
     lastName: string;
@@ -40,79 +40,90 @@ interface OrderRequest {
   po?: string;
 }
 
+const MAX_STRING = 500;
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  // Only accept POST
   if (req.method !== "POST") {
     return new Response(
-      JSON.stringify({ error: "Method not allowed. Use POST." }),
-      {
-        status: 405,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Method not allowed" }),
+      { status: 405, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
   try {
+    // ── Auth check (admin only) ──
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const token = authHeader.replace("Bearer ", "");
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !user) {
+      return new Response(JSON.stringify({ error: "Invalid token" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+    if (!roleData) {
+      return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
     const CHAMPRO_API_KEY = Deno.env.get("CHAMPRO_API_KEY");
     if (!CHAMPRO_API_KEY) {
       console.error("CHAMPRO_API_KEY not configured");
       return new Response(
-        JSON.stringify({ error: "Champro API key not configured on server" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Service not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     const body: OrderRequest = await req.json();
     const { champroSessionId, sportSlug, shipTo, leadTime, teamName, po } = body;
 
-    if (!champroSessionId) {
+    // ── Input validation ──
+    if (!champroSessionId || typeof champroSessionId !== 'string' || champroSessionId.length > MAX_STRING) {
       return new Response(
-        JSON.stringify({ error: "champroSessionId is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Valid champroSessionId is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    if (!sportSlug) {
+    if (!sportSlug || typeof sportSlug !== 'string' || sportSlug.length > 100) {
       return new Response(
-        JSON.stringify({ error: "sportSlug is required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Valid sportSlug is required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("Processing Champro order:", {
-      champroSessionId,
-      sportSlug,
-      teamName,
-      po,
-    });
+    if (teamName && (typeof teamName !== 'string' || teamName.length > MAX_STRING)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid team name" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Generate a unique PO if not provided
-    const orderPO = po || `WEB-${Date.now()}-${sportSlug.toUpperCase()}`;
+    if (po && (typeof po !== 'string' || po.length > 100)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid PO" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Build the order request for Champro
-    // The sessionId from the Custom Builder contains the design - we reference it via ProofFileURL
-    // or through their session-based order API if available
+    console.log("Processing Champro order:", { champroSessionId, sportSlug, teamName, po });
+
+    const orderPO = po || `WEB-${Date.now()}-${sportSlug.toUpperCase().slice(0, 20)}`;
+
     const orderPayload = {
       APICustomerKey: CHAMPRO_API_KEY,
       Orders: [
         {
           PO: orderPO,
           OrderType: "CUSTOM",
-          // Use provided shipping info or placeholder
           ShipToFirstName: shipTo?.firstName || "PENDING",
           ShipToLastName: shipTo?.lastName || "CUSTOMER",
           Address: shipTo?.address || "TBD",
@@ -124,14 +135,10 @@ Deno.serve(async (req) => {
           Phone: shipTo?.phone || "",
           IsResidential: shipTo?.isResidential ? 1 : 0,
           LeadTime: leadTime || "JUICE Standard",
-          // Reference the Custom Builder session
-          // The session ID links to the saved design in Champro's system
           ProofFileURL: `https://cb.champrosports.com/session/${champroSessionId}`,
           TeamColor: "",
           OrderItems: [
             {
-              // The session contains the product details - this is a placeholder
-              // Champro's system should resolve the actual SKU from the session
               SKU: `SESSION-${champroSessionId}`,
               TeamName: teamName || "",
               PlayerName: "",
@@ -143,36 +150,27 @@ Deno.serve(async (req) => {
       ],
     };
 
-    console.log("Sending order to Champro API:", JSON.stringify(orderPayload, null, 2));
+    console.log("Sending order to Champro API");
 
-    // Call the Champro Order API
     const champroResponse = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(orderPayload),
     });
 
     const champroData = await champroResponse.json();
-    console.log("Champro API response:", JSON.stringify(champroData, null, 2));
+    console.log("Champro API response received");
 
-    // Check for Champro-specific error responses
     if (champroData.Error || champroData.error) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: champroData.Error || champroData.error,
-          champroResponse: champroData,
+          error: "Order placement failed. Please check the details and try again.",
         }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Return success with Champro response
     return new Response(
       JSON.stringify({
         success: true,
@@ -181,20 +179,13 @@ Deno.serve(async (req) => {
         sportSlug,
         champroResponse: champroData,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
     console.error("Champro order error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Internal server error";
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: false, error: "Service temporarily unavailable" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

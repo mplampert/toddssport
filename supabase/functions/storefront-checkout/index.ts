@@ -508,7 +508,7 @@ Deno.serve(async (req: Request) => {
     );
   } catch (err: any) {
     log("Error", { message: err.message });
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: "Failed to process checkout" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

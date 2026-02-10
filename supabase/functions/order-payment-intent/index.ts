@@ -123,6 +123,90 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // ---- RECORD PAYMENT (storefront checkout) ----
+    if (action === "record_payment") {
+      const { orderId, paymentIntentId } = body;
+      if (!orderId || !paymentIntentId) {
+        return new Response(JSON.stringify({ error: "orderId and paymentIntentId required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      log("Recording payment", { orderId, paymentIntentId });
+
+      // Verify payment with Stripe
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
+      if (pi.status !== "succeeded") {
+        return new Response(JSON.stringify({ error: "Payment not successful" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify order exists and amount matches
+      const { data: order } = await supabase
+        .from("team_store_orders")
+        .select("id, total, payment_intent_id")
+        .eq("id", orderId)
+        .single();
+
+      if (!order) {
+        return new Response(JSON.stringify({ error: "Order not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify PI matches what's on the order
+      if (order.payment_intent_id && order.payment_intent_id !== paymentIntentId) {
+        return new Response(JSON.stringify({ error: "Payment intent mismatch" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check for duplicate payment record
+      const { data: existingPayment } = await supabase
+        .from("team_store_payments")
+        .select("id")
+        .eq("order_id", orderId)
+        .eq("provider_ref", paymentIntentId)
+        .maybeSingle();
+
+      if (existingPayment) {
+        log("Payment already recorded, skipping", { orderId, paymentIntentId });
+        return new Response(
+          JSON.stringify({ success: true, alreadyRecorded: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Update order status
+      await supabase
+        .from("team_store_orders")
+        .update({ status: "confirmed", payment_status: "paid" })
+        .eq("id", orderId);
+
+      // Insert payment record
+      await supabase.from("team_store_payments").insert({
+        order_id: orderId,
+        type: "payment",
+        method: "card",
+        amount: pi.amount / 100,
+        provider: "stripe",
+        provider_ref: paymentIntentId,
+        note: `Online checkout – PI ${paymentIntentId}`,
+      });
+
+      log("Payment recorded", { orderId, amount: pi.amount / 100 });
+
+      return new Response(
+        JSON.stringify({ success: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // ---- REFUND ----
     if (action === "refund") {
       const { paymentIntentId, amount, orderId, note } = body;
@@ -170,7 +254,7 @@ Deno.serve(async (req: Request) => {
     });
   } catch (err: any) {
     log("Error", { message: err.message });
-    return new Response(JSON.stringify({ error: err.message }), {
+    return new Response(JSON.stringify({ error: "Service temporarily unavailable" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
