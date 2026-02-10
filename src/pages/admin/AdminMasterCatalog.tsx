@@ -2,18 +2,20 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Loader2, Package, Search } from "lucide-react";
 import { useState, useMemo } from "react";
 import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
 
-interface BrandWithCount {
+interface MergedBrand {
   id: string;
   name: string;
   logo_url: string | null;
-  product_count: number;
-  sources: string[];
+  styleCount: number;
+  sources: Set<string>;
+  dbBrandId?: string;
 }
 
 export default function AdminMasterCatalog() {
@@ -21,8 +23,9 @@ export default function AdminMasterCatalog() {
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["master-catalog-brands-full"],
+  // Fetch DB brands + master_products
+  const { data: dbData, isLoading: dbLoading } = useQuery({
+    queryKey: ["master-catalog-db"],
     queryFn: async () => {
       const [brandsRes, productsRes] = await Promise.all([
         supabase.from("brands").select("id, name, logo_url").order("name"),
@@ -34,73 +37,115 @@ export default function AdminMasterCatalog() {
     },
   });
 
-  const { brands, totalStyles, availableSources, availableTypes } = useMemo(() => {
-    if (!data) return { brands: [] as BrandWithCount[], totalStyles: 0, availableSources: [] as string[], availableTypes: [] as string[] };
+  // Fetch live S&S styles (same as /ss-products)
+  const { data: ssStyles, isLoading: ssLoading } = useQuery({
+    queryKey: ["ss-all-styles"],
+    queryFn: async () => {
+      const data = await getStyles();
+      return Array.isArray(data) ? data : [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
-    const countMap = new Map<string | null, { count: number; sources: Set<string>; types: Set<string> }>();
-    const allSources = new Set<string>();
-    const allTypes = new Set<string>();
+  const isLoading = dbLoading || ssLoading;
 
-    for (const p of data.products) {
-      allSources.add(p.source);
-      allTypes.add(p.product_type);
+  // Merge DB brands with live S&S brands
+  const { brands, totalStyles } = useMemo(() => {
+    const map = new Map<string, MergedBrand>();
 
-      // Apply filters
-      if (sourceFilter !== "all" && p.source !== sourceFilter) continue;
-      if (typeFilter !== "all" && p.product_type !== typeFilter) continue;
+    // 1) Add DB brands with master_products counts
+    if (dbData) {
+      const brandById = new Map(dbData.brands.map((b) => [b.id, b]));
+      const counts = new Map<string, { count: number; sources: Set<string> }>();
 
-      const key = p.brand_id || null;
-      const existing = countMap.get(key);
-      if (existing) {
-        existing.count++;
-        existing.sources.add(p.source);
-      } else {
-        countMap.set(key, { count: 1, sources: new Set([p.source]), types: new Set([p.product_type]) });
+      for (const p of dbData.products) {
+        // Apply filters for DB products
+        if (sourceFilter !== "all" && p.source !== sourceFilter) continue;
+        if (typeFilter !== "all" && p.product_type !== typeFilter) continue;
+
+        const key = p.brand_id || "__unbranded__";
+        const existing = counts.get(key);
+        if (existing) {
+          existing.count++;
+          existing.sources.add(p.source);
+        } else {
+          counts.set(key, { count: 1, sources: new Set([p.source]) });
+        }
+      }
+
+      for (const [brandId, info] of counts) {
+        if (brandId === "__unbranded__") {
+          map.set("__unbranded__", {
+            id: "unbranded",
+            name: "Other / Unbranded",
+            logo_url: null,
+            styleCount: info.count,
+            sources: info.sources,
+          });
+        } else {
+          const brand = brandById.get(brandId);
+          if (brand) {
+            map.set(brand.name.toLowerCase(), {
+              id: brand.id,
+              name: brand.name,
+              logo_url: brand.logo_url,
+              styleCount: info.count,
+              sources: info.sources,
+              dbBrandId: brand.id,
+            });
+          }
+        }
       }
     }
 
-    const brandMap = new Map(data.brands.map((b) => [b.id, b]));
-    const result: BrandWithCount[] = [];
-
-    for (const [brandId, info] of countMap.entries()) {
-      if (brandId && brandMap.has(brandId)) {
-        const b = brandMap.get(brandId)!;
-        result.push({
-          id: b.id,
-          name: b.name,
-          logo_url: b.logo_url,
-          product_count: info.count,
-          sources: [...info.sources],
-        });
-      } else if (!brandId) {
-        result.push({
-          id: "unbranded",
-          name: "Other / Unbranded",
-          logo_url: null,
-          product_count: info.count,
-          sources: [...info.sources],
-        });
+    // 2) Merge live S&S brands (add new ones, boost counts for existing)
+    if (ssStyles && (sourceFilter === "all" || sourceFilter === "ss_activewear") && (typeFilter === "all" || typeFilter === "blank_apparel")) {
+      for (const s of ssStyles) {
+        if (!s.brandName) continue;
+        const key = s.brandName.toLowerCase();
+        const existing = map.get(key);
+        if (existing) {
+          // Only add S&S styles not already counted in DB
+          // We use a simple heuristic: if ss_activewear is already a source, DB already has some
+          if (!existing.sources.has("ss_activewear")) {
+            existing.styleCount += 1;
+            existing.sources.add("ss_activewear");
+          }
+          // Update logo if missing
+          if (!existing.logo_url && s.brandImage) {
+            existing.logo_url = s.brandImage;
+          }
+        } else {
+          // New brand only from S&S
+          const prev = map.get(key);
+          if (prev) {
+            prev.styleCount++;
+          } else {
+            map.set(key, {
+              id: `ss-${encodeURIComponent(s.brandName)}`,
+              name: s.brandName,
+              logo_url: s.brandImage || null,
+              styleCount: 1,
+              sources: new Set(["ss_activewear"]),
+            });
+          }
+        }
       }
     }
 
-    result.sort((a, b) => b.product_count - a.product_count);
+    const result = [...map.values()].sort((a, b) => b.styleCount - a.styleCount);
+    const total = result.reduce((sum, b) => sum + b.styleCount, 0);
+    return { brands: result, totalStyles: total };
+  }, [dbData, ssStyles, sourceFilter, typeFilter]);
 
-    return {
-      brands: result,
-      totalStyles: result.reduce((sum, b) => sum + b.product_count, 0),
-      availableSources: [...allSources].sort(),
-      availableTypes: [...allTypes].sort(),
-    };
-  }, [data, sourceFilter, typeFilter]);
-
-  const filtered = brands.filter((b) =>
-    !search || b.name.toLowerCase().includes(search.toLowerCase())
+  const filtered = brands.filter(
+    (b) => !search || b.name.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <AdminLayout>
       <div className="space-y-0">
-        {/* Hero - matches S&S page style */}
+        {/* Hero */}
         <section className="bg-navy rounded-xl py-10 px-8 mb-6">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-3">
@@ -138,11 +183,10 @@ export default function AdminMasterCatalog() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Sources</SelectItem>
-                {availableSources.map((s) => (
-                  <SelectItem key={s} value={s} className="capitalize">
-                    {s.replace(/_/g, " ")}
-                  </SelectItem>
-                ))}
+                <SelectItem value="ss_activewear">S&S Activewear</SelectItem>
+                <SelectItem value="champro">Champro</SelectItem>
+                <SelectItem value="imprintid">ImprintID</SelectItem>
+                <SelectItem value="internal">Internal</SelectItem>
               </SelectContent>
             </Select>
             <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -151,17 +195,15 @@ export default function AdminMasterCatalog() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {availableTypes.map((t) => (
-                  <SelectItem key={t} value={t} className="capitalize">
-                    {t.replace(/_/g, " ")}
-                  </SelectItem>
-                ))}
+                <SelectItem value="blank_apparel">Blank Apparel</SelectItem>
+                <SelectItem value="uniform">Uniform</SelectItem>
+                <SelectItem value="promo">Promo</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </div>
 
-        {/* Brand Grid - matches /ss-products card style */}
+        {/* Brand Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
@@ -178,7 +220,13 @@ export default function AdminMasterCatalog() {
             {filtered.map((brand) => (
               <Link
                 key={brand.id}
-                to={`/admin/catalog/master/brands/${brand.id}`}
+                to={
+                  brand.dbBrandId
+                    ? `/admin/catalog/master/brands/${brand.dbBrandId}`
+                    : brand.id === "unbranded"
+                    ? `/admin/catalog/master/brands/unbranded`
+                    : `/admin/catalog/master/brands/ss/${encodeURIComponent(brand.name)}`
+                }
                 className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center p-6"
               >
                 <div className="w-full h-24 flex items-center justify-center mb-4">
@@ -199,7 +247,7 @@ export default function AdminMasterCatalog() {
                   {brand.name}
                 </h3>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {brand.product_count} {brand.product_count === 1 ? "style" : "styles"}
+                  {brand.styleCount} {brand.styleCount === 1 ? "style" : "styles"}
                 </p>
               </Link>
             ))}
