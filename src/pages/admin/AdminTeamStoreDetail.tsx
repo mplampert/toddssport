@@ -84,8 +84,12 @@ export default function AdminTeamStoreDetail() {
   const currentPath = location.pathname;
 
   // Determine active tab from the URL
-  const activeTab = STORE_TABS.find((t) => currentPath.endsWith(`/${t.path}`))?.path
-    ?? (currentPath === basePath || currentPath === `${basePath}/` || currentPath.endsWith("/dashboard") ? "overview" : "overview");
+  const activeTab = (() => {
+    const rel = currentPath.replace(basePath, "").replace(/^\//, "");
+    const seg = rel.split("/")[0] || "overview";
+    if (seg === "dashboard") return "overview";
+    return STORE_TABS.find((t) => t.path === seg)?.path ?? "overview";
+  })();
 
   const isOpen = store.status === "open";
   const storeUrl = isOpen

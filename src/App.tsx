@@ -53,6 +53,14 @@ import StoreLogos from "./pages/admin/team-store/StoreLogos";
 import StoreBranding from "./pages/admin/team-store/StoreBranding";
 import StoreDetails from "./pages/admin/team-store/StoreDetails";
 import StoreReports from "./pages/admin/team-store/StoreReports";
+import ReportStoreSummary from "./pages/admin/team-store/reports/ReportStoreSummary";
+import ReportStoreFundraising from "./pages/admin/team-store/reports/ReportStoreFundraising";
+import ReportStoreOrders from "./pages/admin/team-store/reports/ReportStoreOrders";
+import ReportStoreTax from "./pages/admin/team-store/reports/ReportStoreTax";
+import ReportStoreExport from "./pages/admin/team-store/reports/ReportStoreExport";
+import FulfillmentWorkOrders from "./pages/admin/team-store/fulfillment/FulfillmentWorkOrders";
+import FulfillmentPacking from "./pages/admin/team-store/fulfillment/FulfillmentPacking";
+import FulfillmentSupplierPOs from "./pages/admin/team-store/fulfillment/FulfillmentSupplierPOs";
 import StoreOrders from "./pages/admin/team-store/StoreOrders";
 import StoreOrderDetail from "./pages/admin/team-store/StoreOrderDetail";
 import StoreOrderCreate from "./pages/admin/team-store/StoreOrderCreate";
@@ -178,7 +186,17 @@ const App = () => (
               <Route path="promo-codes" element={<StorePromoCodes />} />
               <Route path="orders/new" element={<StoreOrderCreate />} />
               <Route path="orders/:orderId" element={<StoreOrderDetail />} />
-              <Route path="reports" element={<StoreReports />} />
+              <Route path="reports" element={<StoreReports />}>
+                <Route index element={<ReportStoreSummary />} />
+                <Route path="summary" element={<ReportStoreSummary />} />
+                <Route path="fundraising" element={<ReportStoreFundraising />} />
+                <Route path="orders" element={<ReportStoreOrders />} />
+                <Route path="tax" element={<ReportStoreTax />} />
+                <Route path="export" element={<ReportStoreExport />} />
+                <Route path="work-orders" element={<FulfillmentWorkOrders />} />
+                <Route path="packing" element={<FulfillmentPacking />} />
+                <Route path="pos" element={<FulfillmentSupplierPOs />} />
+              </Route>
               <Route path="fulfillment" element={<StoreFulfillment />} />
               <Route path="marketing" element={<StoreMarketing />} />
               <Route path="settings" element={<StoreSettings />} />
