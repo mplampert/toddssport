@@ -70,6 +70,7 @@ export type Database = {
       brands: {
         Row: {
           created_at: string | null
+          description: string | null
           id: string
           logo_url: string | null
           name: string
@@ -78,6 +79,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          description?: string | null
           id?: string
           logo_url?: string | null
           name: string
@@ -86,6 +88,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          description?: string | null
           id?: string
           logo_url?: string | null
           name?: string
@@ -1164,6 +1167,74 @@ export type Database = {
         }
         Relationships: []
       }
+      master_products: {
+        Row: {
+          active: boolean
+          available_colors: Json | null
+          available_sizes: Json | null
+          brand_id: string | null
+          category: string
+          created_at: string
+          decoration_rules: Json | null
+          default_vendor: string | null
+          default_vendor_sku: string | null
+          description_short: string | null
+          id: string
+          image_url: string | null
+          name: string
+          product_type: string
+          source: string
+          source_sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          available_colors?: Json | null
+          available_sizes?: Json | null
+          brand_id?: string | null
+          category?: string
+          created_at?: string
+          decoration_rules?: Json | null
+          default_vendor?: string | null
+          default_vendor_sku?: string | null
+          description_short?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          product_type?: string
+          source?: string
+          source_sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          available_colors?: Json | null
+          available_sizes?: Json | null
+          brand_id?: string | null
+          category?: string
+          created_at?: string
+          decoration_rules?: Json | null
+          default_vendor?: string | null
+          default_vendor_sku?: string | null
+          description_short?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          product_type?: string
+          source?: string
+          source_sku?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_products_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_events: {
         Row: {
           channel: string
@@ -1311,6 +1382,47 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      product_sources: {
+        Row: {
+          cost: number | null
+          created_at: string
+          extra_data_json: Json | null
+          id: string
+          master_product_id: string
+          source: string
+          source_sku: string | null
+          updated_at: string
+        }
+        Insert: {
+          cost?: number | null
+          created_at?: string
+          extra_data_json?: Json | null
+          id?: string
+          master_product_id: string
+          source: string
+          source_sku?: string | null
+          updated_at?: string
+        }
+        Update: {
+          cost?: number | null
+          created_at?: string
+          extra_data_json?: Json | null
+          id?: string
+          master_product_id?: string
+          source?: string
+          source_sku?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_sources_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       promo_leads: {
         Row: {
@@ -2972,6 +3084,7 @@ export type Database = {
           id: string
           internal_notes: string | null
           is_sample: boolean
+          master_product_id: string | null
           notes: string | null
           number_lock_rule: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config: Json | null
@@ -3014,6 +3127,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_sample?: boolean
+          master_product_id?: string | null
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -3056,6 +3170,7 @@ export type Database = {
           id?: string
           internal_notes?: string | null
           is_sample?: boolean
+          master_product_id?: string | null
           notes?: string | null
           number_lock_rule?: Database["public"]["Enums"]["number_lock_rule"]
           personalization_config?: Json | null
@@ -3084,6 +3199,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "team_store_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_products_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
             referencedColumns: ["id"]
           },
           {
