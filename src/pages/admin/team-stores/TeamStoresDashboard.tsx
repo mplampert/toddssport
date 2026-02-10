@@ -10,7 +10,6 @@ import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { TeamStoreKpis } from "@/components/admin/team-stores/TeamStoreKpis";
 import { AllStoresTable } from "@/components/admin/team-stores/AllStoresTable";
-import { AllOrdersTable } from "@/components/admin/team-stores/AllOrdersTable";
 
 type StatusTab = "all" | "scheduled" | "open" | "closed";
 
@@ -127,9 +126,6 @@ export default function TeamStoresDashboard() {
 
       {/* All Stores Table */}
       <AllStoresTable statusFilter={statusTab} />
-
-      {/* All Orders Table */}
-      <AllOrdersTable />
     </div>
   );
 }
