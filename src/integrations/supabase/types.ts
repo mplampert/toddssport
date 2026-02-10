@@ -2382,6 +2382,57 @@ export type Database = {
           },
         ]
       }
+      team_store_fees: {
+        Row: {
+          active: boolean
+          created_at: string
+          fee_amount: number
+          fee_name: string
+          fee_type: string
+          id: string
+          sort_order: number
+          store_id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          fee_amount?: number
+          fee_name?: string
+          fee_type?: string
+          id?: string
+          sort_order?: number
+          store_id: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          fee_amount?: number
+          fee_name?: string
+          fee_type?: string
+          id?: string
+          sort_order?: number
+          store_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_store_fees_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_store_fees_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_store_item_logos: {
         Row: {
           active: boolean
@@ -2788,6 +2839,8 @@ export type Database = {
           delivery_address: string | null
           delivery_instructions: string | null
           discount_total: number
+          fees_json: Json | null
+          fees_total: number
           fulfillment_method: string
           fulfillment_snapshot: Json | null
           fulfillment_status: string
@@ -2839,6 +2892,8 @@ export type Database = {
           delivery_address?: string | null
           delivery_instructions?: string | null
           discount_total?: number
+          fees_json?: Json | null
+          fees_total?: number
           fulfillment_method?: string
           fulfillment_snapshot?: Json | null
           fulfillment_status?: string
@@ -2890,6 +2945,8 @@ export type Database = {
           delivery_address?: string | null
           delivery_instructions?: string | null
           discount_total?: number
+          fees_json?: Json | null
+          fees_total?: number
           fulfillment_method?: string
           fulfillment_snapshot?: Json | null
           fulfillment_status?: string

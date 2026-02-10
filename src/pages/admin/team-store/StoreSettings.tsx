@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, TrendingUp, Globe, Truck, DollarSign } from "lucide-react";
+import { Save, TrendingUp, Globe, Truck, DollarSign, Plus, Trash2, Receipt } from "lucide-react";
 import { toast } from "sonner";
 
 const COUNTRIES = [
@@ -25,6 +25,166 @@ const FULFILLMENT_OPTIONS = [
   { value: "deliver_to_organization", label: "Deliver to Organization" },
   { value: "local_pickup", label: "Local Pickup" },
 ];
+
+/* ─── Custom Fees Card ─── */
+function StoreFeesCard({ storeId }: { storeId: string }) {
+  const queryClient = useQueryClient();
+
+  const { data: fees = [], isLoading } = useQuery({
+    queryKey: ["team-store-fees", storeId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_store_fees")
+        .select("*")
+        .eq("store_id", storeId)
+        .order("sort_order");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const [editing, setEditing] = useState<any | null>(null);
+  const [feeName, setFeeName] = useState("");
+  const [feeType, setFeeType] = useState<"flat" | "percent">("flat");
+  const [feeAmount, setFeeAmount] = useState("");
+  const [feeActive, setFeeActive] = useState(true);
+
+  const resetForm = () => {
+    setEditing(null);
+    setFeeName("");
+    setFeeType("flat");
+    setFeeAmount("");
+    setFeeActive(true);
+  };
+
+  const saveFee = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        store_id: storeId,
+        fee_name: feeName.trim(),
+        fee_type: feeType,
+        fee_amount: parseFloat(feeAmount) || 0,
+        active: feeActive,
+        sort_order: editing ? editing.sort_order : fees.length,
+      };
+      if (editing) {
+        const { error } = await supabase.from("team_store_fees").update(payload).eq("id", editing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("team_store_fees").insert(payload);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-fees", storeId] });
+      toast.success(editing ? "Fee updated" : "Fee added");
+      resetForm();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const deleteFee = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("team_store_fees").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["team-store-fees", storeId] });
+      toast.success("Fee removed");
+    },
+  });
+
+  const toggleActive = useMutation({
+    mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
+      const { error } = await supabase.from("team_store_fees").update({ active }).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["team-store-fees", storeId] }),
+  });
+
+  const startEdit = (fee: any) => {
+    setEditing(fee);
+    setFeeName(fee.fee_name);
+    setFeeType(fee.fee_type);
+    setFeeAmount(String(fee.fee_amount));
+    setFeeActive(fee.active);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Receipt className="w-5 h-5" />
+          Custom Fees
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">Add fees that appear as separate line items at checkout (e.g. processing, fundraising, admin fees).</p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Existing fees */}
+        {fees.length > 0 && (
+          <div className="space-y-2">
+            {fees.map((fee: any) => (
+              <div key={fee.id} className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
+                <Switch
+                  checked={fee.active}
+                  onCheckedChange={(v) => toggleActive.mutate({ id: fee.id, active: v })}
+                />
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-sm">{fee.fee_name}</span>
+                  <span className="text-muted-foreground text-sm ml-2">
+                    {fee.fee_type === "flat" ? `$${Number(fee.fee_amount).toFixed(2)}` : `${fee.fee_amount}%`}
+                  </span>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => startEdit(fee)}>Edit</Button>
+                <Button variant="ghost" size="sm" className="text-destructive" onClick={() => deleteFee.mutate(fee.id)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Add/Edit form */}
+        <div className="border rounded-lg p-4 space-y-3 bg-background">
+          <p className="text-sm font-medium">{editing ? "Edit Fee" : "Add Fee"}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>Fee Name</Label>
+              <Input value={feeName} onChange={(e) => setFeeName(e.target.value)} placeholder="e.g. Processing & handling" />
+            </div>
+            <div className="space-y-1">
+              <Label>Type</Label>
+              <Select value={feeType} onValueChange={(v) => setFeeType(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="flat">Flat ($)</SelectItem>
+                  <SelectItem value="percent">Percent (%)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <Label>{feeType === "flat" ? "Amount ($)" : "Percent (%)"}</Label>
+              <Input type="number" step="0.01" min="0" value={feeAmount} onChange={(e) => setFeeAmount(e.target.value)} placeholder={feeType === "flat" ? "3.00" : "3.0"} />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Switch checked={feeActive} onCheckedChange={setFeeActive} />
+            <Label className="text-sm font-normal">Active</Label>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => saveFee.mutate()} disabled={!feeName.trim() || !feeAmount || saveFee.isPending}>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              {editing ? "Update Fee" : "Add Fee"}
+            </Button>
+            {editing && (
+              <Button variant="outline" size="sm" onClick={resetForm}>Cancel</Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function StoreSettings() {
   const { store } = useTeamStoreContext();
@@ -354,6 +514,9 @@ export default function StoreSettings() {
           </form>
         </CardContent>
       </Card>
+
+      {/* Custom Fees */}
+      <StoreFeesCard storeId={store.id} />
 
       {/* Notification Settings */}
       <StoreNotificationSettings storeId={store.id} storeName={store.name} />

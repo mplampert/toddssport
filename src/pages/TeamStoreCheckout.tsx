@@ -125,10 +125,11 @@ export default function TeamStoreCheckout() {
   const storeName = storeItems[0]?.storeName || "Store";
   const subtotal = storeItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
 
-  // ═══ Fetch store fulfillment config ═══
+  // ═══ Fetch store fulfillment config + fees ═══
   const [storeFulfillmentMethods, setStoreFulfillmentMethods] = useState<{ value: string; label: string }[]>([]);
   const [pickupLocation, setPickupLocationInfo] = useState("");
   const [flatRateShipping, setFlatRateShipping] = useState(0);
+  const [storeFees, setStoreFees] = useState<{ id: string; fee_name: string; fee_type: string; fee_amount: number }[]>([]);
 
   useEffect(() => {
     if (!storeId) return;
@@ -148,6 +149,15 @@ export default function TeamStoreCheckout() {
         pickup = (store as any).pickup_location || "";
       }
       setFlatRateShipping(Number(store?.flat_rate_shipping) || 0);
+
+      // Fetch active fees for this store
+      const { data: feesData } = await supabase
+        .from("team_store_fees")
+        .select("id, fee_name, fee_type, fee_amount")
+        .eq("store_id", storeId)
+        .eq("active", true)
+        .order("sort_order");
+      setStoreFees(feesData || []);
 
       // Fallback to global defaults if store has none
       if (methods.length === 0) {
@@ -223,6 +233,8 @@ export default function TeamStoreCheckout() {
   const [serverTotal, setServerTotal] = useState(subtotal);
   const [serverDiscount, setServerDiscount] = useState(0);
   const [serverShipping, setServerShipping] = useState(0);
+  const [serverFees, setServerFees] = useState<{ name: string; amount: number }[]>([]);
+  const [serverFeesTotal, setServerFeesTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [paid, setPaid] = useState(false);
@@ -248,10 +260,19 @@ export default function TeamStoreCheckout() {
 
   const locked = !!clientSecret;
 
+  // Client-side computed fees
+  const clientFees = storeFees.map((f) => ({
+    name: f.fee_name,
+    amount: f.fee_type === "flat" ? f.fee_amount : Math.round(subtotal * (f.fee_amount / 100) * 100) / 100,
+  }));
+  const clientFeesTotal = clientFees.reduce((s, f) => s + f.amount, 0);
+
   // Client-side computed shipping
   const displayShipping = locked ? serverShipping : (fulfillment === "ship" ? flatRateShipping : 0);
   const displayDiscount = locked ? serverDiscount : promoDiscount;
-  const displayTotal = locked ? serverTotal : Math.max(0, subtotal - displayDiscount + displayShipping);
+  const displayFees = locked ? serverFees : clientFees;
+  const displayFeesTotal = locked ? serverFeesTotal : clientFeesTotal;
+  const displayTotal = locked ? serverTotal : Math.max(0, subtotal - displayDiscount + displayShipping + displayFeesTotal);
 
   const validate = () => {
     if (!billingName.trim()) return "Billing name is required";
@@ -349,6 +370,8 @@ export default function TeamStoreCheckout() {
       setServerTotal(data.total);
       setServerDiscount(data.discountTotal || 0);
       setServerShipping(data.shippingTotal || 0);
+      setServerFees(data.feesBreakdown || []);
+      setServerFeesTotal(data.feesTotal || 0);
     } catch (err: any) {
       setError(err.message || "Failed to start checkout");
     } finally {
@@ -768,6 +791,12 @@ export default function TeamStoreCheckout() {
                       <span className="text-muted-foreground">Shipping</span>
                       <span>{displayShipping > 0 ? `$${displayShipping.toFixed(2)}` : "Free"}</span>
                     </div>
+                    {displayFees.map((fee, idx) => (
+                      <div key={idx} className="flex justify-between">
+                        <span className="text-muted-foreground">{fee.name}</span>
+                        <span>${fee.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Tax</span>
                       <span>$0.00</span>
