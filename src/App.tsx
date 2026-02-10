@@ -101,6 +101,12 @@ import ReportProducts from "./pages/admin/reports/ReportProducts";
 import ReportFulfillment from "./pages/admin/reports/ReportFulfillment";
 import ReportOrganizations from "./pages/admin/reports/ReportOrganizations";
 import NotFound from "./pages/NotFound";
+import AccountLogin from "./pages/account/AccountLogin";
+import AccountRegister from "./pages/account/AccountRegister";
+import AccountDashboard from "./pages/account/AccountDashboard";
+import AccountOrders from "./pages/account/AccountOrders";
+import AccountOrderDetail from "./pages/account/AccountOrderDetail";
+import { CustomerGuard } from "./components/auth/CustomerGuard";
 
 const queryClient = new QueryClient();
 
@@ -145,7 +151,13 @@ const App = () => (
           <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
           <Route path="/preview/team-store/:slug" element={<TeamStorePreview />} />
           <Route path="/preview/team-store/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          {/* Customer Portal */}
+          <Route path="/account/login" element={<AccountLogin />} />
+          <Route path="/account/register" element={<AccountRegister />} />
+          <Route path="/account" element={<CustomerGuard><AccountDashboard /></CustomerGuard>} />
+          <Route path="/account/orders" element={<CustomerGuard><AccountOrders /></CustomerGuard>} />
+          <Route path="/account/orders/:id" element={<CustomerGuard><AccountOrderDetail /></CustomerGuard>} />
+          {/* Admin */}
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
           <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />

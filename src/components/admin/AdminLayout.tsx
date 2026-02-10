@@ -100,13 +100,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }, []);
 
   const checkAdminRole = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .single();
-    setIsAdmin(!!data);
+    // Check both user_roles (legacy) and employee_profiles
+    const [{ data: roleData }, { data: empData }] = await Promise.all([
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle(),
+      supabase
+        .from("employee_profiles")
+        .select("id, role, is_active")
+        .eq("id", userId)
+        .maybeSingle(),
+    ]);
+    // Admin if they have the legacy role OR an active employee profile with admin/owner role
+    const isEmp = empData && empData.is_active && (empData.role === 'admin' || empData.role === 'owner');
+    setIsAdmin(!!roleData || !!isEmp);
     setLoading(false);
   };
 
