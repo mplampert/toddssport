@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
+import { ReportBackLink } from "@/components/admin/team-stores/ReportBackLink";
 
 export default function FulfillmentSupplierPOs() {
   const { store } = useTeamStoreContext();
@@ -81,6 +82,7 @@ export default function FulfillmentSupplierPOs() {
 
   return (
     <div className="space-y-6">
+      <ReportBackLink />
       <h3 className="text-lg font-semibold text-foreground">Supplier Purchase Orders</h3>
 
       {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : supplierGroups.length === 0 ? <p className="text-sm text-muted-foreground">No items.</p> : (

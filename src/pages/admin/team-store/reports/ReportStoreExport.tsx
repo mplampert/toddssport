@@ -3,6 +3,7 @@ import { useStoreReportData, downloadCSV, itemDisplayName, itemSize, itemColor }
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, FileSpreadsheet } from "lucide-react";
+import { ReportBackLink } from "@/components/admin/team-stores/ReportBackLink";
 
 export default function ReportStoreExport() {
   const { store } = useTeamStoreContext();
@@ -58,6 +59,7 @@ export default function ReportStoreExport() {
 
   return (
     <div className="space-y-6">
+      <ReportBackLink />
       <h3 className="text-lg font-semibold text-foreground">Data Export</h3>
 
       <Card>

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Download } from "lucide-react";
+import { ReportBackLink } from "@/components/admin/team-stores/ReportBackLink";
 
 export default function ReportStoreOrders() {
   const { store } = useTeamStoreContext();
@@ -51,6 +52,7 @@ export default function ReportStoreOrders() {
 
   return (
     <div className="space-y-6">
+      <ReportBackLink />
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Order Summary</h3>
         <Button variant="outline" size="sm" onClick={exportCSVHandler} disabled={filtered.length === 0}>
