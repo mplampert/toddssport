@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AdminLayout } from "@/components/admin/AdminLayout";
 import StoreNotificationSettings from "@/components/admin/team-stores/StoreNotificationSettings";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -488,13 +489,14 @@ function SendLogTab() {
 /* ========== MAIN PAGE ========== */
 export default function AdminNotifications() {
   return (
+    <AdminLayout>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
           <Bell className="w-6 h-6" /> Notifications & Messaging
         </h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Global notification settings, templates, customer opt-outs, and messaging.
+          Global notification settings, templates, customer opt-outs, and messaging. These apply across all team stores.
         </p>
       </div>
 
@@ -514,5 +516,6 @@ export default function AdminNotifications() {
         <TabsContent value="log" className="mt-4"><SendLogTab /></TabsContent>
       </Tabs>
     </div>
+    </AdminLayout>
   );
 }

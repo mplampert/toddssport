@@ -182,6 +182,7 @@ const App = () => (
           <Route path="/admin/orders" element={<AdminGlobalOrders />} />
           <Route path="/admin/sample-data" element={<AdminSampleData />} />
           <Route path="/admin/staff" element={<AdminStaffUsers />} />
+          <Route path="/admin/notifications" element={<AdminNotifications />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
@@ -198,7 +199,7 @@ const App = () => (
               <Route path="organizations" element={<ReportOrganizations />} />
             </Route>
             <Route path="logos" element={<TeamStoresLogos />} />
-            <Route path="notifications" element={<AdminNotifications />} />
+            <Route path="logos" element={<TeamStoresLogos />} />
             <Route path="settings" element={<TeamStoresSettings />} />
             <Route path="new" element={<NewTeamStoreWizard />} />
             <Route path=":id/*" element={<AdminTeamStoreDetail />}>

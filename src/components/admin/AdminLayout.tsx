@@ -33,6 +33,7 @@ const globalNavItems = [
   { path: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { path: "/admin/fulfillment/batches", label: "Fulfillment Batches", icon: Truck },
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
+  { path: "/admin/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/staff", label: "Staff Users", icon: Users },
   { path: "/admin/sample-data", label: "Sample Data", icon: Database },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
@@ -46,7 +47,6 @@ const teamStoresNavItems = [
   { path: "/admin/team-stores/fundraising", label: "Fundraising", icon: Heart },
   { path: "/admin/team-stores/reports", label: "Reports", icon: BarChart3 },
   { path: "/admin/team-stores/logos", label: "Logos", icon: Image },
-  { path: "/admin/team-stores/notifications", label: "Notifications", icon: Bell },
   { path: "/admin/team-stores/settings", label: "Settings", icon: Settings },
 ];
 
