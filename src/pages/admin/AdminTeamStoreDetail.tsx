@@ -30,7 +30,6 @@ const STORE_TABS = [
   { label: "Products", path: "products", icon: Package },
   { label: "Logos", path: "logos", icon: Image },
   { label: "Branding", path: "branding", icon: Palette },
-  { label: "Messages", path: "messages", icon: MessageSquare },
   { label: "Orders", path: "orders", icon: ShoppingCart },
   { label: "Promo Codes", path: "promo-codes", icon: Tag },
   { label: "Reports", path: "reports", icon: BarChart3 },
@@ -39,6 +38,7 @@ const STORE_TABS = [
   { label: "Personalization", path: "personalization", icon: UserCheck },
   { label: "Rosters", path: "rosters", icon: Users },
   { label: "Decoration $", path: "decoration-pricing", icon: DollarSign },
+  { label: "Messages", path: "messages", icon: MessageSquare },
   { label: "Settings", path: "settings", icon: Settings },
 ] as const;
 
