@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, User, ShoppingBag, Shield } from "lucide-react";
 import { z } from "zod";
@@ -20,6 +23,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") === "signup" ? "signup" : "login";
   const returnTo = searchParams.get("returnTo") || "/";
+  const shouldChangePassword = searchParams.get("changePassword") === "1";
   
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [email, setEmail] = useState("");
@@ -33,30 +37,43 @@ const Auth = () => {
     confirmPassword?: string;
     fullName?: string;
   }>({});
+
+  // Password change dialog state
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState("");
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         if (session?.user) {
-          // Redirect based on where they came from or default
-          const destination = returnTo.startsWith("/admin") ? returnTo : returnTo;
-          navigate(destination);
+          if (shouldChangePassword) {
+            // Show password change dialog instead of redirecting
+            setShowPasswordChange(true);
+          } else {
+            navigate(returnTo);
+          }
         }
       }
     );
 
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        navigate(returnTo);
+        if (shouldChangePassword) {
+          setShowPasswordChange(true);
+        } else {
+          navigate(returnTo);
+        }
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, returnTo]);
+  }, [navigate, returnTo, shouldChangePassword]);
 
   const validateLoginForm = (): boolean => {
     const newErrors: { email?: string; password?: string } = {};
@@ -405,6 +422,70 @@ const Auth = () => {
             </div>
           </div>
         </div>
+
+        {/* Password Change Dialog */}
+        <Dialog open={showPasswordChange} onOpenChange={() => {}}>
+          <DialogContent className="max-w-sm" onPointerDownOutside={(e) => e.preventDefault()}>
+            <DialogHeader>
+              <DialogTitle>Set Your New Password</DialogTitle>
+              <DialogDescription>
+                You're logged in with a temporary password. Please set a new password to continue.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label>New Password</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordChangeError(""); }}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Confirm New Password</Label>
+                <Input
+                  type="password"
+                  placeholder="••••••••"
+                  value={confirmNewPassword}
+                  onChange={(e) => { setConfirmNewPassword(e.target.value); setPasswordChangeError(""); }}
+                />
+              </div>
+              {passwordChangeError && (
+                <p className="text-sm text-destructive">{passwordChangeError}</p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                className="w-full"
+                disabled={changingPassword}
+                onClick={async () => {
+                  if (newPassword.length < 6) {
+                    setPasswordChangeError("Password must be at least 6 characters");
+                    return;
+                  }
+                  if (newPassword !== confirmNewPassword) {
+                    setPasswordChangeError("Passwords do not match");
+                    return;
+                  }
+                  setChangingPassword(true);
+                  const { error } = await supabase.auth.updateUser({ password: newPassword });
+                  setChangingPassword(false);
+                  if (error) {
+                    setPasswordChangeError(error.message);
+                  } else {
+                    toast({ title: "Password updated", description: "Your password has been changed successfully." });
+                    setShowPasswordChange(false);
+                    navigate(returnTo);
+                  }
+                }}
+              >
+                {changingPassword && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Update Password
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
       <Footer />
     </div>
