@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useGlobalBatches, useUpdateBatchStatus, useCreateBatch, BATCH_STATUSES } from "@/hooks/useFulfillmentBatches";
 import { useStoreReportData } from "@/hooks/useStoreReportData";
 import { AdminLayout } from "@/components/admin/AdminLayout";
@@ -40,10 +40,12 @@ function useAllStores() {
 
 export default function AdminFulfillmentBatches() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { data: batches = [], isLoading } = useGlobalBatches();
   const updateStatus = useUpdateBatchStatus();
   const [statusFilter, setStatusFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(params.get("search") ?? "");
+  const [storeFilter, setStoreFilter] = useState("all");
 
   // Force batch state
   const [showStorePicker, setShowStorePicker] = useState(false);
@@ -51,8 +53,15 @@ export default function AdminFulfillmentBatches() {
   const [showForceConfirm, setShowForceConfirm] = useState(false);
   const { data: stores = [] } = useAllStores();
 
+  const storeOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    batches.forEach((b) => map.set(b.team_store_id, b.store_name ?? "Unknown"));
+    return Array.from(map.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+  }, [batches]);
+
   const filtered = batches.filter((b) => {
     if (statusFilter !== "all" && b.status !== statusFilter) return false;
+    if (storeFilter !== "all" && b.team_store_id !== storeFilter) return false;
     if (search) {
       const q = search.toLowerCase();
       if (!b.store_name?.toLowerCase().includes(q) && !b.id.toLowerCase().includes(q)) return false;
@@ -124,6 +133,13 @@ export default function AdminFulfillmentBatches() {
             <SelectContent className="bg-popover z-50">
               <SelectItem value="all">All Statuses</SelectItem>
               {BATCH_STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={storeFilter} onValueChange={setStoreFilter}>
+            <SelectTrigger className="w-48"><SelectValue placeholder="Store" /></SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              <SelectItem value="all">All Stores</SelectItem>
+              {storeOptions.map(([id, name]) => <SelectItem key={id} value={id}>{name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>

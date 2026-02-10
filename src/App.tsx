@@ -67,6 +67,7 @@ import StoreOrderCreate from "./pages/admin/team-store/StoreOrderCreate";
 import StoreFulfillment from "./pages/admin/team-store/StoreFulfillment";
 import BatchDetail from "./pages/admin/team-store/fulfillment/BatchDetail";
 import AdminFulfillmentBatches from "./pages/admin/AdminFulfillmentBatches";
+import AdminGlobalOrders from "./pages/admin/AdminGlobalOrders";
 import StoreMarketing from "./pages/admin/team-store/StoreMarketing";
 import StoreSettings from "./pages/admin/team-store/StoreSettings";
 import StorePersonalization from "./pages/admin/team-store/StorePersonalization";
@@ -156,6 +157,7 @@ const App = () => (
           <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
           <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
+          <Route path="/admin/orders" element={<AdminGlobalOrders />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
