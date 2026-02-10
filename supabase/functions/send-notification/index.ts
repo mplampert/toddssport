@@ -180,11 +180,17 @@ Deno.serve(async (req: Request) => {
       .eq("is_active", true);
 
     const storeName = (order.team_stores as any)?.name || "Todd's Sport";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://toddssport.lovable.app";
+    const orderLink = `${siteUrl}/account/orders/${order.id}`;
+    const formattedTotal = Number(order.total || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const firstName = (order.customer_name || "Customer").split(" ")[0];
     const allVars: Record<string, string> = {
       customer_name: order.customer_name || "Customer",
+      customer_first_name: firstName,
       order_number: order.order_number || order.id,
       store_name: storeName,
-      order_total: String(order.total || 0),
+      order_total: formattedTotal,
+      order_link: orderLink,
       item_count: String(0),
       ...variables,
     };
