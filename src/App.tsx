@@ -109,6 +109,7 @@ import AccountOrderDetail from "./pages/account/AccountOrderDetail";
 import { CustomerGuard } from "./components/auth/CustomerGuard";
 import AdminMasterCatalog from "./pages/admin/AdminMasterCatalog";
 import AdminMasterCatalogBrand from "./pages/admin/AdminMasterCatalogBrand";
+import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
 
 const queryClient = new QueryClient();
 
@@ -162,6 +163,7 @@ const App = () => (
           {/* Admin */}
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalog/master" element={<AdminMasterCatalog />} />
+          <Route path="/admin/catalog/master/brands/ss/:brandName" element={<AdminMasterCatalogSSBrand />} />
           <Route path="/admin/catalog/master/brands/:brandId" element={<AdminMasterCatalogBrand />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
