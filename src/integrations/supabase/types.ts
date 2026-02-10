@@ -3154,6 +3154,7 @@ export type Database = {
           name: string
           open_at: string | null
           org_tax_exempt: boolean | null
+          organization: string | null
           pickup_location: string | null
           preview_token: string
           primary_color: string | null
@@ -3162,6 +3163,7 @@ export type Database = {
           recurring_batch_enabled: boolean
           recurring_batch_frequency: string | null
           recurring_batch_time: string | null
+          season: string | null
           secondary_color: string | null
           slug: string
           sport: string | null
@@ -3195,6 +3197,7 @@ export type Database = {
           name: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
+          organization?: string | null
           pickup_location?: string | null
           preview_token?: string
           primary_color?: string | null
@@ -3203,6 +3206,7 @@ export type Database = {
           recurring_batch_enabled?: boolean
           recurring_batch_frequency?: string | null
           recurring_batch_time?: string | null
+          season?: string | null
           secondary_color?: string | null
           slug: string
           sport?: string | null
@@ -3236,6 +3240,7 @@ export type Database = {
           name?: string
           open_at?: string | null
           org_tax_exempt?: boolean | null
+          organization?: string | null
           pickup_location?: string | null
           preview_token?: string
           primary_color?: string | null
@@ -3244,6 +3249,7 @@ export type Database = {
           recurring_batch_enabled?: boolean
           recurring_batch_frequency?: string | null
           recurring_batch_time?: string | null
+          season?: string | null
           secondary_color?: string | null
           slug?: string
           sport?: string | null

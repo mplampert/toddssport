@@ -55,6 +55,7 @@ import StoreDetails from "./pages/admin/team-store/StoreDetails";
 import StoreReports from "./pages/admin/team-store/StoreReports";
 import ReportStoreSummary from "./pages/admin/team-store/reports/ReportStoreSummary";
 import ReportStoreFundraising from "./pages/admin/team-store/reports/ReportStoreFundraising";
+import ReportStoreFundraisingBatches from "./pages/admin/team-store/reports/ReportStoreFundraisingBatches";
 import ReportStoreOrders from "./pages/admin/team-store/reports/ReportStoreOrders";
 import ReportStoreTax from "./pages/admin/team-store/reports/ReportStoreTax";
 import ReportStoreExport from "./pages/admin/team-store/reports/ReportStoreExport";
@@ -80,7 +81,7 @@ import TeamStoresDashboard from "./pages/admin/team-stores/TeamStoresDashboard";
 import TeamStoresStores from "./pages/admin/team-stores/TeamStoresStores";
 import TeamStoresOrders from "./pages/admin/team-stores/TeamStoresOrders";
 import TeamStoresFundraising from "./pages/admin/team-stores/TeamStoresFundraising";
-import TeamStoresFundraisingDetail from "./pages/admin/team-stores/TeamStoresFundraisingDetail";
+
 import TeamStoresReports from "./pages/admin/team-stores/TeamStoresReports";
 import TeamStoresLogos from "./pages/admin/team-stores/TeamStoresLogos";
 import TeamStoresSettings from "./pages/admin/team-stores/TeamStoresSettings";
@@ -163,7 +164,6 @@ const App = () => (
             <Route path="stores" element={<TeamStoresStores />} />
             <Route path="orders" element={<TeamStoresOrders />} />
             <Route path="fundraising" element={<TeamStoresFundraising />} />
-            <Route path="fundraising/:storeId" element={<TeamStoresFundraisingDetail />} />
             <Route path="reports" element={<AdminReports />}>
               <Route index element={<ReportFundraising />} />
               <Route path="fundraising" element={<ReportFundraising />} />
@@ -194,6 +194,7 @@ const App = () => (
               <Route path="reports" element={<StoreReports />}>
                 <Route path="summary" element={<ReportStoreSummary />} />
                 <Route path="fundraising" element={<ReportStoreFundraising />} />
+                <Route path="fundraising-batches" element={<ReportStoreFundraisingBatches />} />
                 <Route path="orders" element={<ReportStoreOrders />} />
                 <Route path="tax" element={<ReportStoreTax />} />
                 <Route path="export" element={<ReportStoreExport />} />
