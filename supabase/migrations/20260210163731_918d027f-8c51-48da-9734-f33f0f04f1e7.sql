@@ -1,0 +1,2 @@
+ALTER TABLE public.team_store_orders DROP CONSTRAINT team_store_orders_fulfillment_method_check;
+ALTER TABLE public.team_store_orders ADD CONSTRAINT team_store_orders_fulfillment_method_check CHECK (fulfillment_method = ANY (ARRAY['ship'::text, 'pickup'::text, 'deliver_to_coach'::text, 'local_pickup'::text, 'local_delivery'::text]));
