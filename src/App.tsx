@@ -158,6 +158,7 @@ const App = () => (
           <Route path="/account/orders" element={<CustomerGuard><AccountOrders /></CustomerGuard>} />
           <Route path="/account/orders/:id" element={<CustomerGuard><AccountOrderDetail /></CustomerGuard>} />
           {/* Admin */}
+          <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
           <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
