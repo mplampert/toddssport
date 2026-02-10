@@ -138,7 +138,7 @@ serve(async (req: Request) => {
 
     if (resendKey) {
       const resend = new Resend(resendKey);
-      const siteUrl = Deno.env.get("SUPABASE_URL")?.replace(".supabase.co", "") || "https://toddssport.lovable.app";
+      const siteUrl = Deno.env.get("SITE_URL") || "https://toddssportinggoods.com";
 
       await resend.emails.send({
         from: `Todd's Sporting Goods <${fromEmail}>`,
@@ -153,7 +153,7 @@ serve(async (req: Request) => {
             <li><strong>Email:</strong> ${email}</li>
             <li><strong>Password:</strong> ${tempPassword}</li>
           </ul>
-          <p><a href="https://toddssport.lovable.app/auth">Log in here</a></p>
+          <p><a href="${siteUrl}/auth">Log in here</a></p>
           <p>Please change your password after your first login.</p>
         `,
       });
