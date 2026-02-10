@@ -12,7 +12,7 @@ interface OrderItem {
   id: string;
   product_name_snapshot: string | null;
   store_display_name: string | null;
-  sku_snapshot: string | null;
+  catalog_sku: string | null;
   quantity: number;
   unit_price: number;
   variant_snapshot: any;
@@ -38,7 +38,7 @@ export default function ReportProducts() {
           id,
           product_name_snapshot,
           store_display_name,
-          sku_snapshot,
+          catalog_sku,
           quantity,
           unit_price,
           variant_snapshot,
@@ -72,7 +72,7 @@ export default function ReportProducts() {
       if (storeFilter !== "all" && order.store_id !== storeFilter) return;
 
       const name = item.store_display_name || item.product_name_snapshot || "Unknown";
-      const sku = item.sku_snapshot ?? "—";
+      const sku = item.catalog_sku ?? "—";
       const brand = item.variant_snapshot?.brand_name ?? item.variant_snapshot?.brandName ?? "—";
       const key = `${name}|||${sku}`;
       const c = map.get(key) ?? { name, sku, units: 0, gross: 0, brand };
