@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ProductRowCard } from "./ProductRowCard";
 import { StoreCategoryManager, useEffectiveCategories } from "./StoreCategoryManager";
 import { AddProductsWizard } from "./AddProductsWizard";
+import { MasterCatalogPicker } from "./MasterCatalogPicker";
 
 interface Props {
   storeId: string;
@@ -94,8 +95,13 @@ export function TeamStoreProducts({ storeId }: Props) {
     <Card>
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <CardTitle>Products in This Store ({attached.length})</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <StoreCategoryManager storeId={storeId} />
+          <MasterCatalogPicker
+            storeId={storeId}
+            existingMasterIds={attached.map((a: any) => a.master_product_id).filter(Boolean)}
+            onAdded={() => queryClient.invalidateQueries({ queryKey: ["team-store-products", storeId] })}
+          />
           <AddProductsWizard storeId={storeId} attachedStyleIds={attachedStyleIds} />
         </div>
       </CardHeader>

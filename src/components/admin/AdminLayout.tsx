@@ -20,6 +20,7 @@ interface AdminLayoutProps {
 
 const globalNavItems = [
   { path: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { path: "/admin/catalog/master", label: "Master Catalog", icon: Layers },
   { path: "/admin/catalogs", label: "Catalogs", icon: BookOpen },
   { path: "/admin/reps", label: "Sales Reps", icon: Users },
   { path: "/admin/uniforms", label: "Uniform Cards", icon: Shirt },
