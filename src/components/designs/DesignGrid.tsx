@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { DESIGN_IMAGE_FALLBACKS } from "@/lib/designImageFallbacks";
 
 interface DesignGridProps {
   /** Admin mode: called with design code when a tile is clicked */
@@ -94,9 +95,9 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
               onClick={() => handleTileClick(design)}
               className="group relative bg-destructive/10 rounded-lg overflow-hidden border border-border hover:border-accent transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-accent"
             >
-              {design.image_url ? (
+              {(design.image_url || DESIGN_IMAGE_FALLBACKS[design.code]) ? (
                 <img
-                  src={design.image_url}
+                  src={design.image_url || DESIGN_IMAGE_FALLBACKS[design.code]}
                   alt={design.name}
                   className="w-full aspect-square object-contain p-2 group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
@@ -122,10 +123,10 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
             <DialogDescription>Design Code: {selectedDesign?.code}</DialogDescription>
           </DialogHeader>
 
-          {selectedDesign?.image_url && (
+          {(selectedDesign?.image_url || (selectedDesign && DESIGN_IMAGE_FALLBACKS[selectedDesign.code])) && (
             <img
-              src={selectedDesign.image_url}
-              alt={selectedDesign.name}
+              src={selectedDesign!.image_url || DESIGN_IMAGE_FALLBACKS[selectedDesign!.code]}
+              alt={selectedDesign!.name}
               className="w-full max-h-64 object-contain bg-muted rounded-lg p-4"
             />
           )}
