@@ -110,6 +110,7 @@ import { CustomerGuard } from "./components/auth/CustomerGuard";
 import AdminMasterCatalog from "./pages/admin/AdminMasterCatalog";
 import AdminMasterCatalogBrand from "./pages/admin/AdminMasterCatalogBrand";
 import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
+import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
 
 const queryClient = new QueryClient();
 
@@ -180,6 +181,7 @@ const App = () => (
           <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
           <Route path="/admin/orders" element={<AdminGlobalOrders />} />
           <Route path="/admin/sample-data" element={<AdminSampleData />} />
+          <Route path="/admin/staff" element={<AdminStaffUsers />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
