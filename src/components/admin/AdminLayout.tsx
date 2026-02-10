@@ -8,7 +8,7 @@ import {
   LogOut, BookOpen, Settings, ChevronLeft, Package, DollarSign,
   LayoutDashboard, Users, Shirt, Sparkles, BookImage, ShoppingBag,
   Gift, Store, Layers, ShoppingCart, Heart, Image, ExternalLink, BarChart3,
-  Bell, ListOrdered, FileText, Truck, AlertCircle,
+  Bell, ListOrdered, FileText, Truck, AlertCircle, Database,
 } from "lucide-react";
 import { User, Session } from "@supabase/supabase-js";
 import toddsLogo from "@/assets/todds-logo.png";
@@ -32,6 +32,7 @@ const globalNavItems = [
   { path: "/admin/orders", label: "All Orders", icon: ShoppingCart },
   { path: "/admin/fulfillment/batches", label: "Fulfillment Batches", icon: Truck },
   { path: "/admin/lookbook-generator", label: "Lookbook Generator", icon: BookImage },
+  { path: "/admin/sample-data", label: "Sample Data", icon: Database },
   { path: "/ss-products", label: "S&S Blank Apparel", icon: Layers },
 ];
 

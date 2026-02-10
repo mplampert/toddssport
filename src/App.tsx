@@ -92,6 +92,7 @@ import SSBrandCategoryProducts from "./pages/SSBrandCategoryProducts";
 import SSProductDetail from "./pages/SSProductDetail";
 import TeamStorePreview from "./pages/TeamStorePreview";
 import AdminNotifications from "./pages/admin/AdminNotifications";
+import AdminSampleData from "./pages/admin/AdminSampleData";
 import AdminReports from "./pages/admin/AdminReports";
 import ReportFundraising from "./pages/admin/reports/ReportFundraising";
 import ReportPersonalization from "./pages/admin/reports/ReportPersonalization";
@@ -159,6 +160,7 @@ const App = () => (
           <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
           <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
           <Route path="/admin/orders" element={<AdminGlobalOrders />} />
+          <Route path="/admin/sample-data" element={<AdminSampleData />} />
           <Route path="/admin/team-stores" element={<AdminTeamStores />}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
