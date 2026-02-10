@@ -83,7 +83,7 @@ export default function StoreOrderDetail() {
   const handleSave = async () => {
     if (!order) return;
     const subtotal = items.reduce((s, i) => s + Number(i.unit_price) * i.quantity, 0);
-    const total = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0);
+    const total = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0) + Number((order as any).fees_total || 0);
     await updateOrder.mutateAsync({
       id: order.id,
       ...form,
@@ -98,7 +98,7 @@ export default function StoreOrderDetail() {
 
   const handleSubtotalChange = async (subtotal: number) => {
     if (!order) return;
-    const total = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0);
+    const total = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0) + Number((order as any).fees_total || 0);
     await updateOrder.mutateAsync({
       id: order.id,
       subtotal,
@@ -111,7 +111,7 @@ export default function StoreOrderDetail() {
   }
 
   const subtotal = items.reduce((s, i) => s + Number(i.unit_price) * i.quantity, 0);
-  const computedTotal = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0);
+  const computedTotal = subtotal - Number(form.discount_total || 0) + Number(form.tax_total || 0) + Number(form.shipping_total || 0) + Number((order as any).fees_total || 0);
 
   return (
     <div className="space-y-6">
@@ -350,6 +350,21 @@ export default function StoreOrderDetail() {
                 <span className="text-muted-foreground">Shipping</span>
                 <Input type="number" step="0.01" className="h-8 w-24 text-right" value={form.shipping_total} onChange={(e) => update("shipping_total", parseFloat(e.target.value) || 0)} />
               </div>
+              {/* Custom fees (read-only) */}
+              {Array.isArray((order as any).fees_json) && (order as any).fees_json.length > 0 && (
+                <>
+                  {((order as any).fees_json as Array<{ name: string; amount: number }>).map((fee, idx) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{fee.name}</span>
+                      <span className="font-mono">${Number(fee.amount).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Fees Total</span>
+                    <span className="font-mono">${Number((order as any).fees_total || 0).toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <div className="border-t pt-2 flex justify-between font-medium">
                 <span>Total</span>
                 <span className="font-mono">${computedTotal.toFixed(2)}</span>

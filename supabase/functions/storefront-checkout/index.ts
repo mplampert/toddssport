@@ -294,7 +294,25 @@ Deno.serve(async (req: Request) => {
     const fulfillmentMethod = fulfillment?.method || "ship";
     const shippingTotal = fulfillmentMethod === "ship" ? (Number(store.flat_rate_shipping) || 0) : 0;
 
-    const total = Math.max(0.5, subtotal - discountTotal + shippingTotal); // Stripe minimum
+    // ═══ Fees ═══
+    const { data: storeFees } = await supabase
+      .from("team_store_fees")
+      .select("id, fee_name, fee_type, fee_amount")
+      .eq("store_id", storeId)
+      .eq("active", true)
+      .order("sort_order");
+
+    const feesBreakdown: { name: string; amount: number; fee_type: string; fee_value: number }[] = [];
+    let feesTotal = 0;
+    for (const fee of (storeFees || [])) {
+      const amt = fee.fee_type === "flat"
+        ? Number(fee.fee_amount)
+        : Math.round(subtotal * (Number(fee.fee_amount) / 100) * 100) / 100;
+      feesBreakdown.push({ name: fee.fee_name, amount: amt, fee_type: fee.fee_type, fee_value: Number(fee.fee_amount) });
+      feesTotal += amt;
+    }
+
+    const total = Math.max(0.5, subtotal - discountTotal + shippingTotal + feesTotal); // Stripe minimum
 
     // Generate order number
     const orderNumber = `TS-${Date.now().toString(36).toUpperCase()}`;
@@ -385,6 +403,8 @@ Deno.serve(async (req: Request) => {
         tax_total: 0,
         shipping_total: shippingTotal,
         discount_total: discountTotal,
+        fees_json: feesBreakdown,
+        fees_total: feesTotal,
       } as any)
       .select()
       .single();
@@ -503,6 +523,8 @@ Deno.serve(async (req: Request) => {
         total,
         discountTotal,
         shippingTotal,
+        feesBreakdown: feesBreakdown.map(f => ({ name: f.name, amount: f.amount })),
+        feesTotal,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

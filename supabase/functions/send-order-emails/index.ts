@@ -40,6 +40,8 @@ interface OrderEmailPayload {
   discount?: number;
   tax: number;
   shipping: number;
+  fees?: { name: string; amount: number }[];
+  feesTotal?: number;
   total: number;
   teamName?: string;
   storeName?: string;
@@ -176,6 +178,10 @@ function buildCustomerEmail(p: OrderEmailPayload): string {
         <td style="padding:4px 0;color:#374151;">Shipping</td>
         <td style="padding:4px 0;text-align:right;color:#374151;">${fmtDollars(p.shipping)}</td>
       </tr>
+      ${(p.fees && p.fees.length > 0) ? p.fees.map(f => `<tr>
+        <td style="padding:4px 0;color:#374151;">${f.name}</td>
+        <td style="padding:4px 0;text-align:right;color:#374151;">${fmtDollars(f.amount)}</td>
+      </tr>`).join("") : ""}
       <tr>
         <td style="padding:12px 0 4px;border-top:2px solid #e5e7eb;font-size:18px;font-weight:700;color:#111;">Order Total</td>
         <td style="padding:12px 0 4px;border-top:2px solid #e5e7eb;text-align:right;font-size:18px;font-weight:700;color:#111;">${fmtDollars(p.total)}</td>
@@ -318,6 +324,8 @@ function buildInternalEmail(p: OrderEmailPayload): string {
             <td style="border:1px solid #ddd;padding:10px;">${fmtDollars(p.tax)}</td></tr>
         <tr><td style="border:1px solid #ddd;padding:10px;background:#f9fafb;"><strong>Shipping</strong></td>
             <td style="border:1px solid #ddd;padding:10px;">${fmtDollars(p.shipping)}</td></tr>
+        ${(p.fees && p.fees.length > 0) ? p.fees.map(f => `<tr><td style="border:1px solid #ddd;padding:10px;background:#f9fafb;"><strong>${f.name}</strong></td>
+            <td style="border:1px solid #ddd;padding:10px;">${fmtDollars(f.amount)}</td></tr>`).join("") : ""}
         <tr><td style="border:1px solid #ddd;padding:10px;background:#f9fafb;"><strong>Total</strong></td>
             <td style="border:1px solid #ddd;padding:10px;font-size:18px;font-weight:bold;color:#16a34a;">${fmtDollars(p.total)}</td></tr>
         ${p.stripeSessionId ? `<tr><td style="border:1px solid #ddd;padding:10px;background:#f9fafb;"><strong>Stripe</strong></td>

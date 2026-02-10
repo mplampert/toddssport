@@ -224,6 +224,8 @@ Deno.serve(async (req: Request) => {
                 subtotal: fullOrder.subtotal || 0,
                 tax: fullOrder.tax_total || 0,
                 shipping: fullOrder.shipping_total || 0,
+                fees: fullOrder.fees_json || [],
+                feesTotal: fullOrder.fees_total || 0,
                 total: fullOrder.total || 0,
                 stripeSessionId: paymentIntentId,
                 siteUrl: "https://toddssport.lovable.app",
