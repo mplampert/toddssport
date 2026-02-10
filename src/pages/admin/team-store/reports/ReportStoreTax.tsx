@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Download } from "lucide-react";
+import { ReportBackLink } from "@/components/admin/team-stores/ReportBackLink";
 
 export default function ReportStoreTax() {
   const { store } = useTeamStoreContext();
@@ -46,6 +47,7 @@ export default function ReportStoreTax() {
 
   return (
     <div className="space-y-6">
+      <ReportBackLink />
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Sales Tax Report</h3>
         <Button variant="outline" size="sm" onClick={exportCSVHandler} disabled={taxByJurisdiction.length === 0}>

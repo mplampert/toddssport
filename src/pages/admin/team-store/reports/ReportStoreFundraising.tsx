@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download, Heart } from "lucide-react";
+import { ReportBackLink } from "@/components/admin/team-stores/ReportBackLink";
 
 export default function ReportStoreFundraising() {
   const { store } = useTeamStoreContext();
@@ -86,6 +87,7 @@ export default function ReportStoreFundraising() {
   if (pct === 0) {
     return (
       <div className="space-y-4">
+        <ReportBackLink />
         <h3 className="text-lg font-semibold text-foreground">Fundraising Report</h3>
         <p className="text-muted-foreground text-sm">This store does not have a fundraising percentage configured.</p>
       </div>
@@ -94,6 +96,7 @@ export default function ReportStoreFundraising() {
 
   return (
     <div className="space-y-6">
+      <ReportBackLink />
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-foreground">Fundraising Report</h3>
         <Button variant="outline" size="sm" onClick={exportCSVHandler} disabled={orders.length === 0}>

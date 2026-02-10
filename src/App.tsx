@@ -187,7 +187,6 @@ const App = () => (
               <Route path="orders/new" element={<StoreOrderCreate />} />
               <Route path="orders/:orderId" element={<StoreOrderDetail />} />
               <Route path="reports" element={<StoreReports />}>
-                <Route index element={<ReportStoreSummary />} />
                 <Route path="summary" element={<ReportStoreSummary />} />
                 <Route path="fundraising" element={<ReportStoreFundraising />} />
                 <Route path="orders" element={<ReportStoreOrders />} />
