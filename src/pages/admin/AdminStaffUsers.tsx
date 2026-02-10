@@ -113,6 +113,7 @@ export default function AdminStaffUsers() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [editUser, setEditUser] = useState<StaffUser | null>(null);
   const [editPerms, setEditPerms] = useState<Set<TabKey>>(new Set());
+  const [invPerms, setInvPerms] = useState<Set<TabKey>>(getDefaultTabs("sales"));
 
   // Invite form state
   const [invForm, setInvForm] = useState({
@@ -148,19 +149,32 @@ export default function AdminStaffUsers() {
 
   const inviteMut = useMutation({
     mutationFn: async (form: typeof invForm) => {
-      const { data: { session } } = await supabase.auth.getSession();
       const res = await supabase.functions.invoke("invite-staff", {
         body: form,
       });
       if (res.error) throw new Error(res.error.message || "Invite failed");
       if (res.data?.error) throw new Error(res.data.error);
+
+      // Save sidebar permissions for the new user
+      const userId = res.data?.userId;
+      if (userId) {
+        const rows = SIDEBAR_TABS.map((tab) => ({
+          employee_id: userId,
+          tab_key: tab.key,
+          can_view: invPerms.has(tab.key),
+        }));
+        await supabase.from("staff_permissions").upsert(rows, { onConflict: "employee_id,tab_key" });
+      }
+
       return res.data;
     },
     onSuccess: () => {
       toast({ title: "Invite sent", description: `Invite email sent to ${invForm.email}` });
       setInviteOpen(false);
       setInvForm({ email: "", first_name: "", last_name: "", phone: "", staff_role: "sales" });
+      setInvPerms(getDefaultTabs("sales"));
       qc.invalidateQueries({ queryKey: ["admin-staff-users"] });
+      qc.invalidateQueries({ queryKey: ["admin-staff-permissions"] });
     },
     onError: (err: any) => {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -371,11 +385,11 @@ export default function AdminStaffUsers() {
 
         {/* ── Invite Dialog ── */}
         <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Invite Staff User</DialogTitle>
               <DialogDescription>
-                An email with login credentials will be sent to the new user.
+                Configure role and sidebar access, then send the invite email.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-2">
@@ -414,7 +428,10 @@ export default function AdminStaffUsers() {
                 <Label>Role *</Label>
                 <Select
                   value={invForm.staff_role}
-                  onValueChange={(v) => setInvForm({ ...invForm, staff_role: v })}
+                  onValueChange={(v) => {
+                    setInvForm({ ...invForm, staff_role: v });
+                    setInvPerms(getDefaultTabs(v));
+                  }}
                 >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -423,6 +440,40 @@ export default function AdminStaffUsers() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Sidebar Access */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-foreground">Sidebar Access</h3>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setInvPerms(getDefaultTabs(invForm.staff_role))}
+                  >
+                    Reset to Defaults
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {SIDEBAR_TABS.map((tab) => (
+                    <label
+                      key={tab.key}
+                      className="flex items-center gap-2 text-sm cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5"
+                    >
+                      <Checkbox
+                        checked={invPerms.has(tab.key)}
+                        onCheckedChange={() => {
+                          setInvPerms((prev) => {
+                            const next = new Set(prev);
+                            next.has(tab.key) ? next.delete(tab.key) : next.add(tab.key);
+                            return next;
+                          });
+                        }}
+                      />
+                      {tab.label}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
