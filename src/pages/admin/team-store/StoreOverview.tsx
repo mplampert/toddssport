@@ -12,7 +12,7 @@ import {
   Rocket, CreditCard, AlertCircle,
 } from "lucide-react";
 import { useTeamStoreContext } from "@/components/admin/team-stores/useTeamStoreContext";
-import { TeamStoreBrandingPreview } from "@/components/admin/team-stores/TeamStoreBrandingPreview";
+
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -338,16 +338,6 @@ export default function StoreOverview() {
           </Card>
         </div>
       </div>
-
-      {/* ── Branding Preview ── */}
-      <TeamStoreBrandingPreview
-        name={store.name}
-        logo_url={store.logo_url}
-        primary_color={store.primary_color}
-        secondary_color={store.secondary_color}
-        start_date={store.start_date}
-        end_date={store.end_date}
-      />
     </div>
   );
 }
