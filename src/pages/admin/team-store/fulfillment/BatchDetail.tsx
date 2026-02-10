@@ -1,17 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useBatchDetail, useUpdateBatchStatus, BATCH_STATUSES } from "@/hooks/useFulfillmentBatches";
 import { downloadCSV, itemDisplayName, itemSize, itemColor, itemDecorationType } from "@/hooks/useStoreReportData";
 import type { StoreOrder, StoreOrderItem } from "@/hooks/useStoreReportData";
+import { buildWorkOrderRows, buildArtworkSummary, downloadWorkOrderCSV, generateWorkOrderPDF } from "@/lib/workOrderGenerator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ChevronLeft, Download, Loader2, Package, ClipboardList, Users, Truck } from "lucide-react";
+import { ChevronLeft, Download, Loader2, Package, ClipboardList, Users, Truck, FileText } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Draft", ready: "Ready", in_production: "In Production", shipped: "Shipped", complete: "Complete",
@@ -57,6 +58,10 @@ export default function BatchDetail() {
   });
 
   const orderMap = useMemo(() => new Map(orders.map((o) => [o.id, o])), [orders]);
+
+  // Work order rows for PDF/CSV
+  const woRows = useMemo(() => buildWorkOrderRows(items, orderMap), [items, orderMap]);
+  const artworkSummary = useMemo(() => buildArtworkSummary(items), [items]);
 
   // Work Orders: group by product + decoration
   const workOrders = useMemo(() => {
@@ -132,22 +137,42 @@ export default function BatchDetail() {
             Batch {batch.id.slice(0, 8)}
           </h2>
           <p className="text-sm text-muted-foreground">
-            {batch.store_name} · Cutoff: {new Date(batch.cutoff_datetime).toLocaleString()} · {orderIds.length} orders
+            {batch.store_name} · {batch.batch_type === "manual" ? "Forced" : "Scheduled"} · Cutoff: {new Date(batch.cutoff_datetime).toLocaleString()} · {orderIds.length} orders
           </p>
         </div>
-        <Select
-          value={batch.status}
-          onValueChange={(v) => updateStatus.mutate({ batchId: batch.id, status: v })}
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="bg-popover z-50">
-            {BATCH_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={items.length === 0}
+            onClick={() => downloadWorkOrderCSV(batch, woRows)}
+          >
+            <Download className="w-3.5 h-3.5 mr-1" />
+            Work Order CSV
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={items.length === 0}
+            onClick={() => generateWorkOrderPDF(batch, orders, woRows, artworkSummary)}
+          >
+            <FileText className="w-3.5 h-3.5 mr-1" />
+            Work Order PDF
+          </Button>
+          <Select
+            value={batch.status}
+            onValueChange={(v) => updateStatus.mutate({ batchId: batch.id, status: v })}
+          >
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-popover z-50">
+              {BATCH_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Tabs defaultValue="orders">
