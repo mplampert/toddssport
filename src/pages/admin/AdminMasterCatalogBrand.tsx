@@ -1,28 +1,58 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Package, Search } from "lucide-react";
-import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Loader2, ArrowLeft, Package, Search, Plus, Store } from "lucide-react";
+import { useState, useMemo } from "react";
+import { toast } from "sonner";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  tee: "T‑Shirts",
+  hoodie: "Hoodies & Sweatshirts",
+  polo: "Polos",
+  hat: "Hats & Headwear",
+  pants: "Pants & Shorts",
+  outerwear: "Outerwear",
+  bag: "Bags",
+  accessory: "Accessories",
+  activewear: "Activewear",
+  woven: "Woven Shirts",
+  youth: "Youth",
+  promo: "Promo Products",
+  uniform: "Uniforms",
+  other: "Other",
+};
+
+function categoryLabel(cat: string) {
+  return CATEGORY_LABELS[cat] || cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, " ");
+}
+
+const SOURCE_COLORS: Record<string, string> = {
+  ss_activewear: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  champro: "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  imprintid: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  internal: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+};
 
 export default function AdminMasterCatalogBrand() {
   const { brandId } = useParams<{ brandId: string }>();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
-  const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [addToStoreProduct, setAddToStoreProduct] = useState<any>(null);
+  const queryClient = useQueryClient();
 
   const isUnbranded = brandId === "unbranded";
 
   const { data: brand } = useQuery({
     queryKey: ["master-catalog-brand", brandId],
     queryFn: async () => {
-      if (isUnbranded) return { id: "unbranded", name: "Other / Unbranded", logo_url: null };
+      if (isUnbranded) return { id: "unbranded", name: "Other / Unbranded", logo_url: null, description: null };
       const { data, error } = await supabase
         .from("brands")
         .select("id, name, logo_url, description")
@@ -56,46 +86,116 @@ export default function AdminMasterCatalogBrand() {
     enabled: !!brandId,
   });
 
-  // Extract unique filter values
-  const categories = [...new Set((products || []).map((p) => p.category))].sort();
-  const sources = [...new Set((products || []).map((p) => p.source))].sort();
-  const types = [...new Set((products || []).map((p) => p.product_type))].sort();
+  // Derive categories, sources, types
+  const { categories, sources, types } = useMemo(() => {
+    const cats = new Map<string, number>();
+    const srcs = new Set<string>();
+    const typs = new Set<string>();
+    for (const p of products || []) {
+      cats.set(p.category, (cats.get(p.category) || 0) + 1);
+      srcs.add(p.source);
+      typs.add(p.product_type);
+    }
+    return {
+      categories: [...cats.entries()].sort((a, b) => b[1] - a[1]),
+      sources: [...srcs].sort(),
+      types: [...typs].sort(),
+    };
+  }, [products]);
 
-  const filtered = (products || []).filter((p) => {
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase()) && !(p.source_sku || "").toLowerCase().includes(search.toLowerCase())) return false;
-    if (categoryFilter !== "all" && p.category !== categoryFilter) return false;
-    if (sourceFilter !== "all" && p.source !== sourceFilter) return false;
-    if (typeFilter !== "all" && p.product_type !== typeFilter) return false;
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return (products || []).filter((p) => {
+      if (search) {
+        const q = search.toLowerCase();
+        if (
+          !p.name.toLowerCase().includes(q) &&
+          !(p.source_sku || "").toLowerCase().includes(q) &&
+          !(p.description_short || "").toLowerCase().includes(q)
+        )
+          return false;
+      }
+      if (categoryFilter !== "all" && p.category !== categoryFilter) return false;
+      if (typeFilter !== "all" && p.product_type !== typeFilter) return false;
+      return true;
+    });
+  }, [products, search, categoryFilter, typeFilter]);
+
+  // Count available_colors length for display
+  function colorCount(p: any): number {
+    if (Array.isArray(p.available_colors)) return p.available_colors.length;
+    if (p.available_colors && typeof p.available_colors === "object") {
+      return Object.keys(p.available_colors).length;
+    }
+    return 0;
+  }
 
   return (
     <AdminLayout>
-      <div className="space-y-6">
-        {/* Back + Header */}
-        <div>
-          <Link
-            to="/admin/catalog/master"
-            className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" /> Master Catalog
-          </Link>
-          <div className="flex items-center gap-4">
-            {brand?.logo_url && (
-              <img src={brand.logo_url} alt={brand.name} className="h-12 w-auto object-contain" />
+      <div className="space-y-0">
+        {/* Brand Hero */}
+        <section className="bg-navy rounded-xl py-10 px-8 mb-6">
+          <div className="flex items-center gap-3 mb-3">
+            <Link
+              to="/admin/catalog/master"
+              className="text-primary-foreground/60 hover:text-primary-foreground transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            {brand?.logo_url ? (
+              <img
+                src={brand.logo_url}
+                alt={brand.name}
+                className="h-10 object-contain brightness-0 invert"
+              />
+            ) : (
+              <Package className="w-8 h-8 text-accent" />
             )}
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{brand?.name || "Brand"}</h1>
-              <p className="text-sm text-muted-foreground">
-                {filtered.length} of {(products || []).length} products shown
-              </p>
-            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-primary-foreground">
+              {brand?.name || "Brand"}
+            </h1>
           </div>
+          <div className="flex items-center gap-3 ml-8">
+            {sources.map((s) => (
+              <Badge key={s} variant="secondary" className="text-xs capitalize">
+                {s.replace(/_/g, " ")}
+              </Badge>
+            ))}
+            <span className="text-primary-foreground/70 text-sm">
+              {(products || []).length} styles
+            </span>
+          </div>
+        </section>
+
+        {/* Category Chips */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button
+            onClick={() => setCategoryFilter("all")}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+              categoryFilter === "all"
+                ? "bg-accent text-accent-foreground"
+                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+            }`}
+          >
+            All ({(products || []).length})
+          </button>
+          {categories.map(([cat, count]) => (
+            <button
+              key={cat}
+              onClick={() => setCategoryFilter(cat === categoryFilter ? "all" : cat)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                categoryFilter === cat
+                  ? "bg-accent text-accent-foreground"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              {categoryLabel(cat)} ({count})
+            </button>
+          ))}
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-3">
-          <div className="relative flex-1 min-w-[200px] max-w-sm">
+        {/* Filters Row */}
+        <div className="flex flex-wrap gap-3 mb-6">
+          <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search products or SKU..."
@@ -104,101 +204,220 @@ export default function AdminMasterCatalogBrand() {
               className="pl-10"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={sourceFilter} onValueChange={setSourceFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Sources</SelectItem>
-              {sources.map((s) => (
-                <SelectItem key={s} value={s}>{s.replace("_", " ")}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Type" />
+            <SelectTrigger className="w-[170px]">
+              <SelectValue placeholder="Product Type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
               {types.map((t) => (
-                <SelectItem key={t} value={t} className="capitalize">{t.replace("_", " ")}</SelectItem>
+                <SelectItem key={t} value={t} className="capitalize">
+                  {t.replace(/_/g, " ")}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          {(categoryFilter !== "all" || sourceFilter !== "all" || typeFilter !== "all" || search) && (
+          {(categoryFilter !== "all" || typeFilter !== "all" || search) && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setCategoryFilter("all"); setSourceFilter("all"); setTypeFilter("all"); setSearch(""); }}
+              onClick={() => {
+                setCategoryFilter("all");
+                setTypeFilter("all");
+                setSearch("");
+              }}
             >
               Clear Filters
             </Button>
           )}
+          <p className="text-sm text-muted-foreground self-center ml-auto">
+            {filtered.length} of {(products || []).length} styles
+          </p>
         </div>
 
         {/* Product Grid */}
         {isLoading ? (
-          <div className="flex items-center justify-center py-16">
+          <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            <span className="ml-3 text-muted-foreground">Loading products…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-muted-foreground">No products match your filters</p>
+          <div className="text-center py-20">
+            <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold mb-2">No products found</h3>
+            <p className="text-sm text-muted-foreground">Try adjusting your filters.</p>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filtered.map((product) => (
-              <Card key={product.id} className="overflow-hidden">
-                <div className="aspect-square bg-muted flex items-center justify-center">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-contain p-4"
-                    />
-                  ) : (
-                    <Package className="w-12 h-12 text-muted-foreground" />
-                  )}
-                </div>
-                <CardContent className="p-4">
-                  <h3 className="font-medium text-sm text-foreground line-clamp-2 mb-2">
-                    {product.name}
-                  </h3>
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    <Badge variant="outline" className="text-[10px] capitalize">
-                      {product.source.replace("_", " ")}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px] capitalize">
-                      {product.product_type.replace("_", " ")}
-                    </Badge>
-                    <Badge variant="secondary" className="text-[10px] capitalize">
-                      {product.category}
-                    </Badge>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            {filtered.map((product) => {
+              const colors = colorCount(product);
+              return (
+                <div
+                  key={product.id}
+                  className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
+                >
+                  {/* Image */}
+                  <div className="h-40 bg-secondary flex items-center justify-center overflow-hidden">
+                    {product.image_url ? (
+                      <img
+                        src={product.image_url}
+                        alt={product.name}
+                        className="max-h-full max-w-full object-contain p-3 group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <Package className="w-10 h-10 text-muted-foreground/30" />
+                    )}
                   </div>
-                  {product.source_sku && (
-                    <p className="text-xs text-muted-foreground">SKU: {product.source_sku}</p>
-                  )}
-                  {product.description_short && (
-                    <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                      {product.description_short}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                  {/* Info */}
+                  <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-semibold text-foreground text-sm line-clamp-2 mb-2 group-hover:text-accent transition-colors">
+                      {product.name}
+                    </h3>
+
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      <span
+                        className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          SOURCE_COLORS[product.source] || "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {product.source.replace(/_/g, " ")}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] capitalize">
+                        {categoryLabel(product.category)}
+                      </Badge>
+                    </div>
+
+                    {colors > 0 && (
+                      <p className="text-xs text-muted-foreground mb-1">{colors} colors</p>
+                    )}
+                    {product.source_sku && (
+                      <p className="text-xs text-muted-foreground">SKU: {product.source_sku}</p>
+                    )}
+
+                    <div className="mt-auto pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs"
+                        onClick={() => setAddToStoreProduct(product)}
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add to Team Store…
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {/* Add to Team Store Dialog */}
+      {addToStoreProduct && (
+        <AddToStoreDialog
+          product={addToStoreProduct}
+          onClose={() => setAddToStoreProduct(null)}
+        />
+      )}
     </AdminLayout>
+  );
+}
+
+// ─── Add to Team Store Dialog ────────────────────────────────────────────
+
+function AddToStoreDialog({ product, onClose }: { product: any; onClose: () => void }) {
+  const [search, setSearch] = useState("");
+  const [adding, setAdding] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data: stores, isLoading } = useQuery({
+    queryKey: ["team-stores-picker"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_stores")
+        .select("id, name, slug, status")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const filtered = (stores || []).filter(
+    (s) => !search || s.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const addMutation = useMutation({
+    mutationFn: async (storeId: string) => {
+      const { error } = await supabase.from("team_store_products").insert({
+        team_store_id: storeId,
+        style_id: 0,
+        master_product_id: product.id,
+        display_name: product.name,
+        primary_image_url: product.image_url,
+        active: true,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`Added "${product.name}" to store`);
+      queryClient.invalidateQueries({ queryKey: ["team-store-products"] });
+      onClose();
+    },
+    onError: (err: Error) => {
+      toast.error(`Failed: ${err.message}`);
+      setAdding(null);
+    },
+  });
+
+  return (
+    <Dialog open onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-base">Add to Team Store</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-1">{product.name}</p>
+        <div className="relative mb-3">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search stores..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9"
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto space-y-1">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-5 h-5 animate-spin" />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">No stores found</p>
+          ) : (
+            filtered.map((store) => (
+              <button
+                key={store.id}
+                onClick={() => {
+                  setAdding(store.id);
+                  addMutation.mutate(store.id);
+                }}
+                disabled={adding === store.id}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-muted transition-colors text-left"
+              >
+                <Store className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">{store.name}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{store.status}</p>
+                </div>
+                {adding === store.id && <Loader2 className="w-4 h-4 animate-spin" />}
+              </button>
+            ))
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
