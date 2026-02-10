@@ -11,6 +11,7 @@ export interface FulfillmentBatch {
   status: "draft" | "ready" | "in_production" | "shipped" | "complete";
   order_ids: string[];
   notes: string | null;
+  batch_type: "scheduled" | "manual";
   // joined
   store_name?: string;
 }
@@ -75,14 +76,15 @@ export function useBatchDetail(batchId: string | undefined) {
 export function useCreateBatch(storeId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (orderIds: string[]) => {
+    mutationFn: async ({ orderIds, batchType = "scheduled", status = "draft" }: { orderIds: string[]; batchType?: string; status?: string }) => {
       const { data, error } = await supabase
         .from("fulfillment_batches")
         .insert({
           team_store_id: storeId,
           cutoff_datetime: new Date().toISOString(),
           order_ids: orderIds,
-          status: "draft",
+          status,
+          batch_type: batchType,
         })
         .select("id")
         .single();

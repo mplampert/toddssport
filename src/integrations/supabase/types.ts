@@ -867,6 +867,7 @@ export type Database = {
       }
       fulfillment_batches: {
         Row: {
+          batch_type: string
           created_at: string
           cutoff_datetime: string
           id: string
@@ -877,6 +878,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          batch_type?: string
           created_at?: string
           cutoff_datetime?: string
           id?: string
@@ -887,6 +889,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          batch_type?: string
           created_at?: string
           cutoff_datetime?: string
           id?: string
