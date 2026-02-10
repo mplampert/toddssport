@@ -147,6 +147,70 @@ Deno.serve(async (req: Request) => {
 
       log("Payment recorded", { orderId, amount: pi.amount / 100 });
 
+      // Send order confirmation emails
+      try {
+        const { data: fullOrder } = await supabase
+          .from("team_store_orders")
+          .select("*, team_store_order_items(*), team_stores(name)")
+          .eq("id", orderId)
+          .single();
+
+        if (fullOrder && (fullOrder.billing_email || fullOrder.customer_email)) {
+          const items = (fullOrder.team_store_order_items || []).map((i: any) => ({
+            name: i.product_name_snapshot || "Product",
+            size: i.variant_snapshot?.size || "",
+            quantity: i.quantity,
+            price: i.unit_price,
+          }));
+
+          const shipTo = fullOrder.fulfillment_snapshot || {};
+          const storeName = (fullOrder.team_stores as any)?.name || "";
+
+          const emailPayload = {
+            orderId,
+            po: fullOrder.order_number || orderId,
+            orderDate: fullOrder.created_at || new Date().toISOString(),
+            customerEmail: fullOrder.billing_email || fullOrder.customer_email || "",
+            customerName: fullOrder.billing_name || fullOrder.customer_name || "",
+            customerPhone: fullOrder.billing_phone || fullOrder.customer_phone || "",
+            shipTo: {
+              firstName: shipTo.shipping_name?.split(" ")[0] || "",
+              lastName: shipTo.shipping_name?.split(" ").slice(1).join(" ") || "",
+              address: shipTo.shipping_address1 || "",
+              address2: shipTo.shipping_address2 || "",
+              city: shipTo.shipping_city || "",
+              stateCode: shipTo.shipping_state || "",
+              zipCode: shipTo.shipping_zip || "",
+              countryCode: "US",
+              phone: shipTo.shipping_phone || "",
+            },
+            items,
+            subtotal: fullOrder.subtotal || 0,
+            tax: fullOrder.tax_total || 0,
+            shipping: fullOrder.shipping_total || 0,
+            total: fullOrder.total || 0,
+            teamName: storeName || undefined,
+            stripeSessionId: paymentIntentId,
+          };
+
+          // Call send-order-emails function
+          const emailRes = await fetch(
+            `${supabaseUrl}/functions/v1/send-order-emails`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${supabaseServiceKey}`,
+              },
+              body: JSON.stringify(emailPayload),
+            }
+          );
+          log("Order emails triggered", { status: emailRes.status });
+        }
+      } catch (emailErr: any) {
+        log("Error sending order emails (non-fatal)", { message: emailErr.message });
+      }
+
       return new Response(
         JSON.stringify({ success: true }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
