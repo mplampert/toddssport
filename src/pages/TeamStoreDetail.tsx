@@ -231,57 +231,70 @@ export default function TeamStoreDetail() {
       </Helmet>
       <Header />
       <main className="flex-1">
-        {/* Hero */}
-        <section
-          className="relative py-16 px-4 min-h-[240px] md:min-h-[320px] flex items-center aspect-[1200/630]"
-          style={{
-            background: storePublic?.hero_image_url
-              ? undefined
-              : `linear-gradient(135deg, ${store?.primary_color || "#1a1a2e"}dd, ${store?.secondary_color || "#e2e8f0"}99)`,
-          }}
-        >
-          {/* Background image if hero_image_url exists */}
-          {storePublic?.hero_image_url && (
-            <>
-              <div
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: `url(${storePublic.hero_image_url})` }}
-              />
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(to right, ${store?.primary_color || "#1a1a2e"}e6, ${store?.primary_color || "#1a1a2e"}80, transparent)`,
-                }}
-              />
-            </>
-          )}
-          <div className="absolute top-4 left-4 z-10">
-            <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white">
-              <Link to="/team-stores">
-                <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
-              </Link>
-            </Button>
-          </div>
-          <div className="container mx-auto text-center relative z-10">
-            {store?.logo_url && (
-              <img src={store.logo_url} alt={store.name} className="w-24 h-24 object-contain mx-auto mb-4 rounded-xl bg-white/90 p-2" />
+        {/* Hero — only render if there's meaningful content */}
+        {(storePublic?.hero_image_url || storePublic?.hero_title || store?.logo_url) ? (
+          <section
+            className="relative py-16 px-4 min-h-[240px] md:min-h-[320px] flex items-center aspect-[1200/630]"
+            style={{
+              background: storePublic?.hero_image_url
+                ? undefined
+                : `linear-gradient(135deg, ${store?.primary_color || "#1a1a2e"}dd, ${store?.secondary_color || "#e2e8f0"}99)`,
+            }}
+          >
+            {storePublic?.hero_image_url && (
+              <>
+                <div
+                  className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                  style={{ backgroundImage: `url(${storePublic.hero_image_url})` }}
+                />
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to right, ${store?.primary_color || "#1a1a2e"}e6, ${store?.primary_color || "#1a1a2e"}80, transparent)`,
+                  }}
+                />
+              </>
             )}
-            <h1 className="text-4xl font-bold text-white drop-shadow-lg">
-              {storePublic?.hero_title || store?.name}
-            </h1>
-            {storePublic?.hero_subtitle && (
-              <p className="text-lg text-white/90 mt-2 drop-shadow max-w-xl mx-auto">
-                {storePublic.hero_subtitle}
-              </p>
-            )}
-            {dateRange && (
-              <div className="flex items-center justify-center gap-2 mt-3 text-white/90">
-                <Calendar className="w-4 h-4" />
-                <span className="text-sm">{dateRange}</span>
-              </div>
-            )}
-          </div>
-        </section>
+            <div className="absolute top-4 left-4 z-10">
+              <Button variant="ghost" size="sm" asChild className="text-white/80 hover:text-white">
+                <Link to="/team-stores">
+                  <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
+                </Link>
+              </Button>
+            </div>
+            <div className="container mx-auto text-center relative z-10">
+              {store?.logo_url && (
+                <img src={store.logo_url} alt={store.name} className="w-24 h-24 object-contain mx-auto mb-4 rounded-xl bg-white/90 p-2" />
+              )}
+              <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+                {storePublic?.hero_title || store?.name}
+              </h1>
+              {storePublic?.hero_subtitle && (
+                <p className="text-lg text-white/90 mt-2 drop-shadow max-w-xl mx-auto">
+                  {storePublic.hero_subtitle}
+                </p>
+              )}
+              {dateRange && (
+                <div className="flex items-center justify-center gap-2 mt-3 text-white/90">
+                  <Calendar className="w-4 h-4" />
+                  <span className="text-sm">{dateRange}</span>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : (
+          /* Minimal header bar with store name and back link when no hero content */
+          <section className="border-b bg-muted/30 py-4 px-4">
+            <div className="container mx-auto flex items-center gap-3">
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/team-stores">
+                  <ArrowLeft className="w-4 h-4 mr-1" /> All Stores
+                </Link>
+              </Button>
+              <h1 className="text-xl font-bold text-foreground">{store?.name}</h1>
+            </div>
+          </section>
+        )}
 
         {/* Popup Message */}
         <StorePopupMessage storeId={store!.id} />
