@@ -51,6 +51,8 @@ export function NewTemplateDialog() {
   const [primaryColor, setPrimaryColor] = useState("#C8102E");
   const [secondaryColor, setSecondaryColor] = useState("#000000");
   const [active, setActive] = useState(true);
+  const [schoolFont, setSchoolFont] = useState("Alumni Sans Collegiate One");
+  const [mascotFont, setMascotFont] = useState("Playball");
   const [svgFile, setSvgFile] = useState<File | null>(null);
   const [thumbFile, setThumbFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
@@ -65,6 +67,8 @@ export function NewTemplateDialog() {
     setPrimaryColor("#C8102E");
     setSecondaryColor("#000000");
     setActive(true);
+    setSchoolFont("Alumni Sans Collegiate One");
+    setMascotFont("Playball");
     setSvgFile(null);
     setThumbFile(null);
   };
@@ -110,6 +114,8 @@ export function NewTemplateDialog() {
         sport,
         category,
         active,
+        school_font: schoolFont,
+        mascot_font: mascotFont,
         svg_url_master: svgUrl,
         thumbnail_url: thumbUrl,
         default_colors: { primary: primaryColor, secondary: secondaryColor },
@@ -194,6 +200,26 @@ export function NewTemplateDialog() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          {/* Fonts */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>School Name Font</Label>
+              <Input
+                placeholder="e.g. Alumni Sans Collegiate One"
+                value={schoolFont}
+                onChange={(e) => setSchoolFont(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Mascot Name Font</Label>
+              <Input
+                placeholder="e.g. Playball"
+                value={mascotFont}
+                onChange={(e) => setMascotFont(e.target.value)}
+              />
             </div>
           </div>
 

@@ -782,7 +782,9 @@ export type Database = {
           default_colors: Json | null
           id: string
           image_url: string | null
+          mascot_font: string
           name: string
+          school_font: string
           sort_order: number
           sport: string
           svg_url_master: string | null
@@ -798,7 +800,9 @@ export type Database = {
           default_colors?: Json | null
           id?: string
           image_url?: string | null
+          mascot_font?: string
           name: string
+          school_font?: string
           sort_order?: number
           sport?: string
           svg_url_master?: string | null
@@ -814,7 +818,9 @@ export type Database = {
           default_colors?: Json | null
           id?: string
           image_url?: string | null
+          mascot_font?: string
           name?: string
+          school_font?: string
           sort_order?: number
           sport?: string
           svg_url_master?: string | null
