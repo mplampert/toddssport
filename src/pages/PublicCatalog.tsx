@@ -14,8 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Package, X, SlidersHorizontal } from "lucide-react";
+import { Search, Package, X, SlidersHorizontal, ClipboardList, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useInquiryCart } from "@/hooks/useInquiryCart";
+import { openInquiryDrawer } from "@/components/catalog/InquiryCartDrawer";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 24;
 
@@ -38,6 +41,7 @@ export default function PublicCatalog() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [page, setPage] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
+  const { addItem, isInCart, count: inquiryCount } = useInquiryCart();
 
   // Fetch filter options (brands & categories)
   const { data: filterOptions } = useQuery({
@@ -279,52 +283,89 @@ export default function PublicCatalog() {
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-                  {products.map((product) => (
-                    <Link
-                      key={product.id}
-                      to={`/catalog/${product.id}`}
-                      className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col"
-                    >
-                      <div className="relative aspect-square bg-secondary/30 overflow-hidden">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <Package className="w-10 h-10 text-muted-foreground/20" />
+                  {products.map((product) => {
+                    const inCart = isInCart(product.id);
+                    return (
+                      <div
+                        key={product.id}
+                        className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col"
+                      >
+                        <Link to={`/catalog/${product.id}`} className="flex flex-col flex-grow">
+                          <div className="relative aspect-square bg-secondary/30 overflow-hidden">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                alt={product.name}
+                                className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <Package className="w-10 h-10 text-muted-foreground/20" />
+                              </div>
+                            )}
+                            {product.category && (
+                              <Badge
+                                variant="secondary"
+                                className="absolute top-2 left-2 text-[10px] bg-background/90 backdrop-blur-sm"
+                              >
+                                {formatCategory(product.category)}
+                              </Badge>
+                            )}
                           </div>
-                        )}
-                        {product.category && (
-                          <Badge
-                            variant="secondary"
-                            className="absolute top-2 left-2 text-[10px] bg-background/90 backdrop-blur-sm"
-                          >
-                            {formatCategory(product.category)}
-                          </Badge>
-                        )}
-                      </div>
 
-                      <div className="p-3 flex-grow flex flex-col">
-                        {product.brand_name && (
-                          <p className="text-[10px] uppercase tracking-wider text-accent font-semibold mb-0.5">
-                            {product.brand_name}
-                          </p>
-                        )}
-                        <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-accent transition-colors">
-                          {product.name}
-                        </h3>
-                        {product.source_sku && (
-                          <p className="text-[11px] text-muted-foreground mt-auto">
-                            #{product.source_sku}
-                          </p>
-                        )}
+                          <div className="p-3 flex-grow flex flex-col">
+                            {product.brand_name && (
+                              <p className="text-[10px] uppercase tracking-wider text-accent font-semibold mb-0.5">
+                                {product.brand_name}
+                              </p>
+                            )}
+                            <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-accent transition-colors">
+                              {product.name}
+                            </h3>
+                            {product.source_sku && (
+                              <p className="text-[11px] text-muted-foreground mt-auto">
+                                #{product.source_sku}
+                              </p>
+                            )}
+                          </div>
+                        </Link>
+
+                        <div className="px-3 pb-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!inCart) {
+                                addItem({
+                                  productId: product.id,
+                                  name: product.name,
+                                  brand: product.brand_name || "",
+                                  sourceSku: product.source_sku,
+                                  color: null,
+                                  imageUrl: product.image_url,
+                                  productUrl: `/catalog/${product.id}`,
+                                });
+                                toast.success(`Added "${product.name}" to inquiry list`);
+                              } else {
+                                openInquiryDrawer();
+                              }
+                            }}
+                            className={`w-full flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 px-2 rounded-md transition-colors ${
+                              inCart
+                                ? "bg-accent/10 text-accent border border-accent/30"
+                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                            }`}
+                          >
+                            {inCart ? (
+                              <><Check className="w-3 h-3" /> In Inquiry List</>
+                            ) : (
+                              <><ClipboardList className="w-3 h-3" /> Add to Inquiry</>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                    </Link>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {totalPages > 1 && (

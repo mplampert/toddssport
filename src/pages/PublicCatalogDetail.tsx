@@ -25,10 +25,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ArrowLeft, Package, Share2, Send, Check, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, Package, Share2, Send, Check, Loader2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getProducts, getStyles, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
+import { useInquiryCart } from "@/hooks/useInquiryCart";
+import { openInquiryDrawer } from "@/components/catalog/InquiryCartDrawer";
 
 interface ColorOption {
   name: string;
@@ -490,11 +492,21 @@ export default function PublicCatalogDetail() {
 
                 {/* CTA Buttons */}
                 <div className="space-y-3">
+                  {/* Add to Inquiry List */}
+                  <AddToInquiryButton
+                    productId={masterProduct?.id || styleId || ""}
+                    name={productName}
+                    brand={brandName}
+                    sourceSku={partNumber}
+                    color={selectedColor}
+                    imageUrl={galleryImages[0] || mainImage || null}
+                  />
+
                   <Dialog open={inquiryOpen} onOpenChange={(open) => { setInquiryOpen(open); if (!open) setSubmitted(false); }}>
                     <DialogTrigger asChild>
-                      <Button size="lg" className="w-full btn-cta text-base">
+                      <Button size="lg" variant="outline" className="w-full text-base">
                         <Send className="w-5 h-5 mr-2" />
-                        Request This Product
+                        Request This Product Only
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="max-w-lg">
@@ -603,5 +615,54 @@ export default function PublicCatalogDetail() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+function AddToInquiryButton({
+  productId,
+  name,
+  brand,
+  sourceSku,
+  color,
+  imageUrl,
+}: {
+  productId: string;
+  name: string;
+  brand: string;
+  sourceSku: string;
+  color: string | null;
+  imageUrl: string | null;
+}) {
+  const { addItem, isInCart } = useInquiryCart();
+  const inCart = isInCart(productId);
+
+  return (
+    <Button
+      size="lg"
+      className={`w-full text-base ${inCart ? "" : "btn-cta"}`}
+      variant={inCart ? "outline" : "default"}
+      onClick={() => {
+        if (!inCart) {
+          addItem({
+            productId,
+            name,
+            brand,
+            sourceSku,
+            color,
+            imageUrl,
+            productUrl: `/catalog/${productId}`,
+          });
+          toast.success(`Added "${name}" to inquiry list`);
+        } else {
+          openInquiryDrawer();
+        }
+      }}
+    >
+      {inCart ? (
+        <><Check className="w-5 h-5 mr-2" /> In Inquiry List — View List</>
+      ) : (
+        <><ClipboardList className="w-5 h-5 mr-2" /> Add to Inquiry List</>
+      )}
+    </Button>
   );
 }

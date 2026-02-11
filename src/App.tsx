@@ -118,6 +118,7 @@ import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail";
 import PublicCatalog from "./pages/PublicCatalog";
 import PublicCatalogDetail from "./pages/PublicCatalogDetail";
+import { InquiryCartDrawer } from "./components/catalog/InquiryCartDrawer";
 
 const queryClient = new QueryClient();
 
@@ -130,6 +131,7 @@ const App = () => (
       <BrowserRouter>
         <ScrollToTop />
         <ChatWidgetController />
+        <InquiryCartDrawer />
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/services" element={<Services />} />

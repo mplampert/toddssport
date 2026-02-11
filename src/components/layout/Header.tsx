@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, ChevronDown, ShoppingCart } from "lucide-react";
+import { Menu, X, ChevronDown, ShoppingCart, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { trackCTAClick, trackOutboundClick } from "@/lib/ga4";
@@ -13,6 +13,8 @@ import {
 import toddsLogo from "@/assets/todds-logo.png";
 import { useTeamStoreCart } from "@/hooks/useTeamStoreCart";
 import { openCartDrawer } from "@/components/team-stores/TeamStoreCartDrawer";
+import { useInquiryCart } from "@/hooks/useInquiryCart";
+import { openInquiryDrawer } from "@/components/catalog/InquiryCartDrawer";
 
 const serviceLinks = [
   { name: "Team Uniforms", path: "/uniforms" },
@@ -36,6 +38,7 @@ export function Header() {
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const location = useLocation();
   const { items, itemsForStore } = useTeamStoreCart();
+  const { count: inquiryCount } = useInquiryCart();
 
   // Detect if we're on a team store storefront page
   const storeSlugMatch = location.pathname.match(/^\/team-stores\/([^/]+)/);
@@ -146,8 +149,21 @@ export function Header() {
             </Link>
           </nav>
 
-          {/* CTA Button + Cart */}
+          {/* CTA Button + Cart + Inquiry */}
           <div className="hidden md:flex items-center gap-3">
+            {/* Inquiry Cart Icon */}
+            {inquiryCount > 0 && (
+              <button
+                onClick={() => openInquiryDrawer()}
+                className="relative p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label={`Inquiry list (${inquiryCount} items)`}
+              >
+                <ClipboardList className="w-5 h-5" />
+                <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-accent text-accent-foreground">
+                  {inquiryCount}
+                </Badge>
+              </button>
+            )}
             {isStorefront && (
               <button
                 onClick={() => openCartDrawer()}
@@ -169,6 +185,19 @@ export function Header() {
 
           {/* Mobile: Cart + Menu Button */}
           <div className="md:hidden flex items-center gap-2">
+            {/* Inquiry Cart Icon - Mobile */}
+            {inquiryCount > 0 && (
+              <button
+                onClick={() => openInquiryDrawer()}
+                className="relative p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label={`Inquiry list (${inquiryCount} items)`}
+              >
+                <ClipboardList className="w-5 h-5" />
+                <Badge className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center text-[10px] px-1 bg-accent text-accent-foreground">
+                  {inquiryCount}
+                </Badge>
+              </button>
+            )}
             {isStorefront && (
               <button
                 onClick={() => openCartDrawer()}
