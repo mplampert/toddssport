@@ -8,6 +8,7 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { loadGoogleFont } from "./GoogleFontPicker";
 // SVG is fetched from svg_url_master at runtime
 
 interface SvgDesignEditorProps {
@@ -48,6 +49,12 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       return data ?? [];
     },
   });
+
+  // Load Google Fonts for this template
+  useEffect(() => {
+    if (template.school_font) loadGoogleFont(template.school_font);
+    if (template.mascot_font) loadGoogleFont(template.mascot_font);
+  }, [template.school_font, template.mascot_font]);
 
   // Fetch and render SVG inline from svg_url_master
   useEffect(() => {

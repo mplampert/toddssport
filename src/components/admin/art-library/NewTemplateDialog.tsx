@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { GoogleFontPicker } from "./GoogleFontPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -207,19 +208,11 @@ export function NewTemplateDialog() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>School Name Font</Label>
-              <Input
-                placeholder="e.g. Alumni Sans Collegiate One"
-                value={schoolFont}
-                onChange={(e) => setSchoolFont(e.target.value)}
-              />
+              <GoogleFontPicker value={schoolFont} onChange={setSchoolFont} />
             </div>
             <div className="space-y-1.5">
               <Label>Mascot Name Font</Label>
-              <Input
-                placeholder="e.g. Playball"
-                value={mascotFont}
-                onChange={(e) => setMascotFont(e.target.value)}
-              />
+              <GoogleFontPicker value={mascotFont} onChange={setMascotFont} />
             </div>
           </div>
 
