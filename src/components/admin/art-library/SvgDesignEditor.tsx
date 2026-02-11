@@ -4,10 +4,13 @@ import { ArrowLeft } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import { loadGoogleFont } from "./GoogleFontPicker";
 import { discoverTextBlocks, discoverColors, type TextBlock } from "./svg-editor/utils";
 import { BuilderCanvas } from "./svg-editor/BuilderCanvas";
 import { BuilderPanel } from "./svg-editor/BuilderPanel";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 interface TemplateData {
   id: string;
@@ -24,6 +27,30 @@ interface TemplateData {
 interface SvgDesignEditorProps {
   template: TemplateData;
   onBack: () => void;
+}
+
+/** Render SVG string to a PNG blob via offscreen canvas */
+async function svgToPng(svgString: string, width = 2048, height = 2048): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { reject(new Error("No canvas context")); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((b) => {
+        if (b) resolve(b);
+        else reject(new Error("PNG conversion failed"));
+      }, "image/png");
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("SVG image load failed")); };
+    img.src = url;
+  });
 }
 
 export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
@@ -44,10 +71,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
   const [textFonts, setTextFonts] = useState<Record<string, string>>({});
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTeamStoreId, setSelectedTeamStoreId] = useState<string>("");
+  const [isDownloading, setIsDownloading] = useState(false);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch team stores
   const { data: teamStores } = useQuery({
     queryKey: ["art-library-team-stores"],
     queryFn: async () => {
@@ -61,7 +88,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     },
   });
 
-  // Load all supported fonts + template defaults
   useEffect(() => {
     const fonts = new Set<string>([
       ...(template.supported_fonts ?? []),
@@ -71,7 +97,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     fonts.forEach((f) => { if (f) loadGoogleFont(f); });
   }, [template]);
 
-  // Fetch and render SVG, then discover text blocks + colors
   useEffect(() => {
     if (!svgContainerRef.current || !template.svg_url_master) return;
     let cancelled = false;
@@ -87,7 +112,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         svgEl.style.maxWidth = "100%";
         svgEl.style.maxHeight = "100%";
 
-        // Discover text blocks from SVG DOM
         const blocks = discoverTextBlocks(svgEl);
         setTextBlocks(blocks);
         const vals: Record<string, string> = {};
@@ -100,7 +124,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         setTextValues(vals);
         setTextFonts(fnts);
 
-        // Auto-discover colors
         const discovered = discoverColors(svgEl);
         if (discovered.length > 0) {
           const newColors: Record<string, string> = {};
@@ -123,25 +146,21 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     return () => { cancelled = true; };
   }, [template.svg_url_master]);
 
-  // Apply text + color changes to SVG DOM
   const updateSvg = useCallback(() => {
     if (!svgContainerRef.current) return;
     const svg = svgContainerRef.current.querySelector("svg");
     if (!svg) return;
 
-    // Update text blocks
     textBlocks.forEach((block) => {
       const el = svg.querySelector(`#${block.id}`) as SVGTextElement | null;
       if (!el) return;
       const newText = textValues[block.id] ?? block.defaultText;
       const font = textFonts[block.id] ?? block.font;
 
-      // Ensure text stays centered
       if (!el.getAttribute("text-anchor")) {
         el.setAttribute("text-anchor", "middle");
       }
 
-      // Update text content: preserve tspan structure if present
       const tspans = el.querySelectorAll("tspan");
       if (tspans.length > 0) {
         tspans[0].textContent = newText;
@@ -163,7 +182,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       el.style.fontFamily = font;
     });
 
-    // Update color slots
     colorSlots.forEach((slot) => {
       const color = colors[slot];
       if (!svgContainerRef.current) return;
@@ -203,11 +221,8 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     setColors((prev) => ({ ...prev, [slot]: value }));
   };
 
-  const handleDragText = useCallback((id: string, dx: number, dy: number) => {
-    // Drag handled directly in canvas for responsiveness
-  }, []);
+  const handleDragText = useCallback(() => {}, []);
 
-  // Serialize SVG
   const getSerializedSvg = (): string => {
     if (!svgContainerRef.current) return "";
     const svgEl = svgContainerRef.current.querySelector("svg");
@@ -215,30 +230,123 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     return new XMLSerializer().serializeToString(svgEl);
   };
 
+  /** Build a design name from template + text values */
+  const getDesignName = () => {
+    const schoolName = textValues["school-name"] || textValues["text-block-0"] || "";
+    const mascotName = textValues["mascot-name"] || textValues["text-block-1"] || "";
+    const parts = [schoolName, mascotName].filter(Boolean);
+    return parts.length > 0 ? `${template.code} — ${parts.join(" ")}` : template.name;
+  };
+
+  /** Build font info text for the package */
+  const getFontInfo = (): string => {
+    const usedFonts = new Set<string>();
+    textBlocks.forEach((b) => {
+      const font = textFonts[b.id] ?? b.font;
+      usedFonts.add(font);
+    });
+    const lines = [
+      `Design: ${getDesignName()}`,
+      `Template: ${template.code}`,
+      `Generated: ${new Date().toISOString()}`,
+      "",
+      "FONTS USED",
+      "===========",
+      ...Array.from(usedFonts).map((f) => `• ${f} — https://fonts.google.com/specimen/${f.replace(/ /g, "+")}`),
+      "",
+      "COLORS USED",
+      "===========",
+      ...colorSlots.map((slot) => `• ${slot}: ${colors[slot] || "N/A"}`),
+      "",
+      "TEXT LAYERS",
+      "===========",
+      ...textBlocks.map((b) => `• ${b.label}: "${textValues[b.id] ?? b.defaultText}" (font: ${textFonts[b.id] ?? b.font})`),
+      "",
+      "NOTES",
+      "=====",
+      "• SVG file is the source of truth — fully editable in Adobe Illustrator, Inkscape, or Figma.",
+      "• PNG is a high-resolution (2048×2048) rasterized version.",
+      "• To create AI/EPS files, open the SVG in Adobe Illustrator and export.",
+      "• Fonts must be installed locally or outlined before sending to print.",
+    ];
+    return lines.join("\n");
+  };
+
+  // Save to team logos
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedTeamStoreId) throw new Error("Please select a team store");
       const svgString = getSerializedSvg();
       if (!svgString) throw new Error("No SVG to save");
 
-      const fileName = `team_${selectedTeamStoreId}_${template.id}.svg`;
-      const blob = new Blob([svgString], { type: "image/svg+xml" });
+      const ts = Date.now();
+      const baseName = `${selectedTeamStoreId}/${template.code}-${ts}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("team-art")
-        .upload(fileName, blob, { upsert: true, contentType: "image/svg+xml" });
-      if (uploadError) throw uploadError;
+      // Upload SVG
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
+      const svgPath = `${baseName}.svg`;
+      const { error: svgErr } = await supabase.storage
+        .from("store-logos")
+        .upload(svgPath, svgBlob, { upsert: true, contentType: "image/svg+xml" });
+      if (svgErr) throw svgErr;
 
-      const { data: urlData } = supabase.storage
-        .from("team-art")
-        .getPublicUrl(fileName);
+      // Upload PNG
+      let pngUrl = "";
+      try {
+        const pngBlob = await svgToPng(svgString);
+        const pngPath = `${baseName}.png`;
+        const { error: pngErr } = await supabase.storage
+          .from("store-logos")
+          .upload(pngPath, pngBlob, { upsert: true, contentType: "image/png" });
+        if (!pngErr) {
+          pngUrl = `${SUPABASE_URL}/storage/v1/object/public/store-logos/${pngPath}`;
+        }
+      } catch {
+        // PNG is best-effort
+      }
 
-      const { error: dbError } = await supabase
+      const svgUrl = `${SUPABASE_URL}/storage/v1/object/public/store-logos/${svgPath}`;
+      const designName = getDesignName();
+
+      // Insert into store_logos
+      const { data: newLogo, error: logoErr } = await supabase
+        .from("store_logos")
+        .insert({
+          team_store_id: selectedTeamStoreId,
+          name: designName,
+          method: "multi",
+          placement: "left_front",
+          decoration_type: "screen_print",
+          file_url: pngUrl || svgUrl,
+          file_type: "svg",
+          original_file_url: svgUrl,
+        } as any)
+        .select("id")
+        .single();
+      if (logoErr) throw logoErr;
+
+      // Create default variant
+      await supabase.from("store_logo_variants" as any).insert({
+        store_logo_id: newLogo.id,
+        name: "Default",
+        colorway: "original",
+        file_url: pngUrl || svgUrl,
+        screen_print_enabled: true,
+        embroidery_enabled: false,
+        dtf_enabled: false,
+        background_rule: "any",
+        is_default: true,
+        file_type: pngUrl ? "image" : "svg",
+        original_file_url: svgUrl,
+      });
+
+      // Also save to team_art for metadata
+      await supabase
         .from("team_art" as any)
         .upsert({
           team_store_id: selectedTeamStoreId,
           design_template_id: template.id,
-          svg_url_final: urlData.publicUrl,
+          svg_url_final: svgUrl,
           school_name: textValues["school-name"] || "",
           mascot_name: textValues["mascot-name"] || "",
           primary_color: colors.primary || "",
@@ -246,18 +354,74 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
           text_fonts: textFonts,
           color_values: colors,
         }, { onConflict: "team_store_id,design_template_id" } as any);
-      if (dbError) throw dbError;
 
-      return urlData.publicUrl;
+      return svgUrl;
     },
     onSuccess: () => {
-      toast.success("Design saved!", { description: "SVG uploaded to storage" });
+      toast.success("Design saved to team logos!", {
+        description: "SVG + PNG uploaded and added to logo library",
+      });
       queryClient.invalidateQueries({ queryKey: ["art-library"] });
+      queryClient.invalidateQueries({ queryKey: ["store-logos"] });
     },
     onError: (err: any) => {
       toast.error("Failed to save design", { description: err.message });
     },
   });
+
+  // Download logo package as ZIP
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      const svgString = getSerializedSvg();
+      if (!svgString) throw new Error("No SVG to export");
+
+      const zip = new JSZip();
+      const folderName = `${template.code}-logo-package`;
+      const folder = zip.folder(folderName)!;
+
+      // SVG
+      folder.file(`${template.code}.svg`, svgString);
+
+      // PNG (high-res)
+      try {
+        const pngBlob = await svgToPng(svgString, 2048, 2048);
+        folder.file(`${template.code}-2048.png`, pngBlob);
+      } catch {
+        // skip if PNG fails
+      }
+
+      // PNG (web-res)
+      try {
+        const pngSmall = await svgToPng(svgString, 512, 512);
+        folder.file(`${template.code}-512.png`, pngSmall);
+      } catch {
+        // skip
+      }
+
+      // Font & color info
+      folder.file("README.txt", getFontInfo());
+
+      // Generate ZIP
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${folderName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success("Logo package downloaded!", {
+        description: "Includes SVG, PNG (hi-res & web), fonts and color info",
+      });
+    } catch (err: any) {
+      toast.error("Download failed", { description: err.message });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] gap-3">
@@ -304,6 +468,8 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
             onTeamStoreChange={setSelectedTeamStoreId}
             onSave={() => saveMutation.mutate()}
             isSaving={saveMutation.isPending}
+            onDownload={handleDownload}
+            isDownloading={isDownloading}
           />
         </div>
       </div>

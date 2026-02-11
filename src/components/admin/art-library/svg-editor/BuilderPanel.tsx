@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Loader2, Type, Palette, FolderOpen } from "lucide-react";
+import { Save, Loader2, Type, Palette, FolderOpen, Download } from "lucide-react";
 import { GoogleFontPicker } from "../GoogleFontPicker";
 import type { TextBlock } from "./utils";
 import { SLOT_LABELS } from "./utils";
@@ -28,6 +28,10 @@ interface BuilderPanelProps {
   onTeamStoreChange: (id: string) => void;
   onSave: () => void;
   isSaving: boolean;
+
+  // Download
+  onDownload: () => void;
+  isDownloading: boolean;
 }
 
 export function BuilderPanel({
@@ -46,6 +50,8 @@ export function BuilderPanel({
   onTeamStoreChange,
   onSave,
   isSaving,
+  onDownload,
+  isDownloading,
 }: BuilderPanelProps) {
   const selectedBlock = textBlocks.find((b) => b.id === selectedTextId);
 
@@ -136,12 +142,40 @@ export function BuilderPanel({
         </div>
       </div>
 
+      {/* DOWNLOAD SECTION */}
+      <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <Download className="w-4 h-4 text-accent" />
+          Logo Package
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Download ZIP with SVG, hi-res PNG, font &amp; color info
+        </p>
+        <Button
+          onClick={onDownload}
+          disabled={isDownloading}
+          variant="outline"
+          className="w-full gap-2 h-9"
+          size="sm"
+        >
+          {isDownloading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Download className="w-4 h-4" />
+          )}
+          Download Package
+        </Button>
+      </div>
+
       {/* SAVE SECTION */}
       <div className="rounded-xl border border-border bg-card p-3 space-y-3 mt-auto">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <FolderOpen className="w-4 h-4 text-accent" />
-          Save to Team
+          Save to Team Logos
         </div>
+        <p className="text-xs text-muted-foreground">
+          Saves SVG + PNG to the team's logo library for use on products
+        </p>
         <Select value={selectedTeamStoreId} onValueChange={onTeamStoreChange}>
           <SelectTrigger className="h-8 text-sm">
             <SelectValue placeholder="Select a team store…" />
@@ -165,7 +199,7 @@ export function BuilderPanel({
           ) : (
             <Save className="w-4 h-4" />
           )}
-          Save Design
+          Save to Logo Library
         </Button>
       </div>
     </div>
