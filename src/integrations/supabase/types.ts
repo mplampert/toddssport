@@ -2252,7 +2252,7 @@ export type Database = {
           name: string
           original_file_url: string | null
           placement: string | null
-          team_store_id: string
+          team_store_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2266,7 +2266,7 @@ export type Database = {
           name: string
           original_file_url?: string | null
           placement?: string | null
-          team_store_id: string
+          team_store_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2280,7 +2280,7 @@ export type Database = {
           name?: string
           original_file_url?: string | null
           placement?: string | null
-          team_store_id?: string
+          team_store_id?: string | null
           updated_at?: string
         }
         Relationships: [
