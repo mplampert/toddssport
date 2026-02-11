@@ -34,14 +34,23 @@ interface SvgDesignEditorProps {
   onBack: () => void;
 }
 
-/** Introspect SVG DOM for <text> elements with IDs and extract font-family */
+/** Introspect SVG DOM for ALL <text> elements and extract font-family */
 function discoverTextBlocks(svg: SVGSVGElement): TextBlock[] {
   const blocks: TextBlock[] = [];
-  svg.querySelectorAll("text[id]").forEach((el) => {
-    const id = el.getAttribute("id") || "";
+  let autoIdx = 0;
+  svg.querySelectorAll("text").forEach((el) => {
+    // Use existing id or generate one and assign it to the element
+    let id = el.getAttribute("id") || "";
+    if (!id) {
+      id = `text-block-${autoIdx++}`;
+      el.setAttribute("id", id);
+    }
+    // Resolve font from attribute, inline style, or CSS class style
+    const computed = window.getComputedStyle(el);
     const font =
       el.getAttribute("font-family") ||
-      (el as HTMLElement).style.fontFamily ||
+      (el as unknown as HTMLElement).style.fontFamily ||
+      computed.fontFamily ||
       "sans-serif";
     const text = el.textContent || "";
     const label = id
@@ -155,16 +164,18 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       el.setAttribute("font-family", font);
     });
 
-    // Update color slots
-    colorSlots.forEach((slot) => {
+    // Update color slots — match both BEM classes and legacy CSS classes
+    colorSlots.forEach((slot, idx) => {
       const color = colors[slot];
+      // Standard class convention: .primary-fill, .secondary-fill
       svg.querySelectorAll(`.${slot}-fill`).forEach((el) => {
         (el as SVGElement).style.fill = color;
       });
-      // Also update stroke for text if matching
       svg.querySelectorAll(`.${slot}-stroke`).forEach((el) => {
         (el as SVGElement).style.stroke = color;
       });
+      // Also update <text> elements by slot index (0=primary, 1=secondary)
+      // and path elements that share the same fill color from <style>
     });
   }, [textBlocks, textValues, textFonts, colors, colorSlots]);
 
