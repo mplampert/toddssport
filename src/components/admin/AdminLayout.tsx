@@ -27,7 +27,7 @@ const globalNavItems = [
   { path: "/admin/champro-orders", label: "Champro Orders", icon: Package },
   { path: "/admin/champro-pricing", label: "Champro Pricing", icon: DollarSign },
   { path: "/admin/message-generator", label: "AI Message Generator", icon: Sparkles },
-  { path: "/admin/catalog-products", label: "Product Catalog", icon: ShoppingBag },
+  // DEPRECATED: /admin/catalog-products removed from nav — use /admin/catalog/master/brands instead
   { path: "/admin/promo-products", label: "Promo Products", icon: Gift },
   { path: "/admin/art-library", label: "Art Library", icon: Palette },
   { path: "/admin/team-stores", label: "Team Stores", icon: Store },
