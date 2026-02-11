@@ -342,12 +342,12 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
   // Save to team logos
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedTeamStoreId) throw new Error("Please select a team store");
       const svgString = getSerializedSvg();
       if (!svgString) throw new Error("No SVG to save");
 
-      const ts = Date.now();
-      const baseName = `${selectedTeamStoreId}/${template.code}-${ts}`;
+      const timestamp = Date.now();
+      const folder = selectedTeamStoreId || "global";
+      const baseName = `${folder}/${template.code}-${timestamp}`;
 
       // Upload SVG
       const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
@@ -379,7 +379,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       const { data: newLogo, error: logoErr } = await supabase
         .from("store_logos")
         .insert({
-          team_store_id: selectedTeamStoreId,
+          team_store_id: selectedTeamStoreId || null,
           name: designName,
           method: "multi",
           placement: "left_front",
@@ -407,20 +407,22 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         original_file_url: svgUrl,
       });
 
-      // Also save to team_art for metadata
-      await supabase
-        .from("team_art" as any)
-        .upsert({
-          team_store_id: selectedTeamStoreId,
-          design_template_id: template.id,
-          svg_url_final: svgUrl,
-          school_name: textValues["school-name"] || "",
-          mascot_name: textValues["mascot-name"] || "",
-          primary_color: colors.primary || "",
-          secondary_color: colors.secondary || "",
-          text_fonts: textFonts,
-          color_values: colors,
-        }, { onConflict: "team_store_id,design_template_id" } as any);
+      // Also save to team_art for metadata (only if a store is selected)
+      if (selectedTeamStoreId) {
+        await supabase
+          .from("team_art" as any)
+          .upsert({
+            team_store_id: selectedTeamStoreId,
+            design_template_id: template.id,
+            svg_url_final: svgUrl,
+            school_name: textValues["school-name"] || "",
+            mascot_name: textValues["mascot-name"] || "",
+            primary_color: colors.primary || "",
+            secondary_color: colors.secondary || "",
+            text_fonts: textFonts,
+            color_values: colors,
+          }, { onConflict: "team_store_id,design_template_id" } as any);
+      }
 
       return svgUrl;
     },
