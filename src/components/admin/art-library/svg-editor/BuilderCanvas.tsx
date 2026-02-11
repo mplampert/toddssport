@@ -217,11 +217,11 @@ export function BuilderCanvas({
       const el = svg.querySelector(`#${targetIdRef.current}`) as SVGTextElement | null;
       if (!el) return;
 
-      // Scale based on horizontal drag distance
+      // Scale based on horizontal drag distance — wide range allowed
       const dx = pt.x - resizeStartRef.current.x;
       const vb = getViewBox(svg);
-      const scaleFactor = 1 + (dx / (vb.w * 0.3));
-      const newSize = Math.max(8, Math.min(300, resizeStartRef.current.fontSize * scaleFactor));
+      const scaleFactor = 1 + (dx / (vb.w * 0.15));
+      const newSize = Math.max(2, Math.min(2000, resizeStartRef.current.fontSize * scaleFactor));
 
       el.setAttribute("font-size", String(Math.round(newSize)));
       el.style.fontSize = `${Math.round(newSize)}px`;
