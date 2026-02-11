@@ -12,7 +12,7 @@ import { toast } from "sonner";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
 import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
-import { pickBestVariant, type LogoVariantOption } from "@/lib/logoVariantPicker";
+import { type LogoVariantOption } from "@/lib/logoVariantPicker";
 import { useProductVariantImages, type VariantImage } from "@/hooks/useVariantImages";
 import { TextLayerPanel } from "./TextLayerPanel";
 import { type TextLayer, DEFAULT_TEXT_LAYER, TEXT_SOURCE_LABELS, type TextLayerSource } from "@/lib/textLayers";
@@ -262,61 +262,49 @@ export function ProductLogosTab({ item, storeId }: Props) {
   useEffect(() => {
     if (!existingPlacements) return;
 
-    const all = existingPlacements.map((p: any) => ({
-      id: p.id,
-      store_logo_id: p.store_logo_id,
-      store_logo_variant_id: p.store_logo_variant_id,
-      // Persisted rows are treated as "locked" so we don't auto-pick over them
-      variant_locked: true,
-      position: p.position || "left_chest",
-      x: p.x ?? 0.5,
-      y: p.y ?? 0.2,
-      scale: p.scale ?? 0.3,
-      rotation: p.rotation ?? 0,
-      is_primary: p.is_primary ?? false,
-      role: p.role || "primary",
-      sort_order: p.sort_order ?? 0,
-      active: p.active ?? true,
-      variant_color: p.variant_color ?? null,
-      variant_size: p.variant_size ?? null,
-      view: p.view ?? "front",
-      _logo_name: p.store_logos?.name,
-      _logo_url: p.store_logos?.file_url,
-    }));
+    const all = existingPlacements.map((p: any) => {
+      // Resolve logo URL: prefer the specific variant's image, then the logo's base image
+      let resolvedUrl = p.store_logos?.file_url;
+      if (p.store_logo_variant_id) {
+        const variants = variantsByLogo.get(p.store_logo_id) || [];
+        const variant = variants.find((v) => v.id === p.store_logo_variant_id);
+        if (variant) resolvedUrl = variant.file_url;
+      }
+
+      return {
+        id: p.id,
+        store_logo_id: p.store_logo_id,
+        store_logo_variant_id: p.store_logo_variant_id,
+        // Persisted rows are ALWAYS locked — the user's choice is sacred
+        variant_locked: true,
+        position: p.position || "left_chest",
+        x: p.x ?? 0.5,
+        y: p.y ?? 0.2,
+        scale: p.scale ?? 0.3,
+        rotation: p.rotation ?? 0,
+        is_primary: p.is_primary ?? false,
+        role: p.role || "primary",
+        sort_order: p.sort_order ?? 0,
+        active: p.active ?? true,
+        variant_color: p.variant_color ?? null,
+        variant_size: p.variant_size ?? null,
+        view: p.view ?? "front",
+        _logo_name: p.store_logos?.name,
+        _logo_url: resolvedUrl,
+      };
+    });
 
     const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
-    // Default to per-color mode; only switch to "all" if no color overrides exist AND no colors available.
+    // Default to per-color mode when multiple colors exist.
     // IMPORTANT: once a user explicitly toggles the mode, never auto-flip it again.
     const shouldApplyAll = !hasColorOverrides && colorOptions.length <= 1;
     if (!applyModeUserSetRef.current) setApplyToAllColors(shouldApplyAll);
     const applyAll = applyModeUserSetRef.current ? applyToAllColors : shouldApplyAll;
 
-    let filtered = filterPlacementsForEditing(all, selectedColor, applyAll, activeView);
+    const filtered = filterPlacementsForEditing(all, selectedColor, applyAll, activeView);
 
-    // Auto-pick best logo variant for the current garment color
-    // IMPORTANT: never overwrite a user's manual selection (variant_locked)
-    const garmentColor = selectedColor
-      ? colorOptions.find((c) => c.code === selectedColor)?.color1
-      : undefined;
-    if (garmentColor) {
-      filtered = filtered.map((p) => {
-        const variants = variantsByLogo.get(p.store_logo_id) || [];
-        if (variants.length <= 1) return p;
-
-        const best = pickBestVariant(variants, garmentColor);
-        const shouldAutopick = !p.variant_locked || p.store_logo_variant_id == null;
-
-        if (best && best.id !== p.store_logo_variant_id && shouldAutopick) {
-          return {
-            ...p,
-            store_logo_variant_id: best.id,
-            _logo_url: best.file_url,
-            variant_locked: false,
-          };
-        }
-        return p;
-      });
-    }
+    // NO auto-pick — the user explicitly chooses which logo variant goes on which shirt color.
+    // The variant dropdown in the controls panel is the only way to change it.
 
     setPlacements(filtered);
     setSavedSnapshot(JSON.stringify(all));
@@ -342,16 +330,17 @@ export function ProductLogosTab({ item, storeId }: Props) {
     }
     const colorSpecific = viewFiltered.filter((p) => p.variant_color === color);
     if (colorSpecific.length > 0) return colorSpecific;
+    // Fallback: copy global placements to this color — keep variant_locked: true
+    // so the variant stays as-is until the user explicitly changes it via the dropdown.
     return viewFiltered.filter((p) => !p.variant_color).map((p) => ({
       ...p,
       id: undefined,
       variant_color: color,
-      // New per-color overrides start unlocked so autopick can help initially
-      variant_locked: false,
+      variant_locked: true,
     }));
   }
 
-  // Add a store logo to this product with default placement + auto-pick variant
+  // Add a store logo to this product with default variant (user picks the right one via dropdown)
   const addLogoToProduct = (logo: StoreLogo) => {
     const defaultPresetCode = activeView === "back" ? "upper_back"
       : activeView === "left_sleeve" ? "left_sleeve"
@@ -359,18 +348,15 @@ export function ProductLogosTab({ item, storeId }: Props) {
       : "left_chest";
     const defaultPreset = presets.find((p) => p.code === defaultPresetCode) || presets[0];
     const logoVariants = variantsByLogo.get(logo.id) || [];
-    const garmentColor = selectedColor
-      ? colorOptions.find((c) => c.code === selectedColor)?.color1
-      : undefined;
-    const bestVariant = pickBestVariant(logoVariants, garmentColor);
+    // Use the default variant (or first one), NOT auto-picked by garment color
+    const defaultVariant = logoVariants.find((v) => v.is_default) || logoVariants[0] || null;
 
     setPlacements((prev) => [
       ...prev,
       {
         store_logo_id: logo.id,
-        store_logo_variant_id: bestVariant?.id || null,
-        // New placement starts unlocked; user can lock it by explicitly choosing a variant
-        variant_locked: false,
+        store_logo_variant_id: defaultVariant?.id || null,
+        variant_locked: true,
         position: defaultPreset?.code || "left_chest",
         x: defaultPreset?.default_x ?? 0.35,
         y: defaultPreset?.default_y ?? 0.25,
@@ -384,12 +370,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
         variant_size: null,
         view: activeView,
         _logo_name: logo.name,
-        _logo_url: bestVariant?.file_url || logo.file_url,
+        _logo_url: defaultVariant?.file_url || logo.file_url,
       },
     ]);
     setActivePlacementIdx(placements.length);
     setDirty(true);
-    toast.success(`Added "${logo.name}" to ${activeView} view — adjust placement on the canvas`);
+    toast.success(`Added "${logo.name}" — choose the logo variant for this color in the controls panel`);
   };
 
   const removePlacement = (idx: number) => {
@@ -1196,15 +1182,13 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     <Select value={active.store_logo_id} onValueChange={(v) => {
                       const logo = storeLogos.find((l) => l.id === v);
                       const variants = variantsByLogo.get(v) || [];
-                      const garmentColor = selectedColor
-                        ? colorOptions.find((c) => c.code === selectedColor)?.color1
-                        : undefined;
-                      const best = pickBestVariant(variants, garmentColor);
+                      // Use default variant, not auto-picked by garment color
+                      const defaultVariant = variants.find((vr) => vr.is_default) || variants[0] || null;
                         updatePlacement(activePlacementIdx, {
                           store_logo_id: v,
-                          store_logo_variant_id: best?.id || null,
-                          _logo_url: best?.file_url || logo?.file_url,
-                          variant_locked: false,
+                          store_logo_variant_id: defaultVariant?.id || null,
+                          _logo_url: defaultVariant?.file_url || logo?.file_url,
+                          variant_locked: true,
                         });
                     }}>
                       <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
@@ -1268,38 +1252,51 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     </div>
                   </div>
 
-                  {/* Logo Variant selector */}
+                  {/* Logo Variant for this shirt color */}
                   {(() => {
                     const variants = variantsByLogo.get(active.store_logo_id) || [];
-                    if (variants.length <= 1) return null;
+                    if (variants.length === 0) return null;
+                    const currentColorName = !applyToAllColors && selectedColor
+                      ? colorOptions.find((c) => c.code === selectedColor)?.name
+                      : null;
                     return (
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground font-medium">Logo Variant</Label>
-                        <Select
-                          value={active.store_logo_variant_id || ""}
-                          onValueChange={(v) => {
-                            const variant = variants.find((vr) => vr.id === v);
-                            updatePlacement(activePlacementIdx, {
-                              store_logo_variant_id: v,
-                              _logo_url: variant?.file_url || active._logo_url,
-                              variant_locked: true,
-                            });
-                          }}
-                        >
-                          <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                          <SelectContent>
-                            {variants.map((v) => (
-                              <SelectItem key={v.id} value={v.id}>
-                                <span className="flex items-center gap-2">
-                                  <img src={v.file_url} alt="" className="w-4 h-4 object-contain" />
-                                  {v.name}
-                                  <span className="text-muted-foreground capitalize text-[10px]">({v.colorway})</span>
-                                  {v.is_default && <span className="text-[9px] text-muted-foreground">[Default]</span>}
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="space-y-1 p-2 bg-accent/5 rounded-lg border border-accent/20">
+                        <Label className="text-xs font-semibold text-accent">
+                          Logo Variant{currentColorName ? ` for ${currentColorName} shirt` : ""}
+                        </Label>
+                        {variants.length === 1 ? (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <img src={variants[0].file_url} alt="" className="w-5 h-5 object-contain" />
+                            {variants[0].name}
+                            <span className="capitalize text-[10px]">({variants[0].colorway})</span>
+                          </div>
+                        ) : (
+                          <Select
+                            value={active.store_logo_variant_id || ""}
+                            onValueChange={(v) => {
+                              const variant = variants.find((vr) => vr.id === v);
+                              updatePlacement(activePlacementIdx, {
+                                store_logo_variant_id: v,
+                                _logo_url: variant?.file_url || active._logo_url,
+                                variant_locked: true,
+                              });
+                            }}
+                          >
+                            <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Choose variant for this color" /></SelectTrigger>
+                            <SelectContent>
+                              {variants.map((v) => (
+                                <SelectItem key={v.id} value={v.id}>
+                                  <span className="flex items-center gap-2">
+                                    <img src={v.file_url} alt="" className="w-5 h-5 object-contain" />
+                                    {v.name}
+                                    <span className="text-muted-foreground capitalize text-[10px]">({v.colorway})</span>
+                                    {v.is_default && <span className="text-[9px] text-muted-foreground">[Default]</span>}
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                       </div>
                     );
                   })()}
