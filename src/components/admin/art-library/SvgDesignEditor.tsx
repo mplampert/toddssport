@@ -99,13 +99,13 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     }
     mascotTextEl.textContent = mascotName;
 
-    // Update primary color (cls-4 = red, cls-7 = dark red variant)
-    svg.querySelectorAll(".cls-4, .cls-7").forEach((el) => {
+    // Update primary color (.primary-fill elements)
+    svg.querySelectorAll(".primary-fill").forEach((el) => {
       (el as SVGElement).style.fill = primaryColor;
     });
 
-    // Update secondary color (cls-3 = dark navy)
-    svg.querySelectorAll(".cls-3").forEach((el) => {
+    // Update secondary color (.secondary-fill elements)
+    svg.querySelectorAll(".secondary-fill").forEach((el) => {
       (el as SVGElement).style.fill = secondaryColor;
     });
 
