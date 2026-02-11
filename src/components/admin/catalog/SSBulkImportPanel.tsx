@@ -42,6 +42,7 @@ export function SSBulkImportPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
+  const [fixingBrands, setFixingBrands] = useState(false);
   const queryClient = useQueryClient();
 
   // Load available S&S brands from the live API
@@ -158,6 +159,20 @@ export function SSBulkImportPanel() {
     }
   };
 
+  const fixOrphanedBrands = async () => {
+    setFixingBrands(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ss-fix-brands");
+      if (error) throw error;
+      toast.success(data?.message || "Brands fixed");
+      queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
+    } catch (err: any) {
+      toast.error(`Fix failed: ${err.message}`);
+    } finally {
+      setFixingBrands(false);
+    }
+  };
+
   const progressPercent = job && job.brands_total > 0
     ? Math.round((job.brands_completed / job.brands_total) * 100)
     : 0;
@@ -171,15 +186,24 @@ export function SSBulkImportPanel() {
             Import all styles from S&S Activewear brands into the master catalog.
           </p>
         </div>
-        {!loaded && (
-          <Button onClick={loadBrands} disabled={loading} variant="outline" size="sm">
-            {loading ? (
-              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading…</>
+        <div className="flex gap-2">
+          <Button onClick={fixOrphanedBrands} disabled={fixingBrands} variant="outline" size="sm">
+            {fixingBrands ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing…</>
             ) : (
-              <><Download className="w-4 h-4 mr-2" />Load S&S Brands</>
+              <>Fix Orphaned Brands</>
             )}
           </Button>
-        )}
+          {!loaded && (
+            <Button onClick={loadBrands} disabled={loading} variant="outline" size="sm">
+              {loading ? (
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading…</>
+              ) : (
+                <><Download className="w-4 h-4 mr-2" />Load S&S Brands</>
+              )}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Active Job Progress */}
