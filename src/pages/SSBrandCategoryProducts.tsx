@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -12,58 +12,70 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Search, Package, ArrowLeft, Filter } from "lucide-react";
-import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+
+interface ProductRow {
+  id: string;
+  name: string;
+  source_sku: string | null;
+  image_url: string | null;
+  description_short: string | null;
+}
 
 export default function SSBrandCategoryProducts() {
   const { brandName, category } = useParams<{ brandName: string; category: string }>();
   const decodedBrand = brandName ? decodeURIComponent(brandName) : "";
   const decodedCategory = category ? decodeURIComponent(category) : "";
 
-  const [styles, setStyles] = useState<SSStyle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("name");
 
-  useEffect(() => {
-    if (!decodedBrand) return;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getStyles();
-        const allStyles = Array.isArray(data) ? data : [];
-        setStyles(
-          allStyles.filter(
-            (s) =>
-              s.brandName === decodedBrand &&
-              (s.baseCategory || "Other") === decodedCategory
-          )
-        );
-      } catch (err) {
-        console.error("Failed to load products:", err);
-        setError(err instanceof Error ? err.message : "Failed to load products");
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [decodedBrand, decodedCategory]);
+  const { data: products, isLoading, error } = useQuery({
+    queryKey: ["ss-brand-category-products", decodedBrand, decodedCategory],
+    queryFn: async () => {
+      // Get brand id
+      const { data: brandRow } = await supabase
+        .from("brands")
+        .select("id")
+        .eq("name", decodedBrand)
+        .maybeSingle();
+
+      if (!brandRow) return [] as ProductRow[];
+
+      // Convert display category back to possible DB values
+      const catLower = decodedCategory.toLowerCase().replace(/ - /g, "___").replace(/ /g, "_");
+
+      const { data, error: prodErr } = await supabase
+        .from("master_products")
+        .select("id, name, source_sku, image_url, description_short")
+        .eq("active", true)
+        .eq("brand_id", brandRow.id)
+        .eq("source", "ss_activewear")
+        .or(`category.ilike.${decodedCategory},category.ilike.${catLower}`)
+        .order("name")
+        .limit(500);
+
+      if (prodErr) throw prodErr;
+      return (data || []) as ProductRow[];
+    },
+    enabled: !!decodedBrand && !!decodedCategory,
+    staleTime: 5 * 60 * 1000,
+  });
 
   const filtered = useMemo(() => {
-    let result = styles;
+    let result = products || [];
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
-        (s) =>
-          s.styleName?.toLowerCase().includes(q) ||
-          s.title?.toLowerCase().includes(q) ||
-          s.partNumber?.toLowerCase().includes(q)
+        (p) =>
+          p.name?.toLowerCase().includes(q) ||
+          p.source_sku?.toLowerCase().includes(q) ||
+          p.description_short?.toLowerCase().includes(q)
       );
     }
-    result.sort((a, b) => (a.styleName || "").localeCompare(b.styleName || ""));
     return result;
-  }, [styles, search, sortBy]);
+  }, [products, search]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -85,7 +97,7 @@ export default function SSBrandCategoryProducts() {
               </h1>
             </div>
             <p className="text-lg text-primary-foreground/70 max-w-2xl ml-8">
-              Browse {decodedCategory} from {decodedBrand} with real-time pricing &amp; inventory.
+              Browse {decodedCategory} from {decodedBrand}.
             </p>
           </div>
         </section>
@@ -112,7 +124,7 @@ export default function SSBrandCategoryProducts() {
                 </SelectContent>
               </Select>
             </div>
-            {!loading && (
+            {!isLoading && (
               <p className="text-sm text-muted-foreground mt-2">
                 <Filter className="w-3 h-3 inline mr-1" />
                 {filtered.length.toLocaleString()} styles found
@@ -124,14 +136,14 @@ export default function SSBrandCategoryProducts() {
         {/* Grid */}
         <section className="py-10">
           <div className="container mx-auto px-4">
-            {loading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-accent" />
                 <span className="ml-3 text-muted-foreground">Loading products…</span>
               </div>
             ) : error ? (
               <div className="text-center py-20">
-                <p className="text-destructive mb-4">{error}</p>
+                <p className="text-destructive mb-4">{error instanceof Error ? error.message : "Failed to load"}</p>
                 <Button onClick={() => window.location.reload()}>Retry</Button>
               </div>
             ) : filtered.length === 0 ? (
@@ -142,17 +154,17 @@ export default function SSBrandCategoryProducts() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filtered.slice(0, 100).map((style) => (
+                {filtered.map((product) => (
                   <Link
-                    key={style.styleID}
-                    to={`/ss-products/${style.styleID}`}
+                    key={product.id}
+                    to={`/catalog/${product.id}`}
                     className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
                   >
                     <div className="relative h-48 bg-secondary overflow-hidden">
-                      {style.styleImage ? (
+                      {product.image_url ? (
                         <img
-                          src={style.styleImage}
-                          alt={style.styleName}
+                          src={product.image_url}
+                          alt={product.name}
                           className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
                           loading="lazy"
                         />
@@ -164,20 +176,15 @@ export default function SSBrandCategoryProducts() {
                     </div>
                     <div className="p-4 flex flex-col flex-grow">
                       <h3 className="font-semibold text-foreground mb-1 group-hover:text-accent transition-colors line-clamp-2">
-                        {style.title || style.styleName}
+                        {product.name}
                       </h3>
-                      {style.partNumber && (
-                        <p className="text-xs text-muted-foreground mb-2">SKU: {style.partNumber}</p>
+                      {product.source_sku && (
+                        <p className="text-xs text-muted-foreground mb-2">SKU: {product.source_sku}</p>
                       )}
                     </div>
                   </Link>
                 ))}
               </div>
-            )}
-            {filtered.length > 100 && (
-              <p className="text-center text-muted-foreground mt-8">
-                Showing first 100 of {filtered.length.toLocaleString()} results. Refine your search to see more.
-              </p>
             )}
           </div>
         </section>

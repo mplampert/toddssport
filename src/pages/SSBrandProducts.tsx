@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Loader2, Package, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CategoryCard {
   name: string;
@@ -16,49 +17,55 @@ export default function SSBrandProducts() {
   const { brandName } = useParams<{ brandName: string }>();
   const decodedBrand = brandName ? decodeURIComponent(brandName) : "";
 
-  const [styles, setStyles] = useState<SSStyle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Fetch brand info + products from master_products
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["ss-brand-products", decodedBrand],
+    queryFn: async () => {
+      // Get brand id
+      const { data: brandRow } = await supabase
+        .from("brands")
+        .select("id, logo_url")
+        .eq("name", decodedBrand)
+        .maybeSingle();
 
-  useEffect(() => {
-    if (!decodedBrand) return;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getStyles();
-        const allStyles = Array.isArray(data) ? data : [];
-        setStyles(allStyles.filter((s) => s.brandName === decodedBrand));
-      } catch (err) {
-        console.error("Failed to load brand products:", err);
-        setError(err instanceof Error ? err.message : "Failed to load products");
-      } finally {
-        setLoading(false);
+      if (!brandRow) return { categories: [] as CategoryCard[], brandLogo: null, total: 0 };
+
+      // Get all products for this brand
+      const { data: products, error: prodErr } = await supabase
+        .from("master_products")
+        .select("category, image_url")
+        .eq("active", true)
+        .eq("brand_id", brandRow.id)
+        .eq("source", "ss_activewear");
+
+      if (prodErr) throw prodErr;
+
+      // Group by category
+      const map = new Map<string, CategoryCard>();
+      for (const p of products || []) {
+        const cat = p.category
+          ?.replace(/___/g, " - ")
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c: string) => c.toUpperCase()) || "Other";
+        const existing = map.get(cat);
+        if (existing) {
+          existing.styleCount++;
+          if (!existing.sampleImage && p.image_url) existing.sampleImage = p.image_url;
+        } else {
+          map.set(cat, { name: cat, styleCount: 1, sampleImage: p.image_url || undefined });
+        }
       }
-    };
-    load();
-  }, [decodedBrand]);
 
-  const brandImage = styles[0]?.brandImage;
+      const categories = Array.from(map.values()).sort((a, b) => b.styleCount - a.styleCount);
+      return { categories, brandLogo: brandRow.logo_url, total: (products || []).length };
+    },
+    enabled: !!decodedBrand,
+    staleTime: 5 * 60 * 1000,
+  });
 
-  const categories = useMemo<CategoryCard[]>(() => {
-    const map = new Map<string, CategoryCard>();
-    styles.forEach((s) => {
-      const cat = s.baseCategory || "Other";
-      const existing = map.get(cat);
-      if (existing) {
-        existing.styleCount++;
-        if (!existing.sampleImage && s.styleImage) existing.sampleImage = s.styleImage;
-      } else {
-        map.set(cat, {
-          name: cat,
-          styleCount: 1,
-          sampleImage: s.styleImage,
-        });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => b.styleCount - a.styleCount);
-  }, [styles]);
+  const categories = data?.categories || [];
+  const brandLogo = data?.brandLogo;
+  const total = data?.total || 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -71,8 +78,8 @@ export default function SSBrandProducts() {
               <Link to="/ss-products" className="text-primary-foreground/60 hover:text-primary-foreground transition-colors">
                 <ArrowLeft className="w-5 h-5" />
               </Link>
-              {brandImage ? (
-                <img src={brandImage} alt={decodedBrand} className="h-10 object-contain brightness-0 invert" />
+              {brandLogo ? (
+                <img src={brandLogo} alt={decodedBrand} className="h-10 object-contain brightness-0 invert" />
               ) : (
                 <Package className="w-8 h-8 text-accent" />
               )}
@@ -89,14 +96,14 @@ export default function SSBrandProducts() {
         {/* Category Grid */}
         <section className="py-10">
           <div className="container mx-auto px-4">
-            {loading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-accent" />
                 <span className="ml-3 text-muted-foreground">Loading categories…</span>
               </div>
             ) : error ? (
               <div className="text-center py-20">
-                <p className="text-destructive mb-4">{error}</p>
+                <p className="text-destructive mb-4">{error instanceof Error ? error.message : "Failed to load"}</p>
                 <Button onClick={() => window.location.reload()}>Retry</Button>
               </div>
             ) : categories.length === 0 ? (
@@ -107,7 +114,7 @@ export default function SSBrandProducts() {
             ) : (
               <>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {categories.length} categories · {styles.length.toLocaleString()} total styles
+                  {categories.length} categories · {total.toLocaleString()} total styles
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
                   {categories.map((cat) => (

@@ -1300,6 +1300,7 @@ export type Database = {
           active: boolean
           available_colors: Json | null
           available_sizes: Json | null
+          base_price: number | null
           brand_id: string | null
           category: string
           created_at: string
@@ -1309,6 +1310,7 @@ export type Database = {
           description_short: string | null
           id: string
           image_url: string | null
+          msrp: number | null
           name: string
           product_type: string
           source: string
@@ -1319,6 +1321,7 @@ export type Database = {
           active?: boolean
           available_colors?: Json | null
           available_sizes?: Json | null
+          base_price?: number | null
           brand_id?: string | null
           category?: string
           created_at?: string
@@ -1328,6 +1331,7 @@ export type Database = {
           description_short?: string | null
           id?: string
           image_url?: string | null
+          msrp?: number | null
           name: string
           product_type?: string
           source?: string
@@ -1338,6 +1342,7 @@ export type Database = {
           active?: boolean
           available_colors?: Json | null
           available_sizes?: Json | null
+          base_price?: number | null
           brand_id?: string | null
           category?: string
           created_at?: string
@@ -1347,6 +1352,7 @@ export type Database = {
           description_short?: string | null
           id?: string
           image_url?: string | null
+          msrp?: number | null
           name?: string
           product_type?: string
           source?: string
