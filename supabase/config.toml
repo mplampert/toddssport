@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.notify-product-inquiry]
 verify_jwt = false
+
+[functions.ss-bulk-import]
+verify_jwt = false
