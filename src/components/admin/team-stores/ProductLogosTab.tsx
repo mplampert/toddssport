@@ -264,6 +264,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
       id: p.id,
       store_logo_id: p.store_logo_id,
       store_logo_variant_id: p.store_logo_variant_id,
+      // Persisted rows are treated as "locked" so we don't auto-pick over them
+      variant_locked: true,
       position: p.position || "left_chest",
       x: p.x ?? 0.5,
       y: p.y ?? 0.2,
@@ -286,6 +288,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     let filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, activeView);
 
     // Auto-pick best logo variant for the current garment color
+    // IMPORTANT: never overwrite a user's manual selection (variant_locked)
     const garmentColor = selectedColor
       ? colorOptions.find((c) => c.code === selectedColor)?.color1
       : undefined;
@@ -293,9 +296,17 @@ export function ProductLogosTab({ item, storeId }: Props) {
       filtered = filtered.map((p) => {
         const variants = variantsByLogo.get(p.store_logo_id) || [];
         if (variants.length <= 1) return p;
+
         const best = pickBestVariant(variants, garmentColor);
-        if (best && best.id !== p.store_logo_variant_id) {
-          return { ...p, store_logo_variant_id: best.id, _logo_url: best.file_url };
+        const shouldAutopick = !p.variant_locked || p.store_logo_variant_id == null;
+
+        if (best && best.id !== p.store_logo_variant_id && shouldAutopick) {
+          return {
+            ...p,
+            store_logo_variant_id: best.id,
+            _logo_url: best.file_url,
+            variant_locked: false,
+          };
         }
         return p;
       });
@@ -329,6 +340,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
       ...p,
       id: undefined,
       variant_color: color,
+      // New per-color overrides start unlocked so autopick can help initially
+      variant_locked: false,
     }));
   }
 
@@ -350,6 +363,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
       {
         store_logo_id: logo.id,
         store_logo_variant_id: bestVariant?.id || null,
+        // New placement starts unlocked; user can lock it by explicitly choosing a variant
+        variant_locked: false,
         position: defaultPreset?.code || "left_chest",
         x: defaultPreset?.default_x ?? 0.35,
         y: defaultPreset?.default_y ?? 0.25,
@@ -970,11 +985,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     ? colorOptions.find((c) => c.code === selectedColor)?.color1
                     : undefined;
                   const best = pickBestVariant(variants, garmentColor);
-                  updatePlacement(activePlacementIdx, {
-                    store_logo_id: v,
-                    store_logo_variant_id: best?.id || null,
-                    _logo_url: best?.file_url || logo?.file_url,
-                  });
+                    updatePlacement(activePlacementIdx, {
+                      store_logo_id: v,
+                      store_logo_variant_id: best?.id || null,
+                      _logo_url: best?.file_url || logo?.file_url,
+                      variant_locked: false,
+                    });
                 }}>
                   <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -1050,6 +1066,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                       updatePlacement(activePlacementIdx, {
                         store_logo_variant_id: v,
                         _logo_url: variant?.file_url || active._logo_url,
+                        variant_locked: true,
                       });
                     }}
                   >

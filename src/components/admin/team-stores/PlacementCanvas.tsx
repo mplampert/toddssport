@@ -22,6 +22,11 @@ export interface LogoPlacement {
   id?: string;
   store_logo_id: string;
   store_logo_variant_id: string | null;
+  /**
+   * True when a user explicitly picked a logo variant in the UI.
+   * Used client-side to prevent auto-picking from overwriting manual choices.
+   */
+  variant_locked?: boolean;
   position: string;
   x: number;
   y: number;
