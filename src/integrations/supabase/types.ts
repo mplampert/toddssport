@@ -75,6 +75,7 @@ export type Database = {
           logo_url: string | null
           name: string
           order_index: number | null
+          show_in_catalog: boolean
           updated_at: string | null
         }
         Insert: {
@@ -84,6 +85,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           order_index?: number | null
+          show_in_catalog?: boolean
           updated_at?: string | null
         }
         Update: {
@@ -93,6 +95,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           order_index?: number | null
+          show_in_catalog?: boolean
           updated_at?: string | null
         }
         Relationships: []

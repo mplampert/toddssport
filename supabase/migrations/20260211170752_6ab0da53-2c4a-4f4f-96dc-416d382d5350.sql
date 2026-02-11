@@ -1,0 +1,1 @@
+ALTER TABLE public.brands ADD COLUMN show_in_catalog boolean NOT NULL DEFAULT true;
