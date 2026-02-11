@@ -181,8 +181,8 @@ export function PlacementCanvas({ image, placements, textLayers = [], presetMap,
   return (
     <div
       ref={containerRef}
-      className="relative w-full bg-muted/20 border-2 border-dashed border-muted-foreground/15 rounded-xl overflow-hidden select-none"
-      style={{ aspectRatio: "4/5" }}
+      className="relative w-full bg-muted/20 border-2 border-dashed border-muted-foreground/15 rounded-xl overflow-hidden select-none min-h-[500px]"
+      style={{ aspectRatio: "3/4" }}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
