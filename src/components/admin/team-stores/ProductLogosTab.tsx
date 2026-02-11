@@ -958,82 +958,96 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
         {/* Reuse checkbox moved into image management strip below canvas */}
 
-        {/* ─── Placement Canvas ─── */}
-        <div className="space-y-1.5">
-          <Label className="text-sm font-semibold">Placement Canvas — {activeViewLabel}</Label>
-          <PlacementCanvas
-            image={canvasImage}
-            placements={placements}
-            textLayers={textLayers}
-            presetMap={presetMap}
-            activeIdx={activePlacementIdx}
-            activeTextIdx={activeTextIdx}
-            maxScaleFn={getMaxScale}
-            onSelectPlacement={(idx) => { setActivePlacementIdx(idx >= 0 ? idx : null); if (idx >= 0) setActiveTextIdx(null); }}
-            onMovePlacement={(idx, x, y) => updatePlacement(idx, { x, y })}
-            onScalePlacement={(idx, scale) => updatePlacement(idx, { scale })}
-            onDeletePlacement={removePlacement}
-            onSelectTextLayer={(idx) => { setActiveTextIdx(idx >= 0 ? idx : null); if (idx >= 0) setActivePlacementIdx(null); }}
-            onMoveTextLayer={(idx, x, y) => updateTextLayer(idx, { x, y })}
-            onScaleTextLayer={(idx, scale) => updateTextLayer(idx, { scale })}
-            onDeleteTextLayer={removeTextLayer}
-            onUploadSleeveImage={isSleeveView ? handleSleeveUpload : undefined}
-            sleeveUploading={sleeveUploading}
-            sleeveViewLabel={sleeveViewLabel}
-          />
-
-          {/* ─── View Image Management ─── */}
-          <div className="flex items-center gap-2 pt-1">
-            <input
-              ref={viewImageFileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) handleViewImageUpload(f);
-                e.target.value = "";
-              }}
+        {/* ─── Canvas + Controls Side-by-Side ─── */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
+          {/* Left: Canvas */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-semibold">Placement Canvas — {activeViewLabel}</Label>
+            <PlacementCanvas
+              image={canvasImage}
+              placements={placements}
+              textLayers={textLayers}
+              presetMap={presetMap}
+              activeIdx={activePlacementIdx}
+              activeTextIdx={activeTextIdx}
+              maxScaleFn={getMaxScale}
+              onSelectPlacement={(idx) => { setActivePlacementIdx(idx >= 0 ? idx : null); if (idx >= 0) setActiveTextIdx(null); }}
+              onMovePlacement={(idx, x, y) => updatePlacement(idx, { x, y })}
+              onScalePlacement={(idx, scale) => updatePlacement(idx, { scale })}
+              onDeletePlacement={removePlacement}
+              onSelectTextLayer={(idx) => { setActiveTextIdx(idx >= 0 ? idx : null); if (idx >= 0) setActivePlacementIdx(null); }}
+              onMoveTextLayer={(idx, x, y) => updateTextLayer(idx, { x, y })}
+              onScaleTextLayer={(idx, scale) => updateTextLayer(idx, { scale })}
+              onDeleteTextLayer={removeTextLayer}
+              onUploadSleeveImage={isSleeveView ? handleSleeveUpload : undefined}
+              sleeveUploading={sleeveUploading}
+              sleeveViewLabel={sleeveViewLabel}
             />
-            {canvasImageInfo.source === "variant" ? (
-              <>
-                <Badge variant="secondary" className="text-[10px]">Custom image</Badge>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  disabled={viewImageUploading}
-                  onClick={() => viewImageFileRef.current?.click()}
-                >
-                  {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Replace className="w-3 h-3 mr-1" />}
-                  Replace
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs text-destructive hover:text-destructive"
-                  onClick={handleDeleteViewImage}
-                >
-                  <Trash2 className="w-3 h-3 mr-1" /> Delete
-                </Button>
-              </>
-            ) : canvasImageInfo.source === "ss" ? (
-              <>
-                <Badge variant="secondary" className="text-[10px]">Catalog image</Badge>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  disabled={viewImageUploading}
-                  onClick={() => viewImageFileRef.current?.click()}
-                >
-                  {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                  Upload Custom Image
-                </Button>
-              </>
-            ) : canvasImage ? (
-              <>
-                <Badge variant="secondary" className="text-[10px]">Fallback image</Badge>
+
+            {/* ─── View Image Management ─── */}
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                ref={viewImageFileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleViewImageUpload(f);
+                  e.target.value = "";
+                }}
+              />
+              {canvasImageInfo.source === "variant" ? (
+                <>
+                  <Badge variant="secondary" className="text-[10px]">Custom image</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    disabled={viewImageUploading}
+                    onClick={() => viewImageFileRef.current?.click()}
+                  >
+                    {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Replace className="w-3 h-3 mr-1" />}
+                    Replace
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs text-destructive hover:text-destructive"
+                    onClick={handleDeleteViewImage}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" /> Delete
+                  </Button>
+                </>
+              ) : canvasImageInfo.source === "ss" ? (
+                <>
+                  <Badge variant="secondary" className="text-[10px]">Catalog image</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    disabled={viewImageUploading}
+                    onClick={() => viewImageFileRef.current?.click()}
+                  >
+                    {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                    Upload Custom Image
+                  </Button>
+                </>
+              ) : canvasImage ? (
+                <>
+                  <Badge variant="secondary" className="text-[10px]">Fallback image</Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    disabled={viewImageUploading}
+                    onClick={() => viewImageFileRef.current?.click()}
+                  >
+                    {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
+                    Upload {activeViewLabel} Image
+                  </Button>
+                </>
+              ) : (
                 <Button
                   size="sm"
                   variant="outline"
@@ -1044,248 +1058,225 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
                   Upload {activeViewLabel} Image
                 </Button>
-              </>
+              )}
+              {colorOptions.length > 1 && (
+                <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-auto">
+                  <Checkbox
+                    checked={reuseSleeveForAllColors}
+                    onCheckedChange={(v) => setReuseSleeveForAllColors(!!v)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Apply to all colors
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* Right: Placement controls panel */}
+          <div className="space-y-3 lg:sticky lg:top-4">
+            {/* Active placement controls */}
+            {active && activePlacementIdx !== null ? (
+              <div className="border rounded-lg p-3 bg-card space-y-3">
+                <div className="flex items-center gap-3">
+                  {active._logo_url && (
+                    <img src={active._logo_url} alt="" className="w-10 h-10 object-contain rounded bg-muted border p-0.5 shrink-0" />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{active._logo_name || "Logo"}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {presetMap.get(active.position)?.label || active.position}
+                    </p>
+                  </div>
+                  {active.is_primary && <Badge variant="secondary" className="text-[10px]">Primary</Badge>}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    onClick={() => removePlacement(activePlacementIdx)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 gap-2">
+                  {/* Logo select */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">Logo</Label>
+                    <Select value={active.store_logo_id} onValueChange={(v) => {
+                      const logo = storeLogos.find((l) => l.id === v);
+                      const variants = variantsByLogo.get(v) || [];
+                      const garmentColor = selectedColor
+                        ? colorOptions.find((c) => c.code === selectedColor)?.color1
+                        : undefined;
+                      const best = pickBestVariant(variants, garmentColor);
+                        updatePlacement(activePlacementIdx, {
+                          store_logo_id: v,
+                          store_logo_variant_id: best?.id || null,
+                          _logo_url: best?.file_url || logo?.file_url,
+                          variant_locked: false,
+                        });
+                    }}>
+                      <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {storeLogos.map((l) => (
+                          <SelectItem key={l.id} value={l.id}>
+                            <span className="flex items-center gap-2">
+                              <img src={l.file_url} alt="" className="w-4 h-4 object-contain" />
+                              {l.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Placement Preset */}
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Placement</Label>
+                      <Select value={active.position} onValueChange={(v) => applyPreset(activePlacementIdx, v)}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(presetsByType).map(([type, items]) => (
+                            <React.Fragment key={type}>
+                              <div className="px-2 py-1 text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
+                                {type === "apparel" ? "Apparel" : type === "hat" ? "Hats" : "Bags"}
+                              </div>
+                              {items.map((preset) => (
+                                <SelectItem key={preset.code} value={preset.code}>
+                                  {preset.label}
+                                  <span className="ml-1 text-muted-foreground text-[10px]">
+                                    ({preset.max_width_in}"×{preset.max_height_in}")
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Role selector */}
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">Role</Label>
+                      <Select value={active.role} onValueChange={(v) => updatePlacement(activePlacementIdx, { role: v })}>
+                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[
+                            { value: "primary", label: "Primary" },
+                            { value: "secondary", label: "Secondary" },
+                            { value: "sponsor", label: "Sponsor" },
+                            { value: "league_patch", label: "League Patch" },
+                            { value: "number_zone", label: "Number Zone" },
+                            { value: "other", label: "Other" },
+                          ].map((r) => (
+                            <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Logo Variant selector */}
+                  {(() => {
+                    const variants = variantsByLogo.get(active.store_logo_id) || [];
+                    if (variants.length <= 1) return null;
+                    return (
+                      <div className="space-y-1">
+                        <Label className="text-[11px] text-muted-foreground">Logo Variant</Label>
+                        <Select
+                          value={active.store_logo_variant_id || ""}
+                          onValueChange={(v) => {
+                            const variant = variants.find((vr) => vr.id === v);
+                            updatePlacement(activePlacementIdx, {
+                              store_logo_variant_id: v,
+                              _logo_url: variant?.file_url || active._logo_url,
+                              variant_locked: true,
+                            });
+                          }}
+                        >
+                          <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select variant" /></SelectTrigger>
+                          <SelectContent>
+                            {variants.map((v) => (
+                              <SelectItem key={v.id} value={v.id}>
+                                <span className="flex items-center gap-2">
+                                  <img src={v.file_url} alt="" className="w-4 h-4 object-contain" />
+                                  {v.name}
+                                  <span className="text-muted-foreground capitalize text-[10px]">({v.colorway})</span>
+                                  {v.is_default && <span className="text-[9px] text-muted-foreground">[Default]</span>}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Scale readout */}
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>Scale: {Math.round(active.scale * 100)}%</span>
+                  <span>max {Math.round(getMaxScale(active.position) * 100)}%</span>
+                </div>
+
+                {/* Primary + Active toggles + debug coords */}
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={active.is_primary} onCheckedChange={() => setPrimaryPlacement(activePlacementIdx)} />
+                      <Label className="text-[11px]">Primary</Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={active.active} onCheckedChange={(v) => updatePlacement(activePlacementIdx, { active: v })} />
+                      <Label className="text-[11px]">Active</Label>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                    x:{active.x.toFixed(2)} y:{active.y.toFixed(2)}
+                  </span>
+                </div>
+              </div>
             ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                disabled={viewImageUploading}
-                onClick={() => viewImageFileRef.current?.click()}
-              >
-                {viewImageUploading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Upload className="w-3 h-3 mr-1" />}
-                Upload {activeViewLabel} Image
-              </Button>
+              <div className="border rounded-lg p-4 bg-muted/30 flex items-center justify-center">
+                <p className="text-xs text-muted-foreground">Click a logo on the canvas to edit its placement</p>
+              </div>
             )}
-            {colorOptions.length > 1 && (
-              <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground ml-auto">
-                <Checkbox
-                  checked={reuseSleeveForAllColors}
-                  onCheckedChange={(v) => setReuseSleeveForAllColors(!!v)}
-                  className="h-3.5 w-3.5"
-                />
-                Apply to all colors
-              </label>
+
+            {/* Assigned Logos list - moved into right panel */}
+            {placements.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Assigned Logos ({placements.length})</Label>
+                <div className="flex flex-wrap gap-1.5">
+                  {placements.map((p, idx) => {
+                    const usage = getUsageLabel(p.store_logo_id);
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setActivePlacementIdx(idx)}
+                        className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] border transition-colors ${
+                          !p.active ? "opacity-40" : ""
+                        } ${
+                          activePlacementIdx === idx
+                            ? "border-accent bg-accent/10 text-accent-foreground font-medium"
+                            : "border-border bg-card text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {p._logo_url && <img src={p._logo_url} alt="" className="w-3.5 h-3.5 object-contain rounded" />}
+                        <span className="truncate max-w-[70px]">{p._logo_name || "Logo"}</span>
+                        <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 capitalize">{p.role}</Badge>
+                        {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </div>
 
-        {/* ─── Controls for active placement ─── */}
-        {active && activePlacementIdx !== null && (
-          <div className="border rounded-lg p-4 bg-card space-y-4">
-            <div className="flex items-center gap-3">
-              {active._logo_url && (
-                <img src={active._logo_url} alt="" className="w-10 h-10 object-contain rounded bg-muted border p-0.5 shrink-0" />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{active._logo_name || "Logo"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {presetMap.get(active.position)?.label || active.position}
-                </p>
-              </div>
-              {active.is_primary && <Badge variant="secondary" className="text-[10px]">Primary</Badge>}
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
-                onClick={() => removePlacement(activePlacementIdx)}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              {/* Logo select */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Logo</Label>
-                <Select value={active.store_logo_id} onValueChange={(v) => {
-                  const logo = storeLogos.find((l) => l.id === v);
-                  const variants = variantsByLogo.get(v) || [];
-                  const garmentColor = selectedColor
-                    ? colorOptions.find((c) => c.code === selectedColor)?.color1
-                    : undefined;
-                  const best = pickBestVariant(variants, garmentColor);
-                    updatePlacement(activePlacementIdx, {
-                      store_logo_id: v,
-                      store_logo_variant_id: best?.id || null,
-                      _logo_url: best?.file_url || logo?.file_url,
-                      variant_locked: false,
-                    });
-                }}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {storeLogos.map((l) => (
-                      <SelectItem key={l.id} value={l.id}>
-                        <span className="flex items-center gap-2">
-                          <img src={l.file_url} alt="" className="w-4 h-4 object-contain" />
-                          {l.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
-              {/* Placement Preset */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Placement</Label>
-                <Select value={active.position} onValueChange={(v) => applyPreset(activePlacementIdx, v)}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(presetsByType).map(([type, items]) => (
-                      <React.Fragment key={type}>
-                        <div className="px-2 py-1 text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">
-                          {type === "apparel" ? "Apparel" : type === "hat" ? "Hats" : "Bags"}
-                        </div>
-                        {items.map((preset) => (
-                          <SelectItem key={preset.code} value={preset.code}>
-                            {preset.label}
-                            <span className="ml-1 text-muted-foreground text-[10px]">
-                              ({preset.max_width_in}"×{preset.max_height_in}")
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </React.Fragment>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Role selector */}
-              <div className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">Role</Label>
-                <Select value={active.role} onValueChange={(v) => updatePlacement(activePlacementIdx, { role: v })}>
-                  <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {[
-                      { value: "primary", label: "Primary" },
-                      { value: "secondary", label: "Secondary" },
-                      { value: "sponsor", label: "Sponsor" },
-                      { value: "league_patch", label: "League Patch" },
-                      { value: "number_zone", label: "Number Zone" },
-                      { value: "other", label: "Other" },
-                    ].map((r) => (
-                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Logo Variant selector */}
-            {(() => {
-              const variants = variantsByLogo.get(active.store_logo_id) || [];
-              if (variants.length <= 1) return null;
-              return (
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">Logo Variant</Label>
-                  <Select
-                    value={active.store_logo_variant_id || ""}
-                    onValueChange={(v) => {
-                      const variant = variants.find((vr) => vr.id === v);
-                      updatePlacement(activePlacementIdx, {
-                        store_logo_variant_id: v,
-                        _logo_url: variant?.file_url || active._logo_url,
-                        variant_locked: true,
-                      });
-                    }}
-                  >
-                    <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select variant" /></SelectTrigger>
-                    <SelectContent>
-                      {variants.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          <span className="flex items-center gap-2">
-                            <img src={v.file_url} alt="" className="w-4 h-4 object-contain" />
-                            {v.name}
-                            <span className="text-muted-foreground capitalize text-[10px]">({v.colorway})</span>
-                            {v.is_default && <span className="text-[9px] text-muted-foreground">[Default]</span>}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              );
-            })()}
-
-            {/* Scale readout */}
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Scale: {Math.round(active.scale * 100)}%</span>
-              <span>max {Math.round(getMaxScale(active.position) * 100)}%</span>
-            </div>
-
-            {/* Primary + Active toggles + debug coords */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Switch checked={active.is_primary} onCheckedChange={() => setPrimaryPlacement(activePlacementIdx)} />
-                  <Label className="text-[11px]">Primary</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch checked={active.active} onCheckedChange={(v) => updatePlacement(activePlacementIdx, { active: v })} />
-                  <Label className="text-[11px]">Active</Label>
-                </div>
-              </div>
-              <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
-                x:{active.x.toFixed(2)} y:{active.y.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* ─── Assigned Logos list ─── */}
-        {placements.length > 0 && (
-          <div className="space-y-1.5">
-            <Label className="text-xs font-semibold">Assigned Logos ({placements.length})</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {placements.map((p, idx) => {
-                const usage = getUsageLabel(p.store_logo_id);
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => setActivePlacementIdx(idx)}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs border transition-colors ${
-                      !p.active ? "opacity-40" : ""
-                    } ${
-                      activePlacementIdx === idx
-                        ? "border-accent bg-accent/10 text-accent-foreground font-medium"
-                        : "border-border bg-card text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {p._logo_url && <img src={p._logo_url} alt="" className="w-4 h-4 object-contain rounded" />}
-                    <span className="truncate max-w-[100px]">{p._logo_name || "Logo"}</span>
-                    <Badge variant="outline" className="text-[8px] px-1 py-0 h-3.5 capitalize">{p.role}</Badge>
-                    <span
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const firstView = getFirstView(p.store_logo_id);
-                        if (firstView && firstView !== activeView) {
-                          setActiveView(firstView);
-                          setActivePlacementIdx(null);
-                          if (existingPlacements) {
-                            const all = JSON.parse(savedSnapshot) as LogoPlacement[];
-                            const hasColorOverrides = all.some((pl) => pl.variant_color != null);
-                            setPlacements(filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, firstView));
-                          }
-                        }
-                      }}
-                      className={`text-[8px] px-1.5 py-0 h-3.5 inline-flex items-center rounded-full cursor-pointer ${
-                        usage === "Not placed"
-                          ? "bg-destructive/10 text-destructive"
-                          : "bg-accent/10 text-accent-foreground hover:bg-accent/20"
-                      }`}
-                      title="Click to jump to first view"
-                    >
-                      {usage}
-                    </span>
-                    {p.is_primary && <Badge variant="secondary" className="text-[8px] px-1 py-0 h-3.5">★</Badge>}
-                    {!p.active && <Badge variant="destructive" className="text-[8px] px-1 py-0 h-3.5">Off</Badge>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* ─── Add Text Button ─── */}
         <div className="border rounded-lg p-3 bg-card space-y-2">
