@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CatalogImportDialog } from "@/components/admin/catalog/CatalogImportDialog";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface CatalogStyle {
   id: number;
@@ -137,6 +140,19 @@ export default function AdminCatalogProducts() {
   return (
     <AdminLayout>
       <div className="space-y-6">
+        {/* Deprecation Notice */}
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Deprecated</AlertTitle>
+          <AlertDescription>
+            This page is deprecated. Please use{" "}
+            <Link to="/admin/catalog/master/brands" className="underline font-medium">
+              /admin/catalog/master/brands
+            </Link>{" "}
+            to manage products. This page will be removed soon.
+          </AlertDescription>
+        </Alert>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Product Catalog</h1>
