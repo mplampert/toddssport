@@ -39,13 +39,11 @@ function discoverTextBlocks(svg: SVGSVGElement): TextBlock[] {
   const blocks: TextBlock[] = [];
   let autoIdx = 0;
   svg.querySelectorAll("text").forEach((el) => {
-    // Use existing id or generate one and assign it to the element
     let id = el.getAttribute("id") || "";
     if (!id) {
       id = `text-block-${autoIdx++}`;
       el.setAttribute("id", id);
     }
-    // Resolve font from attribute, inline style, or CSS class style
     const computed = window.getComputedStyle(el);
     const font =
       el.getAttribute("font-family") ||
@@ -59,6 +57,61 @@ function discoverTextBlocks(svg: SVGSVGElement): TextBlock[] {
     blocks.push({ id, label, font: font.replace(/['"]/g, ""), defaultText: text });
   });
   return blocks;
+}
+
+/** Normalise any CSS color to a lowercase hex string */
+function toHex(color: string): string | null {
+  if (!color || color === "none" || color === "transparent") return null;
+  // Already hex
+  if (/^#[0-9a-f]{3,8}$/i.test(color)) return color.toLowerCase();
+  // Use a temporary element to resolve rgb() / named colours
+  const el = document.createElement("div");
+  el.style.color = color;
+  document.body.appendChild(el);
+  const computed = window.getComputedStyle(el).color;
+  document.body.removeChild(el);
+  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (!match) return null;
+  const hex = "#" + [match[1], match[2], match[3]]
+    .map((n) => parseInt(n, 10).toString(16).padStart(2, "0"))
+    .join("");
+  return hex.toLowerCase();
+}
+
+interface DiscoveredColor {
+  hex: string;
+  elements: { el: Element; attr: "fill" | "stroke" | "style-fill" | "style-stroke" | "class-fill" }[];
+}
+
+/** Scan all SVG elements to extract unique fill / stroke colors */
+function discoverColors(svg: SVGSVGElement): DiscoveredColor[] {
+  const colorMap = new Map<string, DiscoveredColor["elements"]>();
+
+  const track = (hex: string | null, el: Element, attr: DiscoveredColor["elements"][0]["attr"]) => {
+    if (!hex || hex === "#000000" && attr === "class-fill") return; // skip auto-black
+    if (!colorMap.has(hex)) colorMap.set(hex, []);
+    colorMap.get(hex)!.push({ el, attr });
+  };
+
+  svg.querySelectorAll("path, rect, circle, ellipse, polygon, polyline, text, tspan, g, line").forEach((el) => {
+    const computed = window.getComputedStyle(el);
+    // Check fill
+    const fillAttr = el.getAttribute("fill");
+    const fillStyle = (el as SVGElement).style?.fill;
+    const fillComputed = computed.fill;
+    if (fillAttr && fillAttr !== "none") {
+      track(toHex(fillAttr), el, "fill");
+    } else if (fillStyle) {
+      track(toHex(fillStyle), el, "style-fill");
+    } else if (fillComputed && fillComputed !== "none") {
+      track(toHex(fillComputed), el, "class-fill");
+    }
+  });
+
+  // Deduplicate and sort by number of elements (most used first)
+  return Array.from(colorMap.entries())
+    .map(([hex, elements]) => ({ hex, elements }))
+    .sort((a, b) => b.elements.length - a.elements.length);
 }
 
 const SLOT_LABELS: Record<string, string> = {
@@ -80,6 +133,9 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     });
     return init;
   });
+
+  // Original hex per slot — discovered from the SVG, used for recoloring
+  const [originalColors, setOriginalColors] = useState<Record<string, string>>({});
 
   // Text block state: discovered from SVG DOM
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
@@ -114,7 +170,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     fonts.forEach((f) => { if (f) loadGoogleFont(f); });
   }, [template]);
 
-  // Fetch and render SVG, then discover text blocks
+  // Fetch and render SVG, then discover text blocks + colors
   useEffect(() => {
     if (!svgContainerRef.current || !template.svg_url_master) return;
     let cancelled = false;
@@ -133,8 +189,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         // Discover text blocks from SVG DOM
         const blocks = discoverTextBlocks(svgEl);
         setTextBlocks(blocks);
-
-        // Init text values & fonts from SVG
         const vals: Record<string, string> = {};
         const fnts: Record<string, string> = {};
         blocks.forEach((b) => {
@@ -144,6 +198,27 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         });
         setTextValues(vals);
         setTextFonts(fnts);
+
+        // Auto-discover colors from SVG DOM
+        const discovered = discoverColors(svgEl);
+        if (discovered.length > 0) {
+          const newColors: Record<string, string> = {};
+          const origColors: Record<string, string> = {};
+          discovered.forEach((dc, idx) => {
+            const slot = colorSlots[idx] ?? `color-${idx}`;
+            // Use template default_colors if set, otherwise use discovered hex
+            newColors[slot] = defaultColors[slot] || dc.hex;
+            origColors[slot] = dc.hex;
+          });
+          // Also fill in any remaining slots from template defaults
+          colorSlots.forEach((slot) => {
+            if (!newColors[slot]) {
+              newColors[slot] = defaultColors[slot] || "#000000";
+            }
+          });
+          setColors(newColors);
+          setOriginalColors(origColors);
+        }
       })
       .catch(() => toast.error("Failed to load SVG template"));
     return () => { cancelled = true; };
@@ -164,9 +239,11 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       el.setAttribute("font-family", font);
     });
 
-    // Update color slots — match both BEM classes and legacy CSS classes
-    colorSlots.forEach((slot, idx) => {
+    // Update color slots — BEM classes + auto-detected original color matching
+    colorSlots.forEach((slot) => {
       const color = colors[slot];
+      const origHex = originalColors[slot];
+
       // Standard class convention: .primary-fill, .secondary-fill
       svg.querySelectorAll(`.${slot}-fill`).forEach((el) => {
         (el as SVGElement).style.fill = color;
@@ -174,10 +251,19 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       svg.querySelectorAll(`.${slot}-stroke`).forEach((el) => {
         (el as SVGElement).style.stroke = color;
       });
-      // Also update <text> elements by slot index (0=primary, 1=secondary)
-      // and path elements that share the same fill color from <style>
+
+      // Auto-detected: recolor all elements whose computed fill matches the original hex
+      if (origHex) {
+        svg.querySelectorAll("path, rect, circle, ellipse, polygon, polyline, text, tspan, line").forEach((el) => {
+          const computed = window.getComputedStyle(el);
+          const currentFill = toHex(computed.fill || "");
+          if (currentFill === origHex || currentFill === toHex(color)) {
+            (el as SVGElement).style.fill = color;
+          }
+        });
+      }
     });
-  }, [textBlocks, textValues, textFonts, colors, colorSlots]);
+  }, [textBlocks, textValues, textFonts, colors, colorSlots, originalColors]);
 
   useEffect(() => {
     updateSvg();
