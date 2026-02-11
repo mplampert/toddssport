@@ -207,6 +207,8 @@ export function BuilderCanvas({
           tspan.setAttribute("x", String(parseFloat(tspan.dataset.origX) + dx));
         }
       });
+      // Keep handles in sync during drag
+      updateResizeHandles(svg, targetIdRef.current);
     }
 
     if (modeRef.current === "resize" && resizeStartRef.current) {
