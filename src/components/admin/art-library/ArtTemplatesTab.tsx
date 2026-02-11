@@ -22,7 +22,9 @@ interface DesignTemplate {
   svg_url_master: string | null;
   school_font: string;
   mascot_font: string;
-  default_colors: { primary?: string; secondary?: string } | null;
+  supported_fonts: string[];
+  color_slots: string[];
+  default_colors: Record<string, string> | null;
   active: boolean;
 }
 

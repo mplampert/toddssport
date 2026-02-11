@@ -778,6 +778,7 @@ export type Database = {
           active: boolean
           category: string
           code: string
+          color_slots: Json
           created_at: string
           default_colors: Json | null
           id: string
@@ -787,6 +788,7 @@ export type Database = {
           school_font: string
           sort_order: number
           sport: string
+          supported_fonts: Json
           svg_url_master: string | null
           tags: string[] | null
           thumbnail_url: string | null
@@ -796,6 +798,7 @@ export type Database = {
           active?: boolean
           category?: string
           code: string
+          color_slots?: Json
           created_at?: string
           default_colors?: Json | null
           id?: string
@@ -805,6 +808,7 @@ export type Database = {
           school_font?: string
           sort_order?: number
           sport?: string
+          supported_fonts?: Json
           svg_url_master?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
@@ -814,6 +818,7 @@ export type Database = {
           active?: boolean
           category?: string
           code?: string
+          color_slots?: Json
           created_at?: string
           default_colors?: Json | null
           id?: string
@@ -823,6 +828,7 @@ export type Database = {
           school_font?: string
           sort_order?: number
           sport?: string
+          supported_fonts?: Json
           svg_url_master?: string | null
           tags?: string[] | null
           thumbnail_url?: string | null
