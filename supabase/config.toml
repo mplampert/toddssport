@@ -16,7 +16,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.champro-api]
-verify_jwt = true
+verify_jwt = false
 
 [functions.champro-embed-key]
 verify_jwt = false
