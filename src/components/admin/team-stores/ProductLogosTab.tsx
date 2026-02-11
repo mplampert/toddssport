@@ -567,6 +567,43 @@ export function ProductLogosTab({ item, storeId }: Props) {
       }
     },
     onSuccess: () => {
+      // Update local cache immediately so switching colors right after Save doesn't re-filter from stale data.
+      queryClient.setQueryData(["item-logos", item.id], (old: any[] | undefined) => {
+        const prev = Array.isArray(old) ? old : [];
+        const variantColorToSave = applyToAllColors ? null : selectedColor;
+
+        const next = prev.filter((row) => {
+          if (row.team_store_item_id !== item.id) return true;
+          if ((row.view || "front") !== activeView) return true;
+          if (applyToAllColors) return false; // replacing all colors for this view
+          return (row.variant_color ?? null) !== variantColorToSave;
+        });
+
+        const rows = placements.map((p, i) => {
+          const logo = storeLogos.find((l) => l.id === p.store_logo_id);
+          return {
+            team_store_item_id: item.id,
+            store_logo_id: p.store_logo_id,
+            store_logo_variant_id: p.store_logo_variant_id,
+            position: p.position,
+            x: p.x,
+            y: p.y,
+            scale: p.scale,
+            rotation: p.rotation,
+            is_primary: p.is_primary,
+            role: p.role,
+            sort_order: i,
+            active: p.active,
+            variant_color: variantColorToSave,
+            variant_size: null,
+            view: activeView,
+            store_logos: logo ? { name: logo.name, file_url: logo.file_url } : null,
+          };
+        });
+
+        return [...next, ...rows];
+      });
+
       queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
       queryClient.invalidateQueries({ queryKey: ["item-text-layers", item.id] });
       queryClient.invalidateQueries({ queryKey: ["store-logos", storeId] });
