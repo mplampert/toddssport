@@ -386,6 +386,15 @@ export default function TeamStoreProductDetail() {
     return views;
   }, [selectedColor, variantImages, activeColor, allLogos, allTextLayers, persSettings.enable_name, persSettings.enable_number]);
 
+  // Check if a composited mockup image exists for current color + view
+  const mockupImageUrl = useMemo(() => {
+    if (!selectedColorCode) return null;
+    const mockup = variantImages.find(
+      (img) => img.color === selectedColorCode && img.view === activeProductView && img.image_type === "mockup"
+    );
+    return mockup?.image_url ?? null;
+  }, [variantImages, selectedColorCode, activeProductView]);
+
   const galleryImages = useMemo(() => {
     const baseUrl = (u: string) => u.split("?")[0];
     const dedupe = (urls: string[]) => {
@@ -397,6 +406,11 @@ export default function TeamStoreProductDetail() {
         return true;
       });
     };
+
+    // If a composited mockup exists, use it as the primary image
+    if (mockupImageUrl) {
+      return [mockupImageUrl];
+    }
 
     // If variant images exist for the selected color + view, show ONLY those
     if (selectedColor) {
@@ -426,7 +440,7 @@ export default function TeamStoreProductDetail() {
     }
 
     return dedupe(ssColorImgs.filter(Boolean));
-  }, [activeColor, storeProduct, selectedColor, variantImages, activeProductView]);
+  }, [activeColor, storeProduct, selectedColor, variantImages, activeProductView, mockupImageUrl]);
 
   // Get excluded sizes for the selected color
   const excludedSizesForColor = useMemo(() => {
@@ -649,8 +663,8 @@ export default function TeamStoreProductDetail() {
                     <Package className="w-24 h-24 text-muted-foreground/20" />
                   )}
 
-                  {/* Logo overlays from assigned placements (already filtered by view) */}
-                  {assignedLogos.map((logo: any) => {
+                  {/* Logo overlays — hidden when a composited mockup is shown */}
+                  {!mockupImageUrl && assignedLogos.map((logo: any) => {
                     const logoFileUrl = logo.store_logo_variants?.file_url || logo.store_logos?.file_url;
                     if (!logoFileUrl) return null;
                     const size = (logo.scale ?? 0.3) * 100;
@@ -673,8 +687,8 @@ export default function TeamStoreProductDetail() {
                       </div>
                     );
                   })}
-                  {/* Text layer overlays with live personalization */}
-                  {viewTextLayers.map((t, idx) => {
+                  {/* Text layer overlays — hidden when composited mockup is shown */}
+                  {!mockupImageUrl && viewTextLayers.map((t, idx) => {
                     const rawText = resolveTextContent(t, { name: persName, number: persNumber, customFields: customFieldValues });
                     const displayText = applyTextTransform(rawText, t.text_transform);
                     const size = t.scale * 100;

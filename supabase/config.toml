@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.send-admin-message]
 verify_jwt = false
+
+[functions.proxy-image]
+verify_jwt = false
