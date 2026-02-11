@@ -20,6 +20,8 @@ interface DesignTemplate {
   image_url: string | null;
   thumbnail_url: string | null;
   svg_url_master: string | null;
+  school_font: string;
+  mascot_font: string;
   default_colors: { primary?: string; secondary?: string } | null;
   active: boolean;
 }

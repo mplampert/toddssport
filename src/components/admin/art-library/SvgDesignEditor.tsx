@@ -16,6 +16,8 @@ interface SvgDesignEditorProps {
     code: string;
     name: string;
     svg_url_master: string | null;
+    school_font: string;
+    mascot_font: string;
     default_colors: { primary?: string; secondary?: string } | null;
   };
   onBack: () => void;
@@ -83,7 +85,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       schoolTextEl.setAttribute("x", "600");
       schoolTextEl.setAttribute("y", "560");
       schoolTextEl.setAttribute("text-anchor", "middle");
-      schoolTextEl.setAttribute("font-family", "Alumni Sans Collegiate One");
+      schoolTextEl.setAttribute("font-family", template.school_font || "Alumni Sans Collegiate One");
       schoolTextEl.setAttribute("font-size", "100");
       schoolTextEl.setAttribute("fill", "#FFFFFF");
       schoolTextEl.setAttribute("stroke", secondaryColor);
@@ -100,7 +102,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       mascotTextEl.setAttribute("x", "600");
       mascotTextEl.setAttribute("y", "1070");
       mascotTextEl.setAttribute("text-anchor", "middle");
-      mascotTextEl.setAttribute("font-family", "Playball");
+      mascotTextEl.setAttribute("font-family", template.mascot_font || "Playball");
       mascotTextEl.setAttribute("font-size", "60");
       mascotTextEl.setAttribute("fill", "#FFFFFF");
       svg.appendChild(mascotTextEl);
