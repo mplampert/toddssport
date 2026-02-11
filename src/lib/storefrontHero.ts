@@ -45,6 +45,16 @@ export function getDefaultColor(allowedColors: unknown): string | null {
 }
 
 /**
+ * Same as getDefaultColor but returns the color CODE instead of name.
+ * Used for matching logo variant_color which is stored as a color code.
+ */
+export function getDefaultColorCode(allowedColors: unknown): string | null {
+  if (!Array.isArray(allowedColors) || allowedColors.length === 0) return null;
+  const first = allowedColors[0] as AllowedColor | undefined;
+  return first?.code ?? null;
+}
+
+/**
  * Single source of truth for the storefront hero image.
  * Prefers flat/catalog images over lifestyle (no model/person).
  *

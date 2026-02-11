@@ -11,7 +11,7 @@ import { getDisplayName } from "@/lib/productIdentity";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStoreVariantImages } from "@/hooks/useVariantImages";
 import { useStoreFlatImages } from "@/hooks/useStoreFlatImages";
-import { getStorefrontHero, getDefaultColor } from "@/lib/storefrontHero";
+import { getStorefrontHero, getDefaultColor, getDefaultColorCode } from "@/lib/storefrontHero";
 
 interface RawLogoAssignment extends LogoAssignment {
   team_store_item_id: string;
@@ -259,8 +259,9 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
                         )}
                         {/* Primary logo overlay — inside inset-0 so % positioning works */}
                         {(() => {
-                          const defaultColor = getDefaultColor(item.allowed_colors);
-                          const matched = matchLogosForVariant(itemLogos, defaultColor);
+                          // Admin saves variant_color as color CODE, so resolve default to code
+                          const defaultColorCode = getDefaultColorCode(item.allowed_colors);
+                          const matched = matchLogosForVariant(itemLogos, defaultColorCode);
                           const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
                           if (!primaryLogo) return null;
                           const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
