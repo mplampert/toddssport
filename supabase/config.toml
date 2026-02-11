@@ -95,3 +95,6 @@ verify_jwt = false
 
 [functions.ss-bulk-import]
 verify_jwt = false
+
+[functions.ss-fix-brands]
+verify_jwt = false
