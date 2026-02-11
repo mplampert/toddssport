@@ -8,35 +8,80 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { loadGoogleFont } from "./GoogleFontPicker";
-// SVG is fetched from svg_url_master at runtime
+import { loadGoogleFont, GoogleFontPicker } from "./GoogleFontPicker";
+
+interface TemplateData {
+  id: string;
+  code: string;
+  name: string;
+  svg_url_master: string | null;
+  school_font: string;
+  mascot_font: string;
+  supported_fonts: string[];
+  color_slots: string[];
+  default_colors: Record<string, string> | null;
+}
+
+interface TextBlock {
+  id: string;
+  label: string;
+  font: string;
+  defaultText: string;
+}
 
 interface SvgDesignEditorProps {
-  template: {
-    id: string;
-    code: string;
-    name: string;
-    svg_url_master: string | null;
-    school_font: string;
-    mascot_font: string;
-    default_colors: { primary?: string; secondary?: string } | null;
-  };
+  template: TemplateData;
   onBack: () => void;
 }
 
-export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
-  const defaultPrimary = template.default_colors?.primary ?? "#C8102E";
-  const defaultSecondary = template.default_colors?.secondary ?? "#000000";
+/** Introspect SVG DOM for <text> elements with IDs and extract font-family */
+function discoverTextBlocks(svg: SVGSVGElement): TextBlock[] {
+  const blocks: TextBlock[] = [];
+  svg.querySelectorAll("text[id]").forEach((el) => {
+    const id = el.getAttribute("id") || "";
+    const font =
+      el.getAttribute("font-family") ||
+      (el as HTMLElement).style.fontFamily ||
+      "sans-serif";
+    const text = el.textContent || "";
+    const label = id
+      .replace(/-/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+    blocks.push({ id, label, font: font.replace(/['"]/g, ""), defaultText: text });
+  });
+  return blocks;
+}
 
-  const [schoolName, setSchoolName] = useState("WOLVES");
-  const [mascotName, setMascotName] = useState("Mascot");
-  const [primaryColor, setPrimaryColor] = useState(defaultPrimary);
-  const [secondaryColor, setSecondaryColor] = useState(defaultSecondary);
+const SLOT_LABELS: Record<string, string> = {
+  primary: "Primary",
+  secondary: "Secondary",
+  tertiary: "Tertiary",
+  accent: "Accent",
+};
+
+export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
+  const colorSlots = template.color_slots ?? ["primary", "secondary"];
+  const defaultColors = template.default_colors ?? {};
+
+  // Color state: keyed by slot name
+  const [colors, setColors] = useState<Record<string, string>>(() => {
+    const init: Record<string, string> = {};
+    colorSlots.forEach((slot) => {
+      init[slot] = defaultColors[slot] || "#000000";
+    });
+    return init;
+  });
+
+  // Text block state: discovered from SVG DOM
+  const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
+  const [textValues, setTextValues] = useState<Record<string, string>>({});
+  const [textFonts, setTextFonts] = useState<Record<string, string>>({});
+
   const [selectedTeamStoreId, setSelectedTeamStoreId] = useState<string>("");
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch team stores for the dropdown
+  // Fetch team stores
   const { data: teamStores } = useQuery({
     queryKey: ["art-library-team-stores"],
     queryFn: async () => {
@@ -50,13 +95,17 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     },
   });
 
-  // Load Google Fonts for this template
+  // Load all supported fonts + template defaults
   useEffect(() => {
-    if (template.school_font) loadGoogleFont(template.school_font);
-    if (template.mascot_font) loadGoogleFont(template.mascot_font);
-  }, [template.school_font, template.mascot_font]);
+    const fonts = new Set<string>([
+      ...(template.supported_fonts ?? []),
+      template.school_font,
+      template.mascot_font,
+    ]);
+    fonts.forEach((f) => { if (f) loadGoogleFont(f); });
+  }, [template]);
 
-  // Fetch and render SVG inline from svg_url_master
+  // Fetch and render SVG, then discover text blocks
   useEffect(() => {
     if (!svgContainerRef.current || !template.svg_url_master) return;
     let cancelled = false;
@@ -66,75 +115,75 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         if (cancelled || !svgContainerRef.current) return;
         svgContainerRef.current.innerHTML = svgText;
         const svgEl = svgContainerRef.current.querySelector("svg");
-        if (svgEl) {
-          svgEl.setAttribute("width", "100%");
-          svgEl.setAttribute("height", "100%");
-          svgEl.style.maxWidth = "500px";
-          svgEl.style.maxHeight = "500px";
-        }
-        updateSvg();
+        if (!svgEl) return;
+        svgEl.setAttribute("width", "100%");
+        svgEl.setAttribute("height", "100%");
+        svgEl.style.maxWidth = "500px";
+        svgEl.style.maxHeight = "500px";
+
+        // Discover text blocks from SVG DOM
+        const blocks = discoverTextBlocks(svgEl);
+        setTextBlocks(blocks);
+
+        // Init text values & fonts from SVG
+        const vals: Record<string, string> = {};
+        const fnts: Record<string, string> = {};
+        blocks.forEach((b) => {
+          vals[b.id] = b.defaultText;
+          fnts[b.id] = b.font;
+          loadGoogleFont(b.font);
+        });
+        setTextValues(vals);
+        setTextFonts(fnts);
       })
       .catch(() => toast.error("Failed to load SVG template"));
     return () => { cancelled = true; };
   }, [template.svg_url_master]);
 
+  // Apply text + color changes to SVG DOM
   const updateSvg = useCallback(() => {
     if (!svgContainerRef.current) return;
     const svg = svgContainerRef.current.querySelector("svg");
     if (!svg) return;
 
-    // Update school name text
-    let schoolTextEl = svg.querySelector("#school-name") as SVGTextElement | null;
-    if (!schoolTextEl) {
-      // Create the text element if it doesn't exist
-      schoolTextEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      schoolTextEl.id = "school-name";
-      schoolTextEl.setAttribute("x", "600");
-      schoolTextEl.setAttribute("y", "560");
-      schoolTextEl.setAttribute("text-anchor", "middle");
-      schoolTextEl.setAttribute("font-family", template.school_font || "Alumni Sans Collegiate One");
-      schoolTextEl.setAttribute("font-size", "100");
-      schoolTextEl.setAttribute("fill", "#FFFFFF");
-      schoolTextEl.setAttribute("stroke", secondaryColor);
-      schoolTextEl.setAttribute("stroke-width", "2");
-      svg.appendChild(schoolTextEl);
-    }
-    schoolTextEl.textContent = schoolName;
-
-    // Update mascot name text
-    let mascotTextEl = svg.querySelector("#mascot-name") as SVGTextElement | null;
-    if (!mascotTextEl) {
-      mascotTextEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      mascotTextEl.id = "mascot-name";
-      mascotTextEl.setAttribute("x", "600");
-      mascotTextEl.setAttribute("y", "1070");
-      mascotTextEl.setAttribute("text-anchor", "middle");
-      mascotTextEl.setAttribute("font-family", template.mascot_font || "Playball");
-      mascotTextEl.setAttribute("font-size", "60");
-      mascotTextEl.setAttribute("fill", "#FFFFFF");
-      svg.appendChild(mascotTextEl);
-    }
-    mascotTextEl.textContent = mascotName;
-
-    // Update primary color (.primary-fill elements)
-    svg.querySelectorAll(".primary-fill").forEach((el) => {
-      (el as SVGElement).style.fill = primaryColor;
+    // Update text blocks
+    textBlocks.forEach((block) => {
+      const el = svg.querySelector(`#${block.id}`) as SVGTextElement | null;
+      if (!el) return;
+      el.textContent = textValues[block.id] ?? block.defaultText;
+      const font = textFonts[block.id] ?? block.font;
+      el.setAttribute("font-family", font);
     });
 
-    // Update secondary color (.secondary-fill elements)
-    svg.querySelectorAll(".secondary-fill").forEach((el) => {
-      (el as SVGElement).style.fill = secondaryColor;
+    // Update color slots
+    colorSlots.forEach((slot) => {
+      const color = colors[slot];
+      svg.querySelectorAll(`.${slot}-fill`).forEach((el) => {
+        (el as SVGElement).style.fill = color;
+      });
+      // Also update stroke for text if matching
+      svg.querySelectorAll(`.${slot}-stroke`).forEach((el) => {
+        (el as SVGElement).style.stroke = color;
+      });
     });
-
-    // Update text stroke to match secondary
-    if (schoolTextEl) {
-      schoolTextEl.setAttribute("stroke", secondaryColor);
-    }
-  }, [schoolName, mascotName, primaryColor, secondaryColor]);
+  }, [textBlocks, textValues, textFonts, colors, colorSlots]);
 
   useEffect(() => {
     updateSvg();
   }, [updateSvg]);
+
+  const setTextValue = (id: string, value: string) => {
+    setTextValues((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const setTextFont = (id: string, font: string) => {
+    loadGoogleFont(font);
+    setTextFonts((prev) => ({ ...prev, [id]: font }));
+  };
+
+  const setColor = (slot: string, value: string) => {
+    setColors((prev) => ({ ...prev, [slot]: value }));
+  };
 
   // Serialize SVG
   const getSerializedSvg = (): string => {
@@ -154,7 +203,6 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       const fileName = `team_${selectedTeamStoreId}_${template.id}.svg`;
       const blob = new Blob([svgString], { type: "image/svg+xml" });
 
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from("team-art")
         .upload(fileName, blob, { upsert: true, contentType: "image/svg+xml" });
@@ -164,23 +212,25 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         .from("team-art")
         .getPublicUrl(fileName);
 
-      // Upsert team_art record
+      // Build metadata for the saved design
       const { error: dbError } = await supabase
         .from("team_art" as any)
         .upsert({
           team_store_id: selectedTeamStoreId,
           design_template_id: template.id,
           svg_url_final: urlData.publicUrl,
-          school_name: schoolName,
-          mascot_name: mascotName,
-          primary_color: primaryColor,
-          secondary_color: secondaryColor,
+          school_name: textValues["school-name"] || "",
+          mascot_name: textValues["mascot-name"] || "",
+          primary_color: colors.primary || "",
+          secondary_color: colors.secondary || "",
+          text_fonts: textFonts,
+          color_values: colors,
         }, { onConflict: "team_store_id,design_template_id" } as any);
       if (dbError) throw dbError;
 
       return urlData.publicUrl;
     },
-    onSuccess: (url) => {
+    onSuccess: () => {
       toast.success("Design saved successfully!", {
         description: "SVG uploaded to storage",
       });
@@ -211,7 +261,9 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
               className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-4 min-h-[300px]"
             >
               {!template.svg_url_master && (
-                <p className="text-sm text-muted-foreground">No SVG master uploaded for this template. Set <code>svg_url_master</code> in the database.</p>
+                <p className="text-sm text-muted-foreground">
+                  No SVG master uploaded for this template.
+                </p>
               )}
             </div>
           </CardContent>
@@ -219,84 +271,64 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
 
         {/* Editor Controls */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Customize Text</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="school-name-input">
-                  School Name
-                  <span className="text-xs text-muted-foreground ml-1 font-normal">(Alumni Sans Collegiate One)</span>
-                </Label>
-                <Input
-                  id="school-name-input"
-                  value={schoolName}
-                  onChange={(e) => setSchoolName(e.target.value.toUpperCase())}
-                  placeholder="e.g. WOLVES"
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="mascot-name-input">
-                  Mascot / Accent Text
-                  <span className="text-xs text-muted-foreground ml-1 font-normal">(Playball)</span>
-                </Label>
-                <Input
-                  id="mascot-name-input"
-                  value={mascotName}
-                  onChange={(e) => setMascotName(e.target.value)}
-                  placeholder="e.g. Spirit Wear"
-                  className="mt-1"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {/* Text Blocks — auto-discovered from SVG */}
+          {textBlocks.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Customize Text</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {textBlocks.map((block) => (
+                  <div key={block.id} className="space-y-2">
+                    <Label>{block.label}</Label>
+                    <Input
+                      value={textValues[block.id] ?? ""}
+                      onChange={(e) => setTextValue(block.id, e.target.value)}
+                      placeholder={block.defaultText}
+                    />
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">Font:</span>
+                      <GoogleFontPicker
+                        value={textFonts[block.id] ?? block.font}
+                        onChange={(f) => setTextFont(block.id, f)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
 
+          {/* Color Slots — driven by template.color_slots */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Customize Colors</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div>
-                  <Label htmlFor="primary-color">Primary Color</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input
-                      type="color"
-                      id="primary-color"
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="w-10 h-10 rounded border cursor-pointer"
-                    />
-                    <Input
-                      value={primaryColor}
-                      onChange={(e) => setPrimaryColor(e.target.value)}
-                      className="w-28 font-mono text-sm"
-                    />
+            <CardContent>
+              <div className="flex flex-wrap gap-4">
+                {colorSlots.map((slot) => (
+                  <div key={slot}>
+                    <Label>{SLOT_LABELS[slot] || slot.charAt(0).toUpperCase() + slot.slice(1)} Color</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="color"
+                        value={colors[slot] || "#000000"}
+                        onChange={(e) => setColor(slot, e.target.value)}
+                        className="w-10 h-10 rounded border cursor-pointer"
+                      />
+                      <Input
+                        value={colors[slot] || ""}
+                        onChange={(e) => setColor(slot, e.target.value)}
+                        className="w-28 font-mono text-sm"
+                      />
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor="secondary-color">Secondary Color</Label>
-                  <div className="flex items-center gap-2 mt-1">
-                    <input
-                      type="color"
-                      id="secondary-color"
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="w-10 h-10 rounded border cursor-pointer"
-                    />
-                    <Input
-                      value={secondaryColor}
-                      onChange={(e) => setSecondaryColor(e.target.value)}
-                      className="w-28 font-mono text-sm"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
             </CardContent>
           </Card>
 
+          {/* Save */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Save to Team</CardTitle>

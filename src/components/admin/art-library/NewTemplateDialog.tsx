@@ -117,6 +117,8 @@ export function NewTemplateDialog() {
         active,
         school_font: schoolFont,
         mascot_font: mascotFont,
+        supported_fonts: [schoolFont, mascotFont].filter(Boolean),
+        color_slots: ["primary", "secondary"],
         svg_url_master: svgUrl,
         thumbnail_url: thumbUrl,
         default_colors: { primary: primaryColor, secondary: secondaryColor },
