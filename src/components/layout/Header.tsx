@@ -26,6 +26,7 @@ const serviceLinks = [
 const navLinks = [
   { name: "Home", path: "/" },
   { name: "Find Your Rep", path: "/find-your-rep" },
+  { name: "Catalog", path: "/catalog" },
   { name: "Catalogs", path: "/catalogs" },
   { name: "Contact", path: "/contact" },
 ];
@@ -122,6 +123,13 @@ export function Header() {
             >
               Find My Store
             </a>
+
+            <Link
+              to="/catalog"
+              className={`nav-link ${location.pathname.startsWith("/catalog") && !location.pathname.startsWith("/catalogs") ? "nav-link-active" : ""}`}
+            >
+              Catalog
+            </Link>
 
             <Link
               to="/catalogs"

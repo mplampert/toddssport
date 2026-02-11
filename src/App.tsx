@@ -115,6 +115,8 @@ import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
 import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail";
+import PublicCatalog from "./pages/PublicCatalog";
+import PublicCatalogDetail from "./pages/PublicCatalogDetail";
 
 const queryClient = new QueryClient();
 
@@ -157,6 +159,8 @@ const App = () => (
           <Route path="/ss-products/brand/:brandName" element={<SSBrandProducts />} />
           <Route path="/ss-products/brand/:brandName/:category" element={<SSBrandCategoryProducts />} />
           <Route path="/ss-products/:styleId" element={<SSProductDetail />} />
+          <Route path="/catalog" element={<PublicCatalog />} />
+          <Route path="/catalog/:styleId" element={<PublicCatalogDetail />} />
           <Route path="/designs" element={<DesignLibrary />} />
           <Route path="/preview/team-store/:slug" element={<TeamStorePreview />} />
           <Route path="/preview/team-store/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
