@@ -163,10 +163,22 @@ export default function TeamStoreProductDetail() {
     .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
 
   // Match logos for the currently selected color variant, filtered by active view
+  // Admin saves variant_color as the SS color CODE (e.g. "50"), so we must resolve
+  // the selected color name to its code for matching.
+  const selectedColorCode = useMemo(() => {
+    if (!selectedColor) return undefined;
+    const allowed = storeProduct?.allowed_colors;
+    if (Array.isArray(allowed)) {
+      const match = (allowed as { code: string; name: string }[]).find((c) => c.name === selectedColor);
+      if (match) return match.code;
+    }
+    return undefined;
+  }, [selectedColor, storeProduct?.allowed_colors]);
+
   const assignedLogos = useMemo(
-    () => matchLogosForVariant(allLogos, selectedColor || undefined)
+    () => matchLogosForVariant(allLogos, selectedColorCode || undefined)
       .filter((l: any) => (l.view || "front") === activeProductView),
-    [allLogos, selectedColor, activeProductView]
+    [allLogos, selectedColorCode, activeProductView]
   );
 
   // Fetch text layers for this product
