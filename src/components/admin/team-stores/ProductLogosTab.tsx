@@ -959,7 +959,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
         {/* Reuse checkbox moved into image management strip below canvas */}
 
         {/* ─── Canvas + Controls Side-by-Side ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 items-start">
           {/* Left: Canvas */}
           <div className="space-y-1.5">
             <Label className="text-sm font-semibold">Placement Canvas — {activeViewLabel}</Label>
@@ -1073,35 +1073,35 @@ export function ProductLogosTab({ item, storeId }: Props) {
           </div>
 
           {/* Right: Placement controls panel */}
-          <div className="space-y-3 lg:sticky lg:top-4">
+          <div className="space-y-4 lg:sticky lg:top-4">
             {/* Active placement controls */}
             {active && activePlacementIdx !== null ? (
-              <div className="border rounded-lg p-3 bg-card space-y-3">
+              <div className="border rounded-lg p-4 bg-card space-y-4">
                 <div className="flex items-center gap-3">
                   {active._logo_url && (
-                    <img src={active._logo_url} alt="" className="w-10 h-10 object-contain rounded bg-muted border p-0.5 shrink-0" />
+                    <img src={active._logo_url} alt="" className="w-14 h-14 object-contain rounded bg-muted border p-1 shrink-0" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{active._logo_name || "Logo"}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-base font-semibold truncate">{active._logo_name || "Logo"}</p>
+                    <p className="text-sm text-muted-foreground">
                       {presetMap.get(active.position)?.label || active.position}
                     </p>
                   </div>
-                  {active.is_primary && <Badge variant="secondary" className="text-[10px]">Primary</Badge>}
+                  {active.is_primary && <Badge variant="secondary" className="text-xs">Primary</Badge>}
                   <Button
                     size="icon"
                     variant="ghost"
-                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
+                    className="h-8 w-8 shrink-0 text-destructive hover:text-destructive"
                     onClick={() => removePlacement(activePlacementIdx)}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-1 gap-3">
                   {/* Logo select */}
                   <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">Logo</Label>
+                    <Label className="text-xs text-muted-foreground font-medium">Logo</Label>
                     <Select value={active.store_logo_id} onValueChange={(v) => {
                       const logo = storeLogos.find((l) => l.id === v);
                       const variants = variantsByLogo.get(v) || [];
@@ -1116,7 +1116,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                           variant_locked: false,
                         });
                     }}>
-                      <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {storeLogos.map((l) => (
                           <SelectItem key={l.id} value={l.id}>
@@ -1130,12 +1130,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {/* Placement Preset */}
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Placement</Label>
+                      <Label className="text-xs text-muted-foreground font-medium">Placement</Label>
                       <Select value={active.position} onValueChange={(v) => applyPreset(activePlacementIdx, v)}>
-                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {Object.entries(presetsByType).map(([type, items]) => (
                             <React.Fragment key={type}>
@@ -1158,9 +1158,9 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
                     {/* Role selector */}
                     <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">Role</Label>
+                      <Label className="text-xs text-muted-foreground font-medium">Role</Label>
                       <Select value={active.role} onValueChange={(v) => updatePlacement(activePlacementIdx, { role: v })}>
-                        <SelectTrigger className="text-xs h-8"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="text-sm h-9"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {[
                             { value: "primary", label: "Primary" },
@@ -1183,7 +1183,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                     if (variants.length <= 1) return null;
                     return (
                       <div className="space-y-1">
-                        <Label className="text-[11px] text-muted-foreground">Logo Variant</Label>
+                        <Label className="text-xs text-muted-foreground font-medium">Logo Variant</Label>
                         <Select
                           value={active.store_logo_variant_id || ""}
                           onValueChange={(v) => {
@@ -1195,7 +1195,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                             });
                           }}
                         >
-                          <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select variant" /></SelectTrigger>
+                          <SelectTrigger className="text-sm h-9"><SelectValue placeholder="Select variant" /></SelectTrigger>
                           <SelectContent>
                             {variants.map((v) => (
                               <SelectItem key={v.id} value={v.id}>
@@ -1215,7 +1215,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                 </div>
 
                 {/* Scale readout */}
-                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
                   <span>Scale: {Math.round(active.scale * 100)}%</span>
                   <span>max {Math.round(getMaxScale(active.position) * 100)}%</span>
                 </div>
@@ -1225,14 +1225,14 @@ export function ProductLogosTab({ item, storeId }: Props) {
                   <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
                       <Switch checked={active.is_primary} onCheckedChange={() => setPrimaryPlacement(activePlacementIdx)} />
-                      <Label className="text-[11px]">Primary</Label>
+                      <Label className="text-xs">Primary</Label>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch checked={active.active} onCheckedChange={(v) => updatePlacement(activePlacementIdx, { active: v })} />
-                      <Label className="text-[11px]">Active</Label>
+                      <Label className="text-xs">Active</Label>
                     </div>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-mono tabular-nums">
+                  <span className="text-xs text-muted-foreground font-mono tabular-nums">
                     x:{active.x.toFixed(2)} y:{active.y.toFixed(2)}
                   </span>
                 </div>
