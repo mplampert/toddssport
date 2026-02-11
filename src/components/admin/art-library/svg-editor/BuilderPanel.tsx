@@ -201,13 +201,14 @@ export function BuilderPanel({
           Save to Team Logos
         </div>
         <p className="text-xs text-muted-foreground">
-          Saves SVG + PNG to the team's logo library for use on products
+          Saves SVG + PNG to the logo library for use on products
         </p>
-        <Select value={selectedTeamStoreId} onValueChange={onTeamStoreChange}>
+        <Select value={selectedTeamStoreId || "__none__"} onValueChange={(v) => onTeamStoreChange(v === "__none__" ? "" : v)}>
           <SelectTrigger className="h-8 text-sm">
-            <SelectValue placeholder="Select a team store…" />
+            <SelectValue placeholder="No store (save as global logo)" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="__none__">No store (global logo)</SelectItem>
             {teamStores?.map((ts) => (
               <SelectItem key={ts.id} value={ts.id}>
                 {ts.name}{ts.organization ? ` — ${ts.organization}` : ""}
@@ -217,7 +218,7 @@ export function BuilderPanel({
         </Select>
         <Button
           onClick={onSave}
-          disabled={isSaving || !selectedTeamStoreId}
+          disabled={isSaving}
           className="w-full gap-2 h-9"
           size="sm"
         >
