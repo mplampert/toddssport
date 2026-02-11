@@ -69,6 +69,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
   const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [applyToAllColors, setApplyToAllColors] = useState(false);
+  // Prevent auto-default logic from overriding a user's explicit toggle choice
+  const applyModeUserSetRef = useRef(false);
   const [loadingVariants, setLoadingVariants] = useState(true);
   const [activeView, setActiveView] = useState<"front" | "back" | "left_sleeve" | "right_sleeve">("front");
   const [reuseSleeveForAllColors, setReuseSleeveForAllColors] = useState(true);
@@ -283,11 +285,13 @@ export function ProductLogosTab({ item, storeId }: Props) {
     }));
 
     const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
-    // Default to per-color mode; only switch to "all" if no color overrides exist AND no colors available
+    // Default to per-color mode; only switch to "all" if no color overrides exist AND no colors available.
+    // IMPORTANT: once a user explicitly toggles the mode, never auto-flip it again.
     const shouldApplyAll = !hasColorOverrides && colorOptions.length <= 1;
-    setApplyToAllColors(shouldApplyAll);
+    if (!applyModeUserSetRef.current) setApplyToAllColors(shouldApplyAll);
+    const applyAll = applyModeUserSetRef.current ? applyToAllColors : shouldApplyAll;
 
-    let filtered = filterPlacementsForEditing(all, selectedColor, shouldApplyAll, activeView);
+    let filtered = filterPlacementsForEditing(all, selectedColor, applyAll, activeView);
 
     // Auto-pick best logo variant for the current garment color
     // IMPORTANT: never overwrite a user's manual selection (variant_locked)
@@ -318,7 +322,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
     setSavedSnapshot(JSON.stringify(all));
     setDirty(false);
     setActivePlacementIdx(null);
-  }, [existingPlacements, selectedColor, activeView, colorOptions, variantsByLogo]);
+  }, [existingPlacements, selectedColor, activeView, colorOptions, variantsByLogo, applyToAllColors]);
 
   // When text layers load or view changes, filter to current view
   useEffect(() => {
@@ -783,6 +787,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
                 <Switch
                   checked={applyToAllColors}
                   onCheckedChange={(v) => {
+                    applyModeUserSetRef.current = true;
                     setApplyToAllColors(v);
                     setDirty(true);
                     if (existingPlacements) {
