@@ -66,69 +66,107 @@ export default function PublicCatalogDetail() {
   const [formDecoration, setFormDecoration] = useState("");
   const [formNotes, setFormNotes] = useState("");
 
-  // Fetch catalog style info from our DB
-  const { data: catalogStyle, isLoading: loadingCatalog } = useQuery({
-    queryKey: ["public-catalog-style", styleId],
+  // Determine if this is a UUID (master_products.id) or a numeric style_id (legacy)
+  const isUuid = styleId ? /^[0-9a-f]{8}-/.test(styleId) : false;
+  const isNumeric = styleId ? /^\d+$/.test(styleId) : false;
+
+  // Fetch from master_products (by UUID id, or by source_sku for legacy numeric links)
+  const { data: masterProduct, isLoading: loadingMaster } = useQuery({
+    queryKey: ["public-catalog-master", styleId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("catalog_styles")
-        .select("*")
-        .eq("style_id", Number(styleId))
-        .eq("is_active", true)
-        .maybeSingle();
+      let query = supabase
+        .from("master_products")
+        .select("*, brands!master_products_brand_id_fkey(name, logo_url)")
+        .eq("active", true);
+
+      if (isUuid) {
+        query = query.eq("id", styleId!);
+      } else if (isNumeric) {
+        query = query.eq("source_sku", styleId!);
+      } else {
+        return null;
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data;
     },
     enabled: !!styleId,
   });
 
-  // Fetch color/size data from S&S via edge function
+  // Also try catalog_styles for legacy numeric links (specs, extra metadata)
+  const { data: catalogStyle, isLoading: loadingCatalog } = useQuery({
+    queryKey: ["public-catalog-style", styleId, masterProduct?.source_sku],
+    queryFn: async () => {
+      const sku = isNumeric ? styleId : masterProduct?.source_sku;
+      if (!sku || !/^\d+$/.test(sku)) return null;
+      const { data, error } = await supabase
+        .from("catalog_styles")
+        .select("*")
+        .eq("style_id", Number(sku))
+        .eq("is_active", true)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!styleId && (isNumeric || !!masterProduct?.source_sku),
+  });
+
+  // Determine the S&S style ID for enrichment
+  const ssStyleId = useMemo(() => {
+    if (masterProduct?.source === "ss_activewear" && masterProduct.source_sku) {
+      return masterProduct.source_sku;
+    }
+    if (isNumeric) return styleId;
+    return null;
+  }, [masterProduct, isNumeric, styleId]);
+
+  // Fetch color/size data from S&S via edge function (only for S&S products)
   const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ["public-catalog-products", styleId],
+    queryKey: ["public-catalog-products", ssStyleId],
     queryFn: async () => {
       try {
-        const data = await getProducts({ style: styleId });
+        const data = await getProducts({ style: ssStyleId! });
         return Array.isArray(data) ? data : [];
       } catch {
         return [];
       }
     },
-    enabled: !!styleId,
+    enabled: !!ssStyleId,
   });
 
   // Fetch style details from S&S
   const { data: ssStyleInfo } = useQuery({
-    queryKey: ["public-catalog-ss-style", styleId],
+    queryKey: ["public-catalog-ss-style", ssStyleId],
     queryFn: async () => {
       try {
-        const data = await getStyles({ style: styleId });
+        const data = await getStyles({ style: ssStyleId! });
         const styles = Array.isArray(data) ? data : [];
-        return styles.find((s) => String(s.styleID) === styleId) || null;
+        return styles.find((s) => String(s.styleID) === ssStyleId) || null;
       } catch {
         return null;
       }
     },
-    enabled: !!styleId,
+    enabled: !!ssStyleId,
   });
 
-  // Fetch specs
+  // Fetch specs (only for S&S products with catalog_styles data)
   const { data: specs = [] } = useQuery({
-    queryKey: ["public-catalog-specs", styleId],
+    queryKey: ["public-catalog-specs", ssStyleId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("catalog_specs")
         .select("spec_name, value")
-        .eq("style_id", Number(styleId))
+        .eq("style_id", Number(ssStyleId))
         .not("value", "is", null);
       if (error) throw error;
-      // Dedupe by spec_name
       const map = new Map<string, string>();
       (data || []).forEach((s) => {
         if (s.value && !map.has(s.spec_name)) map.set(s.spec_name, s.value);
       });
       return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
     },
-    enabled: !!styleId,
+    enabled: !!ssStyleId,
   });
 
   // Pre-select first color
@@ -178,10 +216,12 @@ export default function PublicCatalogDetail() {
     return sizes;
   }, [products]);
 
-  const productName = catalogStyle?.title || catalogStyle?.style_name || ssStyleInfo?.title || ssStyleInfo?.styleName || `Style #${styleId}`;
-  const brandName = catalogStyle?.brand_name || products[0]?.brandName || "";
-  const partNumber = catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
-  const description = catalogStyle?.description || ssStyleInfo?.description || "";
+  // Resolve display values from master_products first, fall back to catalog_styles / S&S
+  const brandName = (masterProduct as any)?.brands?.name || catalogStyle?.brand_name || products[0]?.brandName || "";
+  const productName = masterProduct?.name || catalogStyle?.title || catalogStyle?.style_name || ssStyleInfo?.title || ssStyleInfo?.styleName || `Style #${styleId}`;
+  const partNumber = masterProduct?.source_sku || catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
+  const description = masterProduct?.description_short || catalogStyle?.description || ssStyleInfo?.description || "";
+  const mainImage = masterProduct?.image_url || catalogStyle?.style_image || null;
 
   // Submit inquiry
   const submitMutation = useMutation({
@@ -191,7 +231,7 @@ export default function PublicCatalogDetail() {
         email: formEmail,
         organization: formOrg || null,
         phone: formPhone || null,
-        product_style_id: Number(styleId),
+        product_style_id: ssStyleId ? Number(ssStyleId) : null,
         product_brand: brandName,
         product_style_code: partNumber,
         product_name: productName,
@@ -237,7 +277,7 @@ export default function PublicCatalogDetail() {
     });
   };
 
-  const isLoading = loadingCatalog || loadingProducts;
+  const isLoading = loadingMaster || (!!ssStyleId && loadingProducts);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -269,6 +309,17 @@ export default function PublicCatalogDetail() {
                 <Skeleton className="h-32 w-full" />
               </div>
             </div>
+          ) : !masterProduct && !catalogStyle ? (
+            <div className="text-center py-20">
+              <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Product not found</h3>
+              <p className="text-muted-foreground mb-4">This product may no longer be available.</p>
+              <Link to="/catalog">
+                <Button variant="outline">
+                  <ArrowLeft className="w-4 h-4 mr-2" /> Back to Catalog
+                </Button>
+              </Link>
+            </div>
           ) : (
             <div className="grid lg:grid-cols-2 gap-8 lg:gap-12">
               {/* ═══ LEFT: Image Gallery ═══ */}
@@ -280,9 +331,9 @@ export default function PublicCatalogDetail() {
                       alt={`${activeColor?.name || "Product"} view`}
                       className="w-full h-full object-contain p-8 transition-transform duration-300 group-hover:scale-105"
                     />
-                  ) : catalogStyle?.style_image ? (
+                  ) : mainImage ? (
                     <img
-                      src={catalogStyle.style_image}
+                      src={mainImage}
                       alt={productName}
                       className="w-full h-full object-contain p-8"
                     />

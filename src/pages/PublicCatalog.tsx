@@ -17,20 +17,20 @@ import {
 import { Search, Package, X, SlidersHorizontal } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
-interface CatalogStyle {
-  id: number;
-  style_id: number;
-  part_number: string | null;
-  brand_name: string;
-  style_name: string;
-  title: string | null;
-  description: string | null;
-  base_category: string | null;
-  style_image: string | null;
-  brand_image: string | null;
-}
-
 const PAGE_SIZE = 24;
+
+interface CatalogProduct {
+  id: string;
+  name: string;
+  category: string;
+  image_url: string | null;
+  source: string;
+  source_sku: string | null;
+  product_type: string;
+  description_short: string | null;
+  brand_name: string | null;
+  brand_logo: string | null;
+}
 
 export default function PublicCatalog() {
   const [search, setSearch] = useState("");
@@ -39,56 +39,106 @@ export default function PublicCatalog() {
   const [page, setPage] = useState(0);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Fetch all active styles from catalog_styles (our imported S&S data)
-  const { data: styles = [], isLoading } = useQuery({
-    queryKey: ["public-catalog-styles"],
+  // Fetch filter options (brands & categories)
+  const { data: filterOptions } = useQuery({
+    queryKey: ["public-catalog-filters"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("catalog_styles")
-        .select("id, style_id, part_number, brand_name, style_name, title, description, base_category, style_image, brand_image")
-        .eq("is_active", true)
-        .order("brand_name")
-        .order("style_name");
+      const [brandsRes, productsRes] = await Promise.all([
+        supabase
+          .from("brands")
+          .select("id, name")
+          .order("name"),
+        supabase
+          .from("master_products")
+          .select("category")
+          .eq("active", true),
+      ]);
+
+      const brands = (brandsRes.data || []).map((b) => b.name);
+
+      // Dedupe + normalize categories
+      const catSet = new Set<string>();
+      (productsRes.data || []).forEach((p) => {
+        if (p.category) {
+          // Normalize: replace underscores, title-case
+          const normalized = p.category
+            .replace(/___/g, " - ")
+            .replace(/_/g, " ")
+            .replace(/\b\w/g, (c: string) => c.toUpperCase());
+          catSet.add(normalized);
+        }
+      });
+      const categories = Array.from(catSet).sort();
+
+      return { brands, categories };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Main product query with server-side pagination
+  const { data: queryResult, isLoading } = useQuery({
+    queryKey: ["public-catalog-products", page, brandFilter, categoryFilter, search],
+    queryFn: async () => {
+      // Build query
+      let query = supabase
+        .from("master_products")
+        .select("id, name, category, image_url, source, source_sku, product_type, description_short, brand_id, brands!master_products_brand_id_fkey(name, logo_url)", { count: "exact" })
+        .eq("active", true)
+        .order("name")
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      // Brand filter - need to match by brand name via the brands table
+      if (brandFilter !== "all") {
+        // First get the brand id
+        const { data: brandData } = await supabase
+          .from("brands")
+          .select("id")
+          .eq("name", brandFilter)
+          .maybeSingle();
+        if (brandData) {
+          query = query.eq("brand_id", brandData.id);
+        }
+      }
+
+      // Category filter - use ilike for case-insensitive matching
+      if (categoryFilter !== "all") {
+        // Convert display name back to possible DB values
+        const catLower = categoryFilter.toLowerCase().replace(/ - /g, "___").replace(/ /g, "_");
+        // Match either exact or case-insensitive
+        query = query.or(`category.ilike.${categoryFilter},category.ilike.${catLower}`);
+      }
+
+      // Search
+      if (search.trim()) {
+        const q = `%${search.trim()}%`;
+        query = query.or(`name.ilike.${q},source_sku.ilike.${q},description_short.ilike.${q}`);
+      }
+
+      const { data, error, count } = await query;
       if (error) throw error;
-      return (data || []) as CatalogStyle[];
+
+      const products: CatalogProduct[] = (data || []).map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        image_url: p.image_url,
+        source: p.source,
+        source_sku: p.source_sku,
+        product_type: p.product_type,
+        description_short: p.description_short,
+        brand_name: p.brands?.name || null,
+        brand_logo: p.brands?.logo_url || null,
+      }));
+
+      return { products, totalCount: count || 0 };
     },
   });
 
-  // Derive filter options
-  const brands = useMemo(() => {
-    const set = new Set(styles.map((s) => s.brand_name));
-    return Array.from(set).sort();
-  }, [styles]);
-
-  const categories = useMemo(() => {
-    const set = new Set(styles.map((s) => s.base_category).filter(Boolean) as string[]);
-    return Array.from(set).sort();
-  }, [styles]);
-
-  // Filter + search
-  const filtered = useMemo(() => {
-    let result = styles;
-    if (brandFilter !== "all") {
-      result = result.filter((s) => s.brand_name === brandFilter);
-    }
-    if (categoryFilter !== "all") {
-      result = result.filter((s) => s.base_category === categoryFilter);
-    }
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (s) =>
-          s.style_name.toLowerCase().includes(q) ||
-          s.brand_name.toLowerCase().includes(q) ||
-          (s.title || "").toLowerCase().includes(q) ||
-          (s.part_number || "").toLowerCase().includes(q)
-      );
-    }
-    return result;
-  }, [styles, brandFilter, categoryFilter, search]);
-
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const products = queryResult?.products || [];
+  const totalCount = queryResult?.totalCount || 0;
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const brands = filterOptions?.brands || [];
+  const categories = filterOptions?.categories || [];
 
   const clearFilters = () => {
     setSearch("");
@@ -98,6 +148,13 @@ export default function PublicCatalog() {
   };
 
   const hasActiveFilters = search || brandFilter !== "all" || categoryFilter !== "all";
+
+  const formatCategory = (cat: string) => {
+    return cat
+      .replace(/___/g, " - ")
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -113,7 +170,7 @@ export default function PublicCatalog() {
               </h1>
             </div>
             <p className="text-lg text-primary-foreground/70 max-w-2xl">
-              Browse our full selection of blank apparel and accessories from top brands. Click any product to view details and request a quote.
+              Browse our full selection of blank apparel, uniforms, and promotional products from top brands. Click any product to view details and request a quote.
             </p>
           </div>
         </section>
@@ -122,7 +179,6 @@ export default function PublicCatalog() {
         <section className="border-b border-border bg-card sticky top-16 md:top-20 z-30">
           <div className="container mx-auto px-4 py-4">
             <div className="flex flex-col sm:flex-row gap-3">
-              {/* Search */}
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -133,7 +189,6 @@ export default function PublicCatalog() {
                 />
               </div>
 
-              {/* Filter toggle (mobile) + desktop filters */}
               <Button
                 variant="outline"
                 className="sm:hidden"
@@ -191,7 +246,7 @@ export default function PublicCatalog() {
                   </div>
                 ))}
               </div>
-            ) : filtered.length === 0 ? (
+            ) : products.length === 0 ? (
               <div className="text-center py-20">
                 <Package className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No products found</h3>
@@ -204,24 +259,23 @@ export default function PublicCatalog() {
               <>
                 <div className="flex items-center justify-between mb-6">
                   <p className="text-sm text-muted-foreground">
-                    {filtered.length} product{filtered.length !== 1 ? "s" : ""}
+                    {totalCount} product{totalCount !== 1 ? "s" : ""}
                     {hasActiveFilters ? " matching filters" : ""}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-5">
-                  {paginated.map((style) => (
+                  {products.map((product) => (
                     <Link
-                      key={style.id}
-                      to={`/catalog/${style.style_id}`}
+                      key={product.id}
+                      to={`/catalog/${product.id}`}
                       className="group bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 flex flex-col"
                     >
-                      {/* Image */}
                       <div className="relative aspect-square bg-secondary/30 overflow-hidden">
-                        {style.style_image ? (
+                        {product.image_url ? (
                           <img
-                            src={style.style_image}
-                            alt={style.title || style.style_name}
+                            src={product.image_url}
+                            alt={product.name}
                             className="w-full h-full object-contain p-4 group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
                           />
@@ -230,27 +284,28 @@ export default function PublicCatalog() {
                             <Package className="w-10 h-10 text-muted-foreground/20" />
                           </div>
                         )}
-                        {style.base_category && (
+                        {product.category && (
                           <Badge
                             variant="secondary"
                             className="absolute top-2 left-2 text-[10px] bg-background/90 backdrop-blur-sm"
                           >
-                            {style.base_category}
+                            {formatCategory(product.category)}
                           </Badge>
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="p-3 flex-grow flex flex-col">
-                        <p className="text-[10px] uppercase tracking-wider text-accent font-semibold mb-0.5">
-                          {style.brand_name}
-                        </p>
+                        {product.brand_name && (
+                          <p className="text-[10px] uppercase tracking-wider text-accent font-semibold mb-0.5">
+                            {product.brand_name}
+                          </p>
+                        )}
                         <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-1 group-hover:text-accent transition-colors">
-                          {style.title || style.style_name}
+                          {product.name}
                         </h3>
-                        {style.part_number && (
+                        {product.source_sku && (
                           <p className="text-[11px] text-muted-foreground mt-auto">
-                            #{style.part_number}
+                            #{product.source_sku}
                           </p>
                         )}
                       </div>
@@ -258,14 +313,13 @@ export default function PublicCatalog() {
                   ))}
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-center gap-2 mt-8">
                     <Button
                       variant="outline"
                       size="sm"
                       disabled={page === 0}
-                      onClick={() => setPage((p) => p - 1)}
+                      onClick={() => { setPage((p) => p - 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                     >
                       Previous
                     </Button>
@@ -276,7 +330,7 @@ export default function PublicCatalog() {
                       variant="outline"
                       size="sm"
                       disabled={page >= totalPages - 1}
-                      onClick={() => setPage((p) => p + 1)}
+                      onClick={() => { setPage((p) => p + 1); window.scrollTo({ top: 0, behavior: "smooth" }); }}
                     >
                       Next
                     </Button>
