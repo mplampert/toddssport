@@ -1,8 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
-import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
@@ -11,14 +10,13 @@ import { useState, useMemo } from "react";
 import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
 import { useToast } from "@/hooks/use-toast";
 
-interface MergedBrand {
+interface BrandRow {
   id: string;
   name: string;
   logo_url: string | null;
   styleCount: number;
   sources: Set<string>;
-  dbBrandId?: string;
-  show_in_catalog?: boolean;
+  show_in_catalog: boolean;
 }
 
 export default function AdminMasterCatalog() {
@@ -28,9 +26,9 @@ export default function AdminMasterCatalog() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch DB brands + master_products
-  const { data: dbData, isLoading: dbLoading } = useQuery({
-    queryKey: ["master-catalog-db"],
+  // Fetch DB brands + master_products (DB-only, no live API)
+  const { data, isLoading } = useQuery({
+    queryKey: ["master-catalog-db", sourceFilter, typeFilter],
     queryFn: async () => {
       const [brandsRes, productsRes] = await Promise.all([
         supabase.from("brands").select("id, name, logo_url, show_in_catalog").order("name"),
@@ -38,33 +36,11 @@ export default function AdminMasterCatalog() {
       ]);
       if (brandsRes.error) throw brandsRes.error;
       if (productsRes.error) throw productsRes.error;
-      return { brands: brandsRes.data || [], products: productsRes.data || [] };
-    },
-  });
 
-  // Fetch live S&S styles (same as /ss-products)
-  const { data: ssStyles, isLoading: ssLoading } = useQuery({
-    queryKey: ["ss-all-styles"],
-    queryFn: async () => {
-      const data = await getStyles();
-      return Array.isArray(data) ? data : [];
-    },
-    staleTime: 5 * 60 * 1000,
-  });
-
-  const isLoading = dbLoading || ssLoading;
-
-  // Merge DB brands with live S&S brands
-  const { brands, totalStyles } = useMemo(() => {
-    const map = new Map<string, MergedBrand>();
-
-    // 1) Add DB brands with master_products counts
-    if (dbData) {
-      const brandById = new Map(dbData.brands.map((b) => [b.id, b]));
+      const brandById = new Map((brandsRes.data || []).map((b: any) => [b.id, b]));
       const counts = new Map<string, { count: number; sources: Set<string> }>();
 
-      for (const p of dbData.products) {
-        // Apply filters for DB products
+      for (const p of productsRes.data || []) {
         if (sourceFilter !== "all" && p.source !== sourceFilter) continue;
         if (typeFilter !== "all" && p.product_type !== typeFilter) continue;
 
@@ -78,71 +54,40 @@ export default function AdminMasterCatalog() {
         }
       }
 
+      const brands: BrandRow[] = [];
       for (const [brandId, info] of counts) {
         if (brandId === "__unbranded__") {
-          map.set("__unbranded__", {
+          brands.push({
             id: "unbranded",
             name: "Other / Unbranded",
             logo_url: null,
             styleCount: info.count,
             sources: info.sources,
+            show_in_catalog: true,
           });
         } else {
           const brand = brandById.get(brandId);
           if (brand) {
-            map.set(brand.name.toLowerCase(), {
+            brands.push({
               id: brand.id,
               name: brand.name,
               logo_url: brand.logo_url,
               styleCount: info.count,
               sources: info.sources,
-              dbBrandId: brand.id,
               show_in_catalog: brand.show_in_catalog ?? true,
             });
           }
         }
       }
-    }
 
-    // 2) Merge live S&S brands (add new ones, boost counts for existing)
-    if (ssStyles && (sourceFilter === "all" || sourceFilter === "ss_activewear") && (typeFilter === "all" || typeFilter === "blank_apparel")) {
-      for (const s of ssStyles) {
-        if (!s.brandName) continue;
-        const key = s.brandName.toLowerCase();
-        const existing = map.get(key);
-        if (existing) {
-          // Only add S&S styles not already counted in DB
-          // We use a simple heuristic: if ss_activewear is already a source, DB already has some
-          if (!existing.sources.has("ss_activewear")) {
-            existing.styleCount += 1;
-            existing.sources.add("ss_activewear");
-          }
-          // Update logo if missing
-          if (!existing.logo_url && s.brandImage) {
-            existing.logo_url = s.brandImage;
-          }
-        } else {
-          // New brand only from S&S
-          const prev = map.get(key);
-          if (prev) {
-            prev.styleCount++;
-          } else {
-            map.set(key, {
-              id: `ss-${encodeURIComponent(s.brandName)}`,
-              name: s.brandName,
-              logo_url: s.brandImage || null,
-              styleCount: 1,
-              sources: new Set(["ss_activewear"]),
-            });
-          }
-        }
-      }
-    }
+      brands.sort((a, b) => b.styleCount - a.styleCount);
+      const total = brands.reduce((s, b) => s + b.styleCount, 0);
+      return { brands, totalStyles: total };
+    },
+  });
 
-    const result = [...map.values()].sort((a, b) => b.styleCount - a.styleCount);
-    const total = result.reduce((sum, b) => sum + b.styleCount, 0);
-    return { brands: result, totalStyles: total };
-  }, [dbData, ssStyles, sourceFilter, typeFilter]);
+  const brands = data?.brands || [];
+  const totalStyles = data?.totalStyles || 0;
 
   const filtered = brands.filter(
     (b) => !search || b.name.toLowerCase().includes(search.toLowerCase())
@@ -227,25 +172,25 @@ export default function AdminMasterCatalog() {
               <div
                 key={brand.id}
                 className={`group bg-card rounded-xl border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col items-center p-6 relative ${
-                  brand.show_in_catalog === false ? "border-destructive/40 opacity-60" : "border-border"
+                  !brand.show_in_catalog ? "border-destructive/40 opacity-60" : "border-border"
                 }`}
               >
                 {/* Catalog visibility toggle */}
-                {brand.dbBrandId && (
+                {brand.id !== "unbranded" && (
                   <div
                     className="absolute top-2 right-2 z-10 flex items-center gap-1.5"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span className="text-[10px] text-muted-foreground">
-                      {brand.show_in_catalog !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {brand.show_in_catalog ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </span>
                     <Switch
-                      checked={brand.show_in_catalog !== false}
+                      checked={brand.show_in_catalog}
                       onCheckedChange={async (checked) => {
                         const { error } = await supabase
                           .from("brands")
-                          .update({ show_in_catalog: checked } as any)
-                          .eq("id", brand.dbBrandId!);
+                          .update({ show_in_catalog: checked })
+                          .eq("id", brand.id);
                         if (error) {
                           toast({ title: "Error", description: error.message, variant: "destructive" });
                         } else {
@@ -259,11 +204,9 @@ export default function AdminMasterCatalog() {
 
                 <Link
                   to={
-                    brand.dbBrandId
-                      ? `/admin/catalog/master/brands/${brand.dbBrandId}`
-                      : brand.id === "unbranded"
+                    brand.id === "unbranded"
                       ? `/admin/catalog/master/brands/unbranded`
-                      : `/admin/catalog/master/brands/ss/${encodeURIComponent(brand.name)}`
+                      : `/admin/catalog/master/brands/${brand.id}`
                   }
                   className="flex flex-col items-center w-full"
                 >

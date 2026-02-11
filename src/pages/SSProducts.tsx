@@ -1,57 +1,61 @@
-import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Loader2, Package, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getStyles, type SSStyle } from "@/lib/ss-activewear";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BrandCard {
+  id: string;
   name: string;
-  image?: string;
+  logo_url: string | null;
   styleCount: number;
 }
 
 export default function SSProducts() {
-  const [styles, setStyles] = useState<SSStyle[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["ss-products-brands"],
+    queryFn: async () => {
+      // Get brands with show_in_catalog and product counts
+      const [brandsRes, productsRes] = await Promise.all([
+        supabase.from("brands").select("id, name, logo_url, show_in_catalog").order("name"),
+        supabase
+          .from("master_products")
+          .select("brand_id")
+          .eq("active", true)
+          .eq("source", "ss_activewear"),
+      ]);
+      if (brandsRes.error) throw brandsRes.error;
+      if (productsRes.error) throw productsRes.error;
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getStyles();
-        setStyles(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Failed to load SS products:", err);
-        setError(err instanceof Error ? err.message : "Failed to load products");
-      } finally {
-        setLoading(false);
+      // Count products per brand
+      const counts = new Map<string, number>();
+      for (const p of productsRes.data || []) {
+        if (p.brand_id) counts.set(p.brand_id, (counts.get(p.brand_id) || 0) + 1);
       }
-    };
-    load();
-  }, []);
 
-  const brands = useMemo<BrandCard[]>(() => {
-    const map = new Map<string, BrandCard>();
-    styles.forEach((s) => {
-      if (!s.brandName) return;
-      const existing = map.get(s.brandName);
-      if (existing) {
-        existing.styleCount++;
-        if (!existing.image && s.brandImage) existing.image = s.brandImage;
-      } else {
-        map.set(s.brandName, {
-          name: s.brandName,
-          image: s.brandImage,
-          styleCount: 1,
-        });
-      }
-    });
-    return Array.from(map.values()).sort((a, b) => b.styleCount - a.styleCount);
-  }, [styles]);
+      const visibleBrands = (brandsRes.data || []).filter(
+        (b: any) => b.show_in_catalog !== false && counts.has(b.id)
+      );
+
+      const brands: BrandCard[] = visibleBrands
+        .map((b: any) => ({
+          id: b.id,
+          name: b.name,
+          logo_url: b.logo_url,
+          styleCount: counts.get(b.id) || 0,
+        }))
+        .sort((a: BrandCard, b: BrandCard) => b.styleCount - a.styleCount);
+
+      const total = brands.reduce((s, b) => s + b.styleCount, 0);
+      return { brands, total };
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const brands = data?.brands || [];
+  const total = data?.total || 0;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -78,14 +82,14 @@ export default function SSProducts() {
         {/* Brand Grid */}
         <section className="py-10">
           <div className="container mx-auto px-4">
-            {loading ? (
+            {isLoading ? (
               <div className="flex items-center justify-center py-20">
                 <Loader2 className="w-8 h-8 animate-spin text-accent" />
                 <span className="ml-3 text-muted-foreground">Loading brands…</span>
               </div>
             ) : error ? (
               <div className="text-center py-20">
-                <p className="text-destructive mb-4">{error}</p>
+                <p className="text-destructive mb-4">{error instanceof Error ? error.message : "Failed to load"}</p>
                 <Button onClick={() => window.location.reload()}>Retry</Button>
               </div>
             ) : brands.length === 0 ? (
@@ -96,19 +100,19 @@ export default function SSProducts() {
             ) : (
               <>
                 <p className="text-sm text-muted-foreground mb-6">
-                  {brands.length} brands · {styles.length.toLocaleString()} total styles
+                  {brands.length} brands · {total.toLocaleString()} total styles
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
                   {brands.map((brand) => (
                     <Link
-                      key={brand.name}
+                      key={brand.id}
                       to={`/ss-products/brand/${encodeURIComponent(brand.name)}`}
                       className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center p-6"
                     >
                       <div className="w-full h-24 flex items-center justify-center mb-4">
-                        {brand.image ? (
+                        {brand.logo_url ? (
                           <img
-                            src={brand.image}
+                            src={brand.logo_url}
                             alt={brand.name}
                             className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
