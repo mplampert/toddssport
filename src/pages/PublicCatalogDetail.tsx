@@ -186,7 +186,7 @@ export default function PublicCatalogDetail() {
   // Submit inquiry
   const submitMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("product_inquiries").insert({
+      const payload = {
         name: formName,
         email: formEmail,
         organization: formOrg || null,
@@ -199,8 +199,15 @@ export default function PublicCatalogDetail() {
         quantity_estimate: formQty || null,
         decoration_type: formDecoration || null,
         notes: formNotes || null,
-      });
+      };
+
+      const { error } = await supabase.from("product_inquiries").insert(payload);
       if (error) throw error;
+
+      // Fire-and-forget GHL webhook
+      supabase.functions.invoke("notify-product-inquiry", {
+        body: payload,
+      }).catch((err) => console.warn("GHL webhook failed:", err));
     },
     onSuccess: () => {
       setSubmitted(true);
