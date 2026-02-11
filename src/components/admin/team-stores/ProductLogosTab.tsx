@@ -502,43 +502,76 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
   const anyDirty = dirty || textDirty;
 
+  type SavePayload = {
+    view: "front" | "back" | "left_sleeve" | "right_sleeve";
+    applyToAllColors: boolean;
+    selectedColor: string | null;
+    placements: LogoPlacement[];
+    textLayers: TextLayer[];
+  };
+
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (payload: SavePayload) => {
+      const { view, applyToAllColors: applyAll, selectedColor: color, placements: placementsSnap, textLayers: textLayersSnap } = payload;
+
       // ── Save logo placements ──
-      if (applyToAllColors) {
-        await supabase.from("team_store_item_logos").delete()
+      if (applyAll) {
+        await supabase
+          .from("team_store_item_logos")
+          .delete()
           .eq("team_store_item_id", item.id)
-          .eq("view", activeView);
-        if (placements.length > 0) {
-          const rows = placements.map((p, i) => ({
+          .eq("view", view);
+
+        if (placementsSnap.length > 0) {
+          const rows = placementsSnap.map((p, i) => ({
             team_store_item_id: item.id,
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
             position: p.position,
-            x: p.x, y: p.y, scale: p.scale, rotation: p.rotation,
-            is_primary: p.is_primary, role: p.role, sort_order: i,
-            active: p.active, variant_color: null, variant_size: null, view: activeView,
+            x: p.x,
+            y: p.y,
+            scale: p.scale,
+            rotation: p.rotation,
+            is_primary: p.is_primary,
+            role: p.role,
+            sort_order: i,
+            active: p.active,
+            variant_color: null,
+            variant_size: null,
+            view,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
         }
       } else {
+        if (!color) throw new Error("Please choose an apparel color before saving.");
+
         // Only delete rows for the specific color being saved — preserve null (all-colors) fallback rows
         const { error: delErr } = await supabase
-          .from("team_store_item_logos").delete()
+          .from("team_store_item_logos")
+          .delete()
           .eq("team_store_item_id", item.id)
-          .eq("view", activeView)
-          .eq("variant_color", selectedColor!);
+          .eq("view", view)
+          .eq("variant_color", color);
         if (delErr) throw delErr;
-        if (placements.length > 0) {
-          const rows = placements.map((p, i) => ({
+
+        if (placementsSnap.length > 0) {
+          const rows = placementsSnap.map((p, i) => ({
             team_store_item_id: item.id,
             store_logo_id: p.store_logo_id,
             store_logo_variant_id: p.store_logo_variant_id,
             position: p.position,
-            x: p.x, y: p.y, scale: p.scale, rotation: p.rotation,
-            is_primary: p.is_primary, role: p.role, sort_order: i,
-            active: p.active, variant_color: selectedColor, variant_size: null, view: activeView,
+            x: p.x,
+            y: p.y,
+            scale: p.scale,
+            rotation: p.rotation,
+            is_primary: p.is_primary,
+            role: p.role,
+            sort_order: i,
+            active: p.active,
+            variant_color: color,
+            variant_size: null,
+            view,
           }));
           const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
           if (error) throw error;
@@ -546,40 +579,61 @@ export function ProductLogosTab({ item, storeId }: Props) {
       }
 
       // ── Save text layers for current view ──
-      await supabase.from("team_store_item_text_layers").delete()
+      await supabase
+        .from("team_store_item_text_layers")
+        .delete()
         .eq("team_store_item_id", item.id)
-        .eq("view", activeView);
-      if (textLayers.length > 0) {
-        const rows = textLayers.map((t, i) => ({
+        .eq("view", view);
+
+      if (textLayersSnap.length > 0) {
+        const rows = textLayersSnap.map((t, i) => ({
           team_store_item_id: item.id,
-          source: t.source, view: activeView,
-          x: t.x, y: t.y, scale: t.scale, rotation: t.rotation, z_index: t.z_index,
-          static_text: t.static_text, text_pattern: t.text_pattern, custom_field_id: t.custom_field_id,
-          font_family: t.font_family, font_weight: t.font_weight, font_size_px: t.font_size_px,
-          text_transform: t.text_transform, fill_color: t.fill_color,
-          outline_color: t.outline_color, outline_thickness: t.outline_thickness,
-          letter_spacing: t.letter_spacing, line_height: t.line_height, alignment: t.alignment,
-          variant_color: applyToAllColors ? null : selectedColor,
-          active: t.active, sort_order: i,
+          source: t.source,
+          view,
+          x: t.x,
+          y: t.y,
+          scale: t.scale,
+          rotation: t.rotation,
+          z_index: t.z_index,
+          static_text: t.static_text,
+          text_pattern: t.text_pattern,
+          custom_field_id: t.custom_field_id,
+          font_family: t.font_family,
+          font_weight: t.font_weight,
+          font_size_px: t.font_size_px,
+          text_transform: t.text_transform,
+          fill_color: t.fill_color,
+          outline_color: t.outline_color,
+          outline_thickness: t.outline_thickness,
+          letter_spacing: t.letter_spacing,
+          line_height: t.line_height,
+          alignment: t.alignment,
+          variant_color: applyAll ? null : color,
+          active: t.active,
+          sort_order: i,
         }));
         const { error } = await supabase.from("team_store_item_text_layers").insert(rows as any);
         if (error) throw error;
       }
+
+      return payload;
     },
-    onSuccess: () => {
+    onSuccess: (payload) => {
+      const { view, applyToAllColors: applyAll, selectedColor: color, placements: placementsSnap } = payload;
+      const variantColorToSave = applyAll ? null : color;
+
       // Update local cache immediately so switching colors right after Save doesn't re-filter from stale data.
       queryClient.setQueryData(["item-logos", item.id], (old: any[] | undefined) => {
         const prev = Array.isArray(old) ? old : [];
-        const variantColorToSave = applyToAllColors ? null : selectedColor;
 
         const next = prev.filter((row) => {
           if (row.team_store_item_id !== item.id) return true;
-          if ((row.view || "front") !== activeView) return true;
-          if (applyToAllColors) return false; // replacing all colors for this view
+          if ((row.view || "front") !== view) return true;
+          if (applyAll) return false; // replacing all colors for this view
           return (row.variant_color ?? null) !== variantColorToSave;
         });
 
-        const rows = placements.map((p, i) => {
+        const rows = placementsSnap.map((p, i) => {
           const logo = storeLogos.find((l) => l.id === p.store_logo_id);
           return {
             team_store_item_id: item.id,
@@ -596,7 +650,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
             active: p.active,
             variant_color: variantColorToSave,
             variant_size: null,
-            view: activeView,
+            view,
             store_logos: logo ? { name: logo.name, file_url: logo.file_url } : null,
           };
         });
@@ -1403,7 +1457,15 @@ export function ProductLogosTab({ item, storeId }: Props) {
         <Button
           size="sm"
           className="h-8 text-xs"
-          onClick={() => saveMutation.mutate()}
+          onClick={() =>
+            saveMutation.mutate({
+              view: activeView,
+              applyToAllColors,
+              selectedColor,
+              placements: placements.map((p) => ({ ...p })),
+              textLayers: textLayers.map((t) => ({ ...t })),
+            })
+          }
           disabled={!anyDirty || saveMutation.isPending}
         >
           {saveMutation.isPending && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
