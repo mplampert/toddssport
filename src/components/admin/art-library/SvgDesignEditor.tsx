@@ -134,8 +134,8 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     return init;
   });
 
-  // Original hex per slot — discovered from the SVG, used for recoloring
-  const [originalColors, setOriginalColors] = useState<Record<string, string>>({});
+  // Discovered color element refs per slot — stable across renders
+  const colorElementsRef = useRef<Record<string, Element[]>>({});
 
   // Text block state: discovered from SVG DOM
   const [textBlocks, setTextBlocks] = useState<TextBlock[]>([]);
@@ -199,25 +199,23 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         setTextValues(vals);
         setTextFonts(fnts);
 
-        // Auto-discover colors from SVG DOM
+        // Auto-discover colors from SVG DOM and store element refs per slot
         const discovered = discoverColors(svgEl);
         if (discovered.length > 0) {
           const newColors: Record<string, string> = {};
-          const origColors: Record<string, string> = {};
+          const elMap: Record<string, Element[]> = {};
           discovered.forEach((dc, idx) => {
             const slot = colorSlots[idx] ?? `color-${idx}`;
-            // Use template default_colors if set, otherwise use discovered hex
             newColors[slot] = defaultColors[slot] || dc.hex;
-            origColors[slot] = dc.hex;
+            elMap[slot] = dc.elements.map((e) => e.el);
           });
-          // Also fill in any remaining slots from template defaults
           colorSlots.forEach((slot) => {
             if (!newColors[slot]) {
               newColors[slot] = defaultColors[slot] || "#000000";
             }
           });
           setColors(newColors);
-          setOriginalColors(origColors);
+          colorElementsRef.current = elMap;
         }
       })
       .catch(() => toast.error("Failed to load SVG template"));
@@ -239,31 +237,30 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       el.setAttribute("font-family", font);
     });
 
-    // Update color slots — BEM classes + auto-detected original color matching
+    // Update color slots — BEM classes + stored element refs from discovery
     colorSlots.forEach((slot) => {
       const color = colors[slot];
-      const origHex = originalColors[slot];
+      if (!svgContainerRef.current) return;
+      const svgInner = svgContainerRef.current.querySelector("svg");
+      if (!svgInner) return;
 
       // Standard class convention: .primary-fill, .secondary-fill
-      svg.querySelectorAll(`.${slot}-fill`).forEach((el) => {
+      svgInner.querySelectorAll(`.${slot}-fill`).forEach((el) => {
         (el as SVGElement).style.fill = color;
       });
-      svg.querySelectorAll(`.${slot}-stroke`).forEach((el) => {
+      svgInner.querySelectorAll(`.${slot}-stroke`).forEach((el) => {
         (el as SVGElement).style.stroke = color;
       });
 
-      // Auto-detected: recolor all elements whose computed fill matches the original hex
-      if (origHex) {
-        svg.querySelectorAll("path, rect, circle, ellipse, polygon, polyline, text, tspan, line").forEach((el) => {
-          const computed = window.getComputedStyle(el);
-          const currentFill = toHex(computed.fill || "");
-          if (currentFill === origHex || currentFill === toHex(color)) {
-            (el as SVGElement).style.fill = color;
-          }
+      // Auto-detected: apply to stored element refs
+      const els = colorElementsRef.current[slot];
+      if (els) {
+        els.forEach((el) => {
+          (el as SVGElement).style.fill = color;
         });
       }
     });
-  }, [textBlocks, textValues, textFonts, colors, colorSlots, originalColors]);
+  }, [textBlocks, textValues, textFonts, colors, colorSlots]);
 
   useEffect(() => {
     updateSvg();
