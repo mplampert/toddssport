@@ -1634,6 +1634,84 @@ export type Database = {
         }
         Relationships: []
       }
+      product_inquiries: {
+        Row: {
+          created_at: string
+          decoration_type: string | null
+          email: string
+          id: string
+          internal_notes: string | null
+          name: string
+          notes: string | null
+          organization: string | null
+          phone: string | null
+          product_brand: string | null
+          product_color: string | null
+          product_name: string | null
+          product_style_code: string | null
+          product_style_id: number | null
+          quantity_estimate: string | null
+          status: string
+          team_store_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decoration_type?: string | null
+          email: string
+          id?: string
+          internal_notes?: string | null
+          name: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          product_brand?: string | null
+          product_color?: string | null
+          product_name?: string | null
+          product_style_code?: string | null
+          product_style_id?: number | null
+          quantity_estimate?: string | null
+          status?: string
+          team_store_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decoration_type?: string | null
+          email?: string
+          id?: string
+          internal_notes?: string | null
+          name?: string
+          notes?: string | null
+          organization?: string | null
+          phone?: string | null
+          product_brand?: string | null
+          product_color?: string | null
+          product_name?: string | null
+          product_style_code?: string | null
+          product_style_id?: number | null
+          quantity_estimate?: string | null
+          status?: string
+          team_store_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_inquiries_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "product_inquiries_team_store_id_fkey"
+            columns: ["team_store_id"]
+            isOneToOne: false
+            referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_sources: {
         Row: {
           cost: number | null
