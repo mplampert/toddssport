@@ -1,12 +1,20 @@
 import { useState } from "react";
 import { useDesignTemplates, DESIGN_CATEGORIES, DesignTemplate } from "@/hooks/useDesignTemplates";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, Save } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DESIGN_IMAGE_FALLBACKS } from "@/lib/designImageFallbacks";
+import { toast } from "sonner";
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
 interface DesignGridProps {
   /** Admin mode: called with design code when a tile is clicked */
@@ -19,10 +27,91 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
   const [activeCategory, setActiveCategory] = useState("all");
   const [search, setSearch] = useState("");
   const [selectedDesign, setSelectedDesign] = useState<DesignTemplate | null>(null);
+  const [selectedTeamStoreId, setSelectedTeamStoreId] = useState("");
+  const queryClient = useQueryClient();
 
   const { data: designs = [], isLoading } = useDesignTemplates(
     activeCategory === "all" ? undefined : activeCategory,
   );
+
+  const { data: teamStores } = useQuery({
+    queryKey: ["design-grid-team-stores"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("team_stores")
+        .select("id, name, organization")
+        .eq("active", true)
+        .order("name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async ({ design, storeId }: { design: DesignTemplate; storeId: string }) => {
+      const imageUrl = design.image_url || DESIGN_IMAGE_FALLBACKS[design.code];
+      if (!imageUrl) throw new Error("No image available for this design");
+
+      // If it's a remote URL, we need to download and re-upload to store-logos bucket
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const ext = imageUrl.includes(".svg") ? "svg" : imageUrl.includes(".png") ? "png" : "png";
+      const contentType = ext === "svg" ? "image/svg+xml" : "image/png";
+      const path = `${storeId}/${design.code}-${Date.now()}.${ext}`;
+
+      const { error: uploadErr } = await supabase.storage
+        .from("store-logos")
+        .upload(path, blob, { upsert: true, contentType });
+      if (uploadErr) throw uploadErr;
+
+      const fileUrl = `${SUPABASE_URL}/storage/v1/object/public/store-logos/${path}`;
+
+      const { data: newLogo, error: logoErr } = await supabase
+        .from("store_logos")
+        .insert({
+          team_store_id: storeId,
+          name: `${design.code} — ${design.name}`,
+          method: "multi",
+          placement: "left_front",
+          decoration_type: "screen_print",
+          file_url: fileUrl,
+          file_type: ext === "svg" ? "svg" : "image",
+          original_file_url: ext === "svg" ? fileUrl : null,
+        } as any)
+        .select("id")
+        .single();
+      if (logoErr) throw logoErr;
+
+      // Create default variant
+      await supabase.from("store_logo_variants" as any).insert({
+        store_logo_id: newLogo.id,
+        name: "Default",
+        colorway: "original",
+        file_url: fileUrl,
+        screen_print_enabled: true,
+        embroidery_enabled: false,
+        dtf_enabled: false,
+        background_rule: "any",
+        is_default: true,
+        file_type: ext === "svg" ? "svg" : "image",
+        original_file_url: ext === "svg" ? fileUrl : null,
+      });
+
+      return fileUrl;
+    },
+    onSuccess: () => {
+      toast.success("Design saved to Team Logos!", {
+        description: "The design has been added to the store's logo library.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["store-logos"] });
+      queryClient.invalidateQueries({ queryKey: ["global-team-logos"] });
+      setSelectedDesign(null);
+      setSelectedTeamStoreId("");
+    },
+    onError: (err: any) => {
+      toast.error("Failed to save design", { description: err.message });
+    },
+  });
 
   const filtered = search.trim()
     ? designs.filter(
@@ -116,7 +205,7 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
       )}
 
       {/* Public Info Modal */}
-      <Dialog open={!!selectedDesign && !adminMode} onOpenChange={() => setSelectedDesign(null)}>
+      <Dialog open={!!selectedDesign && !adminMode} onOpenChange={() => { setSelectedDesign(null); setSelectedTeamStoreId(""); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{selectedDesign?.name}</DialogTitle>
@@ -152,6 +241,39 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
               </div>
             )}
           </div>
+
+          {/* Save to Team Logos */}
+          {teamStores && teamStores.length > 0 && (
+            <div className="border-t pt-4 mt-2 space-y-3">
+              <Label className="text-sm font-medium">Save to Team Logos</Label>
+              <div className="flex gap-2">
+                <Select value={selectedTeamStoreId} onValueChange={setSelectedTeamStoreId}>
+                  <SelectTrigger className="flex-1 text-sm">
+                    <SelectValue placeholder="Select a team store…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {teamStores.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.name}{s.organization ? ` — ${s.organization}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  size="sm"
+                  disabled={!selectedTeamStoreId || saveMutation.isPending}
+                  onClick={() => {
+                    if (selectedDesign && selectedTeamStoreId) {
+                      saveMutation.mutate({ design: selectedDesign, storeId: selectedTeamStoreId });
+                    }
+                  }}
+                >
+                  <Save className="w-4 h-4 mr-1.5" />
+                  {saveMutation.isPending ? "Saving…" : "Save"}
+                </Button>
+              </div>
+            </div>
+          )}
 
           <p className="text-sm text-muted-foreground mt-2">
             Interested in this design? <a href="/contact" className="text-accent underline">Contact us</a> to get started!
