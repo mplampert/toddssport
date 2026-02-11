@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.ss-fix-brands]
 verify_jwt = false
+
+[functions.ss-full-sync]
+verify_jwt = false
