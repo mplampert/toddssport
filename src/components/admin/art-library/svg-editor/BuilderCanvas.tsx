@@ -63,8 +63,25 @@ export function BuilderCanvas({
     const el = svg.querySelector(`#${selId}`) as SVGTextElement | null;
     if (!el) return;
 
-    const bbox = el.getBBox();
-    if (!bbox || bbox.width === 0) return;
+    const localBBox = el.getBBox();
+    if (!localBBox || localBBox.width === 0) return;
+
+    // Transform bbox from element's local coordinate space to SVG root space
+    const elCTM = el.getCTM();
+    const svgCTM = svg.getCTM();
+    if (!elCTM || !svgCTM) return;
+    const relativeCTM = svgCTM.inverse().multiply(elCTM);
+
+    const transformPoint = (x: number, y: number) => {
+      const pt = svg.createSVGPoint();
+      pt.x = x; pt.y = y;
+      const tp = pt.matrixTransform(relativeCTM);
+      return { x: tp.x, y: tp.y };
+    };
+
+    const tl = transformPoint(localBBox.x, localBBox.y);
+    const br = transformPoint(localBBox.x + localBBox.width, localBBox.y + localBBox.height);
+    const bbox = { x: tl.x, y: tl.y, width: br.x - tl.x, height: br.y - tl.y };
 
     const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
     g.classList.add("resize-handle-group");
