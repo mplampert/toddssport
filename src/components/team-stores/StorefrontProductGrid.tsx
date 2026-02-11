@@ -11,7 +11,7 @@ import { getDisplayName } from "@/lib/productIdentity";
 import { matchLogosForVariant, type LogoAssignment } from "@/lib/logoMatching";
 import { useStoreVariantImages } from "@/hooks/useVariantImages";
 import { useStoreFlatImages } from "@/hooks/useStoreFlatImages";
-import { getStorefrontHero } from "@/lib/storefrontHero";
+import { getStorefrontHero, getDefaultColor } from "@/lib/storefrontHero";
 
 interface RawLogoAssignment extends LogoAssignment {
   team_store_item_id: string;
@@ -73,7 +73,7 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
     queryFn: async () => {
       const { data, error } = await supabase
         .from("team_store_item_logos")
-        .select("id, team_store_item_id, x, y, scale, is_primary, position, variant_color, variant_size, store_logo_id, store_logo_variant_id, store_logos(name, file_url), store_logo_variants(file_url)")
+        .select("id, team_store_item_id, x, y, scale, is_primary, position, variant_color, variant_size, view, store_logo_id, store_logo_variant_id, store_logos(name, file_url), store_logo_variants(file_url)")
         .in("team_store_item_id", productIds);
       if (error) throw error;
       return data as (RawLogoAssignment & { store_logo_variants?: { file_url: string } | null })[];
@@ -259,7 +259,8 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
                         )}
                         {/* Primary logo overlay — inside inset-0 so % positioning works */}
                         {(() => {
-                          const matched = matchLogosForVariant(itemLogos);
+                          const defaultColor = getDefaultColor(item.allowed_colors);
+                          const matched = matchLogosForVariant(itemLogos, defaultColor);
                           const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
                           if (!primaryLogo) return null;
                           const logoUrl = (primaryLogo as any).store_logo_variants?.file_url || primaryLogo.store_logos?.file_url;
