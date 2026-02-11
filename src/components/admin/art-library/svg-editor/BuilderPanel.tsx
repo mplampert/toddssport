@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Loader2, Type, Palette, FolderOpen, Download } from "lucide-react";
+import { Save, Loader2, Type, Palette, FolderOpen, Download, AlignCenterHorizontal, AlignCenterVertical, Minus, Plus } from "lucide-react";
 import { GoogleFontPicker } from "../GoogleFontPicker";
 import type { TextBlock } from "./utils";
 import { SLOT_LABELS } from "./utils";
@@ -32,6 +32,12 @@ interface BuilderPanelProps {
   // Download
   onDownload: () => void;
   isDownloading: boolean;
+
+  // Position/size controls
+  onCenterH?: () => void;
+  onCenterV?: () => void;
+  onScaleUp?: () => void;
+  onScaleDown?: () => void;
 }
 
 export function BuilderPanel({
@@ -52,6 +58,10 @@ export function BuilderPanel({
   isSaving,
   onDownload,
   isDownloading,
+  onCenterH,
+  onCenterV,
+  onScaleUp,
+  onScaleDown,
 }: BuilderPanelProps) {
   const selectedBlock = textBlocks.find((b) => b.id === selectedTextId);
 
@@ -101,6 +111,23 @@ export function BuilderPanel({
                   onChange={(f) => onFontChange(selectedBlock.id, f)}
                 />
               </div>
+            </div>
+            {/* Position & Size controls */}
+            <div className="flex items-center gap-1 pt-1 border-t border-border/50">
+              <Label className="text-xs text-muted-foreground mr-auto">Position / Size</Label>
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={onCenterH} title="Center horizontally">
+                <AlignCenterHorizontal className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={onCenterV} title="Center vertically">
+                <AlignCenterVertical className="w-3.5 h-3.5" />
+              </Button>
+              <div className="w-px h-5 bg-border mx-0.5" />
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={onScaleDown} title="Scale down">
+                <Minus className="w-3.5 h-3.5" />
+              </Button>
+              <Button variant="outline" size="icon" className="h-7 w-7" onClick={onScaleUp} title="Scale up">
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
             </div>
           </div>
         )}

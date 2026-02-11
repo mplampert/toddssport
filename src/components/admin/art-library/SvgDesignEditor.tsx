@@ -223,6 +223,73 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
 
   const handleDragText = useCallback(() => {}, []);
 
+  /** Center selected text horizontally in SVG viewBox */
+  const handleCenterH = useCallback(() => {
+    if (!selectedTextId || !svgContainerRef.current) return;
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+    const el = svg.querySelector(`#${selectedTextId}`) as SVGTextElement | null;
+    if (!el) return;
+    const vb = svg.viewBox?.baseVal;
+    const centerX = vb && vb.width > 0 ? vb.x + vb.width / 2 : (svg.width.baseVal.value || 500) / 2;
+    el.setAttribute("x", String(centerX));
+    el.setAttribute("text-anchor", "middle");
+    el.querySelectorAll("tspan").forEach((tspan) => {
+      if (tspan.hasAttribute("x")) {
+        tspan.setAttribute("x", String(centerX));
+        tspan.setAttribute("text-anchor", "middle");
+      }
+    });
+  }, [selectedTextId]);
+
+  /** Center selected text vertically in SVG viewBox */
+  const handleCenterV = useCallback(() => {
+    if (!selectedTextId || !svgContainerRef.current) return;
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+    const el = svg.querySelector(`#${selectedTextId}`) as SVGTextElement | null;
+    if (!el) return;
+    const vb = svg.viewBox?.baseVal;
+    const centerY = vb && vb.height > 0 ? vb.y + vb.height / 2 : (svg.height.baseVal.value || 500) / 2;
+    const bbox = el.getBBox();
+    const newY = centerY + bbox.height / 3; // baseline adjustment
+    el.setAttribute("y", String(newY));
+  }, [selectedTextId]);
+
+  /** Scale selected text up */
+  const handleScaleUp = useCallback(() => {
+    if (!selectedTextId || !svgContainerRef.current) return;
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+    const el = svg.querySelector(`#${selectedTextId}`) as SVGTextElement | null;
+    if (!el) return;
+    const currentSize = parseFloat(el.getAttribute("font-size") || window.getComputedStyle(el).fontSize || "48");
+    const newSize = Math.min(400, Math.round(currentSize * 1.15));
+    el.setAttribute("font-size", String(newSize));
+    el.style.fontSize = `${newSize}px`;
+    el.querySelectorAll("tspan").forEach((t) => {
+      t.setAttribute("font-size", String(newSize));
+      (t as SVGElement).style.fontSize = `${newSize}px`;
+    });
+  }, [selectedTextId]);
+
+  /** Scale selected text down */
+  const handleScaleDown = useCallback(() => {
+    if (!selectedTextId || !svgContainerRef.current) return;
+    const svg = svgContainerRef.current.querySelector("svg");
+    if (!svg) return;
+    const el = svg.querySelector(`#${selectedTextId}`) as SVGTextElement | null;
+    if (!el) return;
+    const currentSize = parseFloat(el.getAttribute("font-size") || window.getComputedStyle(el).fontSize || "48");
+    const newSize = Math.max(8, Math.round(currentSize * 0.85));
+    el.setAttribute("font-size", String(newSize));
+    el.style.fontSize = `${newSize}px`;
+    el.querySelectorAll("tspan").forEach((t) => {
+      t.setAttribute("font-size", String(newSize));
+      (t as SVGElement).style.fontSize = `${newSize}px`;
+    });
+  }, [selectedTextId]);
+
   const getSerializedSvg = (): string => {
     if (!svgContainerRef.current) return "";
     const svgEl = svgContainerRef.current.querySelector("svg");
@@ -470,6 +537,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
             isSaving={saveMutation.isPending}
             onDownload={handleDownload}
             isDownloading={isDownloading}
+            onCenterH={handleCenterH}
+            onCenterV={handleCenterV}
+            onScaleUp={handleScaleUp}
+            onScaleDown={handleScaleDown}
           />
         </div>
       </div>
