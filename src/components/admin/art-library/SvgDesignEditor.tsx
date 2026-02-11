@@ -8,13 +8,14 @@ import { ArrowLeft, Save, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import svgTemplate from "@/assets/designs/OB7XQ51-01.svg?raw";
+// SVG is fetched from svg_url_master at runtime
 
 interface SvgDesignEditorProps {
   template: {
     id: string;
     code: string;
     name: string;
+    svg_url_master: string | null;
     default_colors: { primary?: string; secondary?: string } | null;
   };
   onBack: () => void;
@@ -46,20 +47,27 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     },
   });
 
-  // Render SVG inline
+  // Fetch and render SVG inline from svg_url_master
   useEffect(() => {
-    if (!svgContainerRef.current) return;
-    svgContainerRef.current.innerHTML = svgTemplate;
-    // Ensure SVG fills container
-    const svgEl = svgContainerRef.current.querySelector("svg");
-    if (svgEl) {
-      svgEl.setAttribute("width", "100%");
-      svgEl.setAttribute("height", "100%");
-      svgEl.style.maxWidth = "500px";
-      svgEl.style.maxHeight = "500px";
-    }
-    updateSvg();
-  }, []);
+    if (!svgContainerRef.current || !template.svg_url_master) return;
+    let cancelled = false;
+    fetch(template.svg_url_master)
+      .then((r) => r.text())
+      .then((svgText) => {
+        if (cancelled || !svgContainerRef.current) return;
+        svgContainerRef.current.innerHTML = svgText;
+        const svgEl = svgContainerRef.current.querySelector("svg");
+        if (svgEl) {
+          svgEl.setAttribute("width", "100%");
+          svgEl.setAttribute("height", "100%");
+          svgEl.style.maxWidth = "500px";
+          svgEl.style.maxHeight = "500px";
+        }
+        updateSvg();
+      })
+      .catch(() => toast.error("Failed to load SVG template"));
+    return () => { cancelled = true; };
+  }, [template.svg_url_master]);
 
   const updateSvg = useCallback(() => {
     if (!svgContainerRef.current) return;
@@ -191,8 +199,12 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
           <CardContent>
             <div
               ref={svgContainerRef}
-              className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-4"
-            />
+              className="w-full flex items-center justify-center bg-muted/30 rounded-lg p-4 min-h-[300px]"
+            >
+              {!template.svg_url_master && (
+                <p className="text-sm text-muted-foreground">No SVG master uploaded for this template. Set <code>svg_url_master</code> in the database.</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
