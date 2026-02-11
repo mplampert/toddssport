@@ -252,8 +252,9 @@ export default function AdminMasterCatalogBrand() {
             {filtered.map((product) => {
               const colors = colorCount(product);
               return (
-                <div
+                <Link
                   key={product.id}
+                  to={`/admin/catalog/master/products/${product.id}`}
                   className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col"
                 >
                   {/* Image */}
@@ -301,14 +302,14 @@ export default function AdminMasterCatalogBrand() {
                         variant="outline"
                         size="sm"
                         className="w-full text-xs"
-                        onClick={() => setAddToStoreProduct(product)}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setAddToStoreProduct(product); }}
                       >
                         <Plus className="w-3 h-3 mr-1" />
                         Add to Team Store…
                       </Button>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
