@@ -128,7 +128,7 @@ export function Header() {
               to="/catalog"
               className={`nav-link ${location.pathname.startsWith("/catalog") && !location.pathname.startsWith("/catalogs") ? "nav-link-active" : ""}`}
             >
-              Catalog
+              Products
             </Link>
 
             <Link
