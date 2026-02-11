@@ -48,16 +48,17 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
   });
 
   const saveMutation = useMutation({
-    mutationFn: async ({ design, storeId }: { design: DesignTemplate; storeId: string }) => {
+    mutationFn: async ({ design, storeId }: { design: DesignTemplate; storeId: string | null }) => {
       const imageUrl = design.image_url || DESIGN_IMAGE_FALLBACKS[design.code];
       if (!imageUrl) throw new Error("No image available for this design");
 
-      // If it's a remote URL, we need to download and re-upload to store-logos bucket
+      // Download and re-upload to store-logos bucket
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       const ext = imageUrl.includes(".svg") ? "svg" : imageUrl.includes(".png") ? "png" : "png";
       const contentType = ext === "svg" ? "image/svg+xml" : "image/png";
-      const path = `${storeId}/${design.code}-${Date.now()}.${ext}`;
+      const folder = storeId || "global";
+      const path = `${folder}/${design.code}-${Date.now()}.${ext}`;
 
       const { error: uploadErr } = await supabase.storage
         .from("store-logos")
@@ -69,7 +70,7 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
       const { data: newLogo, error: logoErr } = await supabase
         .from("store_logos")
         .insert({
-          team_store_id: storeId,
+          team_store_id: storeId || null,
           name: `${design.code} — ${design.name}`,
           method: "multi",
           placement: "left_front",
@@ -243,37 +244,37 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
           </div>
 
           {/* Save to Team Logos */}
-          {teamStores && teamStores.length > 0 && (
-            <div className="border-t pt-4 mt-2 space-y-3">
-              <Label className="text-sm font-medium">Save to Team Logos</Label>
-              <div className="flex gap-2">
-                <Select value={selectedTeamStoreId} onValueChange={setSelectedTeamStoreId}>
-                  <SelectTrigger className="flex-1 text-sm">
-                    <SelectValue placeholder="Select a team store…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teamStores.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}{s.organization ? ` — ${s.organization}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  size="sm"
-                  disabled={!selectedTeamStoreId || saveMutation.isPending}
-                  onClick={() => {
-                    if (selectedDesign && selectedTeamStoreId) {
-                      saveMutation.mutate({ design: selectedDesign, storeId: selectedTeamStoreId });
-                    }
-                  }}
-                >
-                  <Save className="w-4 h-4 mr-1.5" />
-                  {saveMutation.isPending ? "Saving…" : "Save"}
-                </Button>
-              </div>
-            </div>
-          )}
+          <div className="border-t pt-4 mt-2 space-y-3">
+            <Label className="text-sm font-medium">Save to Team Logos</Label>
+            {teamStores && teamStores.length > 0 && (
+              <Select value={selectedTeamStoreId} onValueChange={setSelectedTeamStoreId}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="No store (save as global logo)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No store (global logo)</SelectItem>
+                  {teamStores.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}{s.organization ? ` — ${s.organization}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            <Button
+              size="sm"
+              disabled={saveMutation.isPending}
+              onClick={() => {
+                if (selectedDesign) {
+                  const storeId = selectedTeamStoreId && selectedTeamStoreId !== "__none__" ? selectedTeamStoreId : null;
+                  saveMutation.mutate({ design: selectedDesign, storeId });
+                }
+              }}
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              {saveMutation.isPending ? "Saving…" : "Save to Logos"}
+            </Button>
+          </div>
 
           <p className="text-sm text-muted-foreground mt-2">
             Interested in this design? <a href="/contact" className="text-accent underline">Contact us</a> to get started!
