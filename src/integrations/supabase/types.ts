@@ -2233,6 +2233,54 @@ export type Database = {
         }
         Relationships: []
       }
+      ss_import_jobs: {
+        Row: {
+          brands_completed: number
+          brands_requested: string[]
+          brands_total: number
+          completed_at: string | null
+          created_at: string
+          current_brand: string | null
+          error: string | null
+          id: string
+          log: Json
+          products_imported: number
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brands_completed?: number
+          brands_requested?: string[]
+          brands_total?: number
+          completed_at?: string | null
+          created_at?: string
+          current_brand?: string | null
+          error?: string | null
+          id?: string
+          log?: Json
+          products_imported?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brands_completed?: number
+          brands_requested?: string[]
+          brands_total?: number
+          completed_at?: string | null
+          created_at?: string
+          current_brand?: string | null
+          error?: string | null
+          id?: string
+          log?: Json
+          products_imported?: number
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_permissions: {
         Row: {
           can_view: boolean

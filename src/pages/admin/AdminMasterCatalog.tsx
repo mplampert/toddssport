@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2, Package, Search, Eye, EyeOff } from "lucide-react";
 import { useState, useMemo } from "react";
 import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
+import { SSBulkImportPanel } from "@/components/admin/catalog/SSBulkImportPanel";
 import { useToast } from "@/hooks/use-toast";
 
 interface BrandRow {
@@ -111,6 +112,9 @@ export default function AdminMasterCatalog() {
             Browse all brands and styles from Champro, S&S, ImprintID, and our in‑house products.
           </p>
         </section>
+
+        {/* Bulk S&S Import */}
+        <SSBulkImportPanel />
 
         {/* Stats + Filters */}
         <div className="space-y-4 mb-6">
