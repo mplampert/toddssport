@@ -1,11 +1,12 @@
 import { useState, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Upload } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Upload, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { DESIGN_IMAGE_FALLBACKS } from "@/lib/designImageFallbacks";
 import { SvgDesignEditor } from "./SvgDesignEditor";
@@ -33,6 +34,21 @@ export function ArtTemplatesTab() {
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("design_templates")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Template deleted");
+      queryClient.invalidateQueries({ queryKey: ["art-library-templates"] });
+    },
+    onError: (e: any) => toast.error(e.message || "Delete failed"),
+  });
 
   const handleUploadSvg = async (file: File, template: DesignTemplate) => {
     if (!file.name.endsWith(".svg")) {
@@ -119,10 +135,43 @@ export function ArtTemplatesTab() {
         return (
           <Card
             key={t.id}
-            className="cursor-pointer hover:ring-2 hover:ring-accent transition-all group"
+            className="cursor-pointer hover:ring-2 hover:ring-accent transition-all group relative"
             onClick={() => setSelectedTemplate(t)}
           >
             <CardContent className="p-3">
+              {/* Delete button */}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity z-10 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete "{t.name}"?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently remove the template. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteMutation.mutate(t.id);
+                      }}
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
               {thumb ? (
                 <img
                   src={thumb}
