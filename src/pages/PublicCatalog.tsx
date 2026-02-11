@@ -46,7 +46,7 @@ export default function PublicCatalog() {
       const [brandsRes, productsRes] = await Promise.all([
         supabase
           .from("brands")
-          .select("id, name")
+          .select("id, name, show_in_catalog")
           .order("name"),
         supabase
           .from("master_products")
@@ -54,7 +54,9 @@ export default function PublicCatalog() {
           .eq("active", true),
       ]);
 
-      const brands = (brandsRes.data || []).map((b) => b.name);
+      const brands = (brandsRes.data || [])
+        .filter((b: any) => b.show_in_catalog !== false)
+        .map((b: any) => ({ id: b.id, name: b.name }));
 
       // Dedupe + normalize categories
       const catSet = new Set<string>();
@@ -70,14 +72,19 @@ export default function PublicCatalog() {
       });
       const categories = Array.from(catSet).sort();
 
-      return { brands, categories };
+      // Collect hidden brand IDs to exclude from product query
+      const hiddenBrandIds = (brandsRes.data || [])
+        .filter((b: any) => b.show_in_catalog === false)
+        .map((b: any) => b.id);
+
+      return { brands, categories, hiddenBrandIds };
     },
     staleTime: 5 * 60 * 1000,
   });
 
   // Main product query with server-side pagination
   const { data: queryResult, isLoading } = useQuery({
-    queryKey: ["public-catalog-products", page, brandFilter, categoryFilter, search],
+    queryKey: ["public-catalog-products", page, brandFilter, categoryFilter, search, filterOptions?.hiddenBrandIds],
     queryFn: async () => {
       // Build query
       let query = supabase
@@ -86,6 +93,13 @@ export default function PublicCatalog() {
         .eq("active", true)
         .order("name")
         .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+
+      // Exclude hidden brands
+      const hiddenIds = filterOptions?.hiddenBrandIds || [];
+      if (hiddenIds.length > 0) {
+        // not.in filter to exclude hidden brand products
+        query = query.not("brand_id", "in", `(${hiddenIds.join(",")})`);
+      }
 
       // Brand filter - need to match by brand name via the brands table
       if (brandFilter !== "all") {
@@ -205,8 +219,8 @@ export default function PublicCatalog() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Brands</SelectItem>
-                    {brands.map((b) => (
-                      <SelectItem key={b} value={b}>{b}</SelectItem>
+                    {brands.map((b: any) => (
+                      <SelectItem key={b.id} value={b.name}>{b.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

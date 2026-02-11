@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { getStyles, type SSStyle } from "@/lib/ss-activewear";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, Package, Search } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, Package, Search, Eye, EyeOff } from "lucide-react";
 import { useState, useMemo } from "react";
 import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface MergedBrand {
   id: string;
@@ -16,19 +18,22 @@ interface MergedBrand {
   styleCount: number;
   sources: Set<string>;
   dbBrandId?: string;
+  show_in_catalog?: boolean;
 }
 
 export default function AdminMasterCatalog() {
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // Fetch DB brands + master_products
   const { data: dbData, isLoading: dbLoading } = useQuery({
     queryKey: ["master-catalog-db"],
     queryFn: async () => {
       const [brandsRes, productsRes] = await Promise.all([
-        supabase.from("brands").select("id, name, logo_url").order("name"),
+        supabase.from("brands").select("id, name, logo_url, show_in_catalog").order("name"),
         supabase.from("master_products").select("brand_id, source, product_type").eq("active", true),
       ]);
       if (brandsRes.error) throw brandsRes.error;
@@ -92,6 +97,7 @@ export default function AdminMasterCatalog() {
               styleCount: info.count,
               sources: info.sources,
               dbBrandId: brand.id,
+              show_in_catalog: brand.show_in_catalog ?? true,
             });
           }
         }
@@ -218,38 +224,71 @@ export default function AdminMasterCatalog() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {filtered.map((brand) => (
-              <Link
+              <div
                 key={brand.id}
-                to={
-                  brand.dbBrandId
-                    ? `/admin/catalog/master/brands/${brand.dbBrandId}`
-                    : brand.id === "unbranded"
-                    ? `/admin/catalog/master/brands/unbranded`
-                    : `/admin/catalog/master/brands/ss/${encodeURIComponent(brand.name)}`
-                }
-                className="group bg-card rounded-xl border border-border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex flex-col items-center p-6"
+                className={`group bg-card rounded-xl border overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col items-center p-6 relative ${
+                  brand.show_in_catalog === false ? "border-destructive/40 opacity-60" : "border-border"
+                }`}
               >
-                <div className="w-full h-24 flex items-center justify-center mb-4">
-                  {brand.logo_url ? (
-                    <img
-                      src={brand.logo_url}
-                      alt={brand.name}
-                      className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className="text-2xl font-bold text-muted-foreground/40">
-                      {brand.name.charAt(0)}
+                {/* Catalog visibility toggle */}
+                {brand.dbBrandId && (
+                  <div
+                    className="absolute top-2 right-2 z-10 flex items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <span className="text-[10px] text-muted-foreground">
+                      {brand.show_in_catalog !== false ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                     </span>
-                  )}
-                </div>
-                <h3 className="font-semibold text-foreground text-center group-hover:text-accent transition-colors text-sm">
-                  {brand.name}
-                </h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {brand.styleCount} {brand.styleCount === 1 ? "style" : "styles"}
-                </p>
-              </Link>
+                    <Switch
+                      checked={brand.show_in_catalog !== false}
+                      onCheckedChange={async (checked) => {
+                        const { error } = await supabase
+                          .from("brands")
+                          .update({ show_in_catalog: checked } as any)
+                          .eq("id", brand.dbBrandId!);
+                        if (error) {
+                          toast({ title: "Error", description: error.message, variant: "destructive" });
+                        } else {
+                          toast({ title: checked ? "Brand visible" : "Brand hidden", description: `${brand.name} ${checked ? "will" : "won't"} appear on /catalog` });
+                          queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
+                        }
+                      }}
+                    />
+                  </div>
+                )}
+
+                <Link
+                  to={
+                    brand.dbBrandId
+                      ? `/admin/catalog/master/brands/${brand.dbBrandId}`
+                      : brand.id === "unbranded"
+                      ? `/admin/catalog/master/brands/unbranded`
+                      : `/admin/catalog/master/brands/ss/${encodeURIComponent(brand.name)}`
+                  }
+                  className="flex flex-col items-center w-full"
+                >
+                  <div className="w-full h-24 flex items-center justify-center mb-4">
+                    {brand.logo_url ? (
+                      <img
+                        src={brand.logo_url}
+                        alt={brand.name}
+                        className="max-h-full max-w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-2xl font-bold text-muted-foreground/40">
+                        {brand.name.charAt(0)}
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="font-semibold text-foreground text-center group-hover:text-accent transition-colors text-sm">
+                    {brand.name}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {brand.styleCount} {brand.styleCount === 1 ? "style" : "styles"}
+                  </p>
+                </Link>
+              </div>
             ))}
           </div>
         )}
