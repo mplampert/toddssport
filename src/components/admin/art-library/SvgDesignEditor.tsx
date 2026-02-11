@@ -232,16 +232,38 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     textBlocks.forEach((block) => {
       const el = svg.querySelector(`#${block.id}`) as SVGTextElement | null;
       if (!el) return;
-      el.textContent = textValues[block.id] ?? block.defaultText;
+      const newText = textValues[block.id] ?? block.defaultText;
       const font = textFonts[block.id] ?? block.font;
+
+      // Ensure text stays centered by setting text-anchor
+      if (!el.getAttribute("text-anchor")) {
+        el.setAttribute("text-anchor", "middle");
+      }
+
+      // Update text content: preserve tspan structure if present
+      const tspans = el.querySelectorAll("tspan");
+      if (tspans.length > 0) {
+        // Put all text in the first tspan, clear the rest
+        tspans[0].textContent = newText;
+        for (let i = 1; i < tspans.length; i++) {
+          tspans[i].textContent = "";
+        }
+        // Apply font to all tspans
+        tspans.forEach((tspan) => {
+          tspan.setAttribute("font-family", font);
+          (tspan as SVGElement).style.fontFamily = font;
+          // Ensure tspan inherits centering
+          if (!tspan.getAttribute("text-anchor")) {
+            tspan.setAttribute("text-anchor", "middle");
+          }
+        });
+      } else {
+        el.textContent = newText;
+      }
+
       // Set both attribute and style to ensure override of any CSS/inline styles
       el.setAttribute("font-family", font);
       el.style.fontFamily = font;
-      // Also update any child tspan elements
-      el.querySelectorAll("tspan").forEach((tspan) => {
-        tspan.setAttribute("font-family", font);
-        (tspan as SVGElement).style.fontFamily = font;
-      });
     });
 
     // Update color slots — BEM classes + stored element refs from discovery
