@@ -239,10 +239,17 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
               const productVariantImgs = variantImagesByProduct.get(item.id) || [];
               const ssFlatImg = flatImageMap?.get(item.id);
               const { heroImageUrl: fallbackImg } = getStorefrontHero(item, productVariantImgs);
+              // Check for composited mockup image for the default color
+              const defaultColorCode = getDefaultColorCode(item.allowed_colors);
+              const mockupImg = defaultColorCode
+                ? productVariantImgs.find((img) => img.color === defaultColorCode && img.view === "front" && img.image_type === "mockup")
+                : null;
               // Only show image once flat images have loaded (or if we have variant/override images)
               const hasLocalImage = productVariantImgs.length > 0 || item.primary_image_url;
               const imgReady = hasLocalImage || !flatImagesLoading;
-              const imgSrc = ssFlatImg || fallbackImg;
+              // Prefer mockup > flat > fallback
+              const imgSrc = mockupImg?.image_url || ssFlatImg || fallbackImg;
+              const hasMockup = !!mockupImg;
               const name = getDisplayName(item);
               const itemLogos = logosByProduct.get(item.id) || [];
               return (
@@ -257,10 +264,8 @@ export function StorefrontProductGrid({ storeId, slug, products, storeFundraisin
                         ) : (
                           <ShoppingBag className="w-12 h-12 text-muted-foreground/40" />
                         )}
-                        {/* Primary logo overlay — inside inset-0 so % positioning works */}
-                        {(() => {
-                          // Admin saves variant_color as color CODE, so resolve default to code
-                          const defaultColorCode = getDefaultColorCode(item.allowed_colors);
+                        {/* Primary logo overlay — hidden when composited mockup is shown */}
+                        {!hasMockup && (() => {
                           const matched = matchLogosForVariant(itemLogos, defaultColorCode);
                           const primaryLogo = matched.find((l) => l.is_primary) || matched[0];
                           if (!primaryLogo) return null;

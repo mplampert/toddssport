@@ -15,7 +15,8 @@ import { StoreLogoPicker, type StoreLogo } from "./StoreLogoPicker";
 import { type LogoVariantOption } from "@/lib/logoVariantPicker";
 import { useProductVariantImages, type VariantImage } from "@/hooks/useVariantImages";
 import { TextLayerPanel } from "./TextLayerPanel";
-import { type TextLayer, DEFAULT_TEXT_LAYER, TEXT_SOURCE_LABELS, type TextLayerSource } from "@/lib/textLayers";
+import { type TextLayer, DEFAULT_TEXT_LAYER, TEXT_SOURCE_LABELS, type TextLayerSource, resolveTextContent, applyTextTransform } from "@/lib/textLayers";
+import { compositeAndUploadMockup, saveMockupUrl } from "@/lib/mockupCompositor";
 
 /* ─── Types ─── */
 
@@ -604,8 +605,8 @@ export function ProductLogosTab({ item, storeId }: Props) {
 
       return payload;
     },
-    onSuccess: (payload) => {
-      const { view, applyToAllColors: applyAll, selectedColor: color, placements: placementsSnap } = payload;
+    onSuccess: async (payload) => {
+      const { view, applyToAllColors: applyAll, selectedColor: color, placements: placementsSnap, textLayers: textLayersSnap } = payload;
       const variantColorToSave = applyAll ? null : color;
 
       // Update local cache immediately so switching colors right after Save doesn't re-filter from stale data.
@@ -652,6 +653,73 @@ export function ProductLogosTab({ item, storeId }: Props) {
       toast.success("Placements saved");
       setDirty(false);
       setTextDirty(false);
+
+      // ── Generate composited mockup image (Phase 1: front view only) ──
+      if (view === "front" && canvasImageInfo.url) {
+        const colorsToComposite = applyAll
+          ? colorOptions.map((c) => c.code)
+          : color ? [color] : [];
+
+        for (const colorCode of colorsToComposite) {
+          // Resolve the correct garment image for this color
+          const colorOpt = colorOptions.find((c) => c.code === colorCode);
+          const garmentUrl = colorOpt?.frontImage || canvasImageInfo.url;
+          if (!garmentUrl) continue;
+
+          // Resolve logo URLs for this specific color
+          const colorPlacements = applyAll
+            ? placementsSnap
+            : placementsSnap.filter((p) => !p.variant_color || p.variant_color === colorCode);
+
+          const logoOverlays = colorPlacements
+            .filter((p) => p._logo_url && p.active)
+            .map((p) => ({
+              url: p._logo_url!,
+              x: p.x,
+              y: p.y,
+              scale: p.scale,
+            }));
+
+          // Resolve text layers
+          const textOverlays = textLayersSnap
+            .filter((t) => t.active)
+            .map((t) => ({
+              text: applyTextTransform(resolveTextContent(t), t.text_transform),
+              x: t.x,
+              y: t.y,
+              scale: t.scale,
+              fontFamily: t.font_family,
+              fontWeight: t.font_weight,
+              fontSizePx: t.font_size_px,
+              fillColor: t.fill_color,
+              outlineColor: t.outline_color,
+              outlineThickness: t.outline_thickness,
+              letterSpacing: t.letter_spacing,
+              lineHeight: t.line_height,
+              alignment: t.alignment,
+            }));
+
+          // Composite and upload (fire-and-forget per color, don't block UI)
+          compositeAndUploadMockup({
+            garmentImageUrl: garmentUrl,
+            logos: logoOverlays,
+            textLayers: textOverlays,
+            productId: item.id,
+            colorCode,
+            view: "front",
+          }).then((mockupUrl) => {
+            if (mockupUrl) {
+              saveMockupUrl(item.id, colorCode, "front", mockupUrl).then(() => {
+                queryClient.invalidateQueries({ queryKey: ["variant-images", item.id] });
+                queryClient.invalidateQueries({ queryKey: ["store-variant-images"] });
+              });
+              toast.success(`Mockup generated for ${colorOpt?.name || colorCode}`);
+            }
+          }).catch((err) => {
+            console.error("Mockup generation failed:", err);
+          });
+        }
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
