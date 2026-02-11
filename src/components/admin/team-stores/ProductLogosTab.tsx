@@ -502,11 +502,12 @@ export function ProductLogosTab({ item, storeId }: Props) {
           if (error) throw error;
         }
       } else {
+        // Only delete rows for the specific color being saved — preserve null (all-colors) fallback rows
         const { error: delErr } = await supabase
           .from("team_store_item_logos").delete()
           .eq("team_store_item_id", item.id)
           .eq("view", activeView)
-          .or(`variant_color.eq.${selectedColor},variant_color.is.null`);
+          .eq("variant_color", selectedColor!);
         if (delErr) throw delErr;
         if (placements.length > 0) {
           const rows = placements.map((p, i) => ({
