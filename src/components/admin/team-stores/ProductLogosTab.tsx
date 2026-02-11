@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle, Upload, Replace, Type, Plus } from "lucide-react";
+import { Trash2, Save, Loader2, ImageIcon, RotateCcw, AlertCircle, Upload, Replace, Type, Plus, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { PlacementCanvas, type DecorationPlacement, type LogoPlacement } from "./PlacementCanvas";
@@ -68,7 +68,7 @@ export function ProductLogosTab({ item, storeId }: Props) {
   // ── Variant state ──
   const [colorOptions, setColorOptions] = useState<ColorOption[]>([]);
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [applyToAllColors, setApplyToAllColors] = useState(true);
+  const [applyToAllColors, setApplyToAllColors] = useState(false);
   const [loadingVariants, setLoadingVariants] = useState(true);
   const [activeView, setActiveView] = useState<"front" | "back" | "left_sleeve" | "right_sleeve">("front");
   const [reuseSleeveForAllColors, setReuseSleeveForAllColors] = useState(true);
@@ -283,9 +283,11 @@ export function ProductLogosTab({ item, storeId }: Props) {
     }));
 
     const hasColorOverrides = all.some((p: LogoPlacement) => p.variant_color != null);
-    setApplyToAllColors(!hasColorOverrides);
+    // Default to per-color mode; only switch to "all" if no color overrides exist AND no colors available
+    const shouldApplyAll = !hasColorOverrides && colorOptions.length <= 1;
+    setApplyToAllColors(shouldApplyAll);
 
-    let filtered = filterPlacementsForEditing(all, selectedColor, !hasColorOverrides, activeView);
+    let filtered = filterPlacementsForEditing(all, selectedColor, shouldApplyAll, activeView);
 
     // Auto-pick best logo variant for the current garment color
     // IMPORTANT: never overwrite a user's manual selection (variant_locked)
@@ -573,7 +575,45 @@ export function ProductLogosTab({ item, storeId }: Props) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Determine canvas image based on selected color + active view
+  // ── Copy current color's placements to other colors ──
+  const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
+  const [showCopyPanel, setShowCopyPanel] = useState(false);
+
+  const copyToColorsMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedColor || copyTargets.size === 0 || placements.length === 0) return;
+
+      for (const targetColor of copyTargets) {
+        // Delete existing placements for target color + current view
+        await supabase
+          .from("team_store_item_logos").delete()
+          .eq("team_store_item_id", item.id)
+          .eq("view", activeView)
+          .eq("variant_color", targetColor);
+
+        // Insert copies with target color
+        const rows = placements.map((p, i) => ({
+          team_store_item_id: item.id,
+          store_logo_id: p.store_logo_id,
+          store_logo_variant_id: p.store_logo_variant_id,
+          position: p.position,
+          x: p.x, y: p.y, scale: p.scale, rotation: p.rotation,
+          is_primary: p.is_primary, role: p.role, sort_order: i,
+          active: p.active, variant_color: targetColor, variant_size: null, view: activeView,
+        }));
+        const { error } = await supabase.from("team_store_item_logos").insert(rows as any);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item-logos", item.id] });
+      toast.success(`Copied to ${copyTargets.size} color${copyTargets.size > 1 ? "s" : ""}`);
+      setShowCopyPanel(false);
+      setCopyTargets(new Set());
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Also track whether the image comes from a variant record (manageable) vs SS API
   const canvasImageInfo = useMemo(() => {
     const colorName = selectedColor
@@ -795,6 +835,81 @@ export function ProductLogosTab({ item, storeId }: Props) {
                 </button>
               ))}
             </div>
+
+            {/* Copy to other colors button */}
+            {!applyToAllColors && selectedColor && placements.length > 0 && colorOptions.length > 1 && (
+              <div className="space-y-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-[10px]"
+                  onClick={() => {
+                    setShowCopyPanel(!showCopyPanel);
+                    if (!showCopyPanel) setCopyTargets(new Set());
+                  }}
+                >
+                  <Copy className="w-3 h-3 mr-1" />
+                  Copy to other colors
+                </Button>
+
+                {showCopyPanel && (
+                  <div className="border rounded-md p-2.5 bg-muted/30 space-y-2">
+                    <p className="text-[10px] text-muted-foreground">
+                      Copy current <strong>{colorOptions.find(c => c.code === selectedColor)?.name}</strong> placements to:
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {colorOptions.filter(c => c.code !== selectedColor).map(c => (
+                        <label
+                          key={c.code}
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs border cursor-pointer transition-colors ${
+                            copyTargets.has(c.code) ? "border-accent bg-accent/10" : "border-border hover:bg-muted"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={copyTargets.has(c.code)}
+                            onCheckedChange={(v) => {
+                              setCopyTargets(prev => {
+                                const next = new Set(prev);
+                                if (v) next.add(c.code);
+                                else next.delete(c.code);
+                                return next;
+                              });
+                            }}
+                            className="h-3 w-3"
+                          />
+                          {c.swatchImage ? (
+                            <img src={c.swatchImage} alt={c.name} className="w-3.5 h-3.5 rounded-sm border shrink-0" />
+                          ) : c.color1 ? (
+                            <span className="w-3.5 h-3.5 rounded-sm border shrink-0" style={{ background: c.color1 }} />
+                          ) : null}
+                          <span className="truncate max-w-[70px]">{c.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[10px]"
+                        onClick={() => setCopyTargets(new Set(colorOptions.filter(c => c.code !== selectedColor).map(c => c.code)))}
+                      >
+                        Select all
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="h-6 text-[10px]"
+                        disabled={copyTargets.size === 0 || copyToColorsMutation.isPending}
+                        onClick={() => copyToColorsMutation.mutate()}
+                      >
+                        {copyToColorsMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Copy className="w-3 h-3 mr-1" />}
+                        Copy to {copyTargets.size} color{copyTargets.size !== 1 ? "s" : ""}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {loadingVariants && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Loader2 className="w-3 h-3 animate-spin" /> Loading colors…
