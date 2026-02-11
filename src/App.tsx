@@ -112,6 +112,7 @@ import { CustomerGuard } from "./components/auth/CustomerGuard";
 import AdminMasterCatalog from "./pages/admin/AdminMasterCatalog";
 import AdminMasterCatalogBrand from "./pages/admin/AdminMasterCatalogBrand";
 import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
+import AdminMasterProductDetail from "./pages/admin/AdminMasterProductDetail";
 import AdminStaffUsers from "./pages/admin/AdminStaffUsers";
 import AdminCustomers from "./pages/admin/AdminCustomers";
 import AdminCustomerDetail from "./pages/admin/AdminCustomerDetail";
@@ -175,6 +176,7 @@ const App = () => (
           <Route path="/admin/catalog/master" element={<AdminMasterCatalog />} />
           <Route path="/admin/catalog/master/brands/ss/:brandName" element={<AdminMasterCatalogSSBrand />} />
           <Route path="/admin/catalog/master/brands/:brandId" element={<AdminMasterCatalogBrand />} />
+          <Route path="/admin/catalog/master/products/:productId" element={<AdminMasterProductDetail />} />
           <Route path="/admin/catalogs" element={<AdminCatalogs />} />
           <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
           <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
