@@ -2,6 +2,7 @@ import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Palette, Image } from "lucide-react";
 import { ArtTemplatesTab } from "@/components/admin/art-library/ArtTemplatesTab";
+import { TeamLogosTab } from "@/components/admin/art-library/TeamLogosTab";
 
 export default function AdminArtLibrary() {
   return (
@@ -31,11 +32,7 @@ export default function AdminArtLibrary() {
           </TabsContent>
 
           <TabsContent value="team-logos">
-            <div className="border rounded-lg p-12 text-center text-muted-foreground">
-              <Image className="w-12 h-12 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">Team Logos</p>
-              <p className="text-sm">Coming soon — saved team art will appear here.</p>
-            </div>
+            <TeamLogosTab />
           </TabsContent>
         </Tabs>
       </div>
