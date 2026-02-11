@@ -9,6 +9,7 @@ import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { DESIGN_IMAGE_FALLBACKS } from "@/lib/designImageFallbacks";
 import { SvgDesignEditor } from "./SvgDesignEditor";
+import { NewTemplateDialog } from "./NewTemplateDialog";
 
 interface DesignTemplate {
   id: string;
@@ -92,14 +93,23 @@ export function ArtTemplatesTab() {
 
   if (!templates?.length) {
     return (
-      <div className="border rounded-lg p-12 text-center text-muted-foreground mt-4">
-        <p>No templates found. Insert a row into <code>design_templates</code> to get started.</p>
+      <div className="space-y-4 mt-4">
+        <div className="flex justify-end">
+          <NewTemplateDialog />
+        </div>
+        <div className="border rounded-lg p-12 text-center text-muted-foreground">
+          <p>No templates found. Click "New Template" above to add one.</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
+    <div className="space-y-4 mt-4">
+      <div className="flex justify-end">
+        <NewTemplateDialog />
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
       {templates.map((t) => {
         const thumb = t.thumbnail_url || t.image_url || DESIGN_IMAGE_FALLBACKS[t.code];
         return (
@@ -156,6 +166,7 @@ export function ArtTemplatesTab() {
           </Card>
         );
       })}
+      </div>
     </div>
   );
 }
