@@ -234,7 +234,14 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       if (!el) return;
       el.textContent = textValues[block.id] ?? block.defaultText;
       const font = textFonts[block.id] ?? block.font;
+      // Set both attribute and style to ensure override of any CSS/inline styles
       el.setAttribute("font-family", font);
+      el.style.fontFamily = font;
+      // Also update any child tspan elements
+      el.querySelectorAll("tspan").forEach((tspan) => {
+        tspan.setAttribute("font-family", font);
+        (tspan as SVGElement).style.fontFamily = font;
+      });
     });
 
     // Update color slots — BEM classes + stored element refs from discovery
