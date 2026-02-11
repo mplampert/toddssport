@@ -5,7 +5,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, CheckCircle2, XCircle, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+  ChevronDown,
+  ChevronUp,
+  RefreshCw,
+  Database,
+  BarChart3,
+} from "lucide-react";
 import { toast } from "sonner";
 
 interface SSBrand {
@@ -43,9 +53,35 @@ export function SSBulkImportPanel() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [fixingBrands, setFixingBrands] = useState(false);
+  const [showBrandPicker, setShowBrandPicker] = useState(false);
   const queryClient = useQueryClient();
 
-  // Load available S&S brands from the live API
+  // Debug stats
+  const { data: debugStats } = useQuery({
+    queryKey: ["ss-debug-stats"],
+    queryFn: async () => {
+      const [
+        masterCountRes,
+        ssCountRes,
+        brandCountRes,
+        visibleBrandCountRes,
+      ] = await Promise.all([
+        supabase.from("master_products").select("id", { count: "exact", head: true }).eq("active", true),
+        supabase.from("master_products").select("id", { count: "exact", head: true }).eq("active", true).eq("source", "ss_activewear"),
+        supabase.from("brands").select("id", { count: "exact", head: true }),
+        supabase.from("brands").select("id", { count: "exact", head: true }).eq("show_in_catalog", true),
+      ]);
+      return {
+        masterTotal: masterCountRes.count || 0,
+        ssTotal: ssCountRes.count || 0,
+        brandsTotal: brandCountRes.count || 0,
+        brandsVisible: visibleBrandCountRes.count || 0,
+      };
+    },
+    staleTime: 30000,
+  });
+
+  // Load available S&S brands from the live API (for selective import)
   const loadBrands = async () => {
     setLoading(true);
     try {
@@ -71,6 +107,7 @@ export function SSBulkImportPanel() {
 
       setSSBrands(brands);
       setLoaded(true);
+      setShowBrandPicker(true);
     } catch (err) {
       toast.error("Failed to load S&S brands");
       console.error(err);
@@ -79,7 +116,7 @@ export function SSBulkImportPanel() {
     }
   };
 
-  // Poll active job via realtime
+  // Poll active job
   const { data: jobData } = useQuery({
     queryKey: ["ss-import-job", activeJobId],
     queryFn: async () => {
@@ -99,10 +136,10 @@ export function SSBulkImportPanel() {
   const job = jobData || null;
   const isRunning = job?.status === "running" || job?.status === "pending";
 
-  // Stop polling when done
   useEffect(() => {
     if (job && !isRunning && activeJobId) {
       queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
+      queryClient.invalidateQueries({ queryKey: ["ss-debug-stats"] });
       if (job.status === "completed") {
         toast.success(`Import complete: ${job.products_imported} products imported`);
       }
@@ -126,9 +163,41 @@ export function SSBulkImportPanel() {
     }
   };
 
-  const startImport = async (brandsToImport: string[]) => {
+  // Full sync - fetches everything from S&S in one shot
+  const startFullSync = async () => {
     try {
-      // Create job record
+      const { data: jobRow, error: insertErr } = await supabase
+        .from("ss_import_jobs")
+        .insert({
+          brands_requested: ["__FULL_SYNC__"],
+          brands_total: 0,
+          status: "pending",
+        })
+        .select("id")
+        .single();
+
+      if (insertErr) throw insertErr;
+
+      const jobId = jobRow.id;
+      setActiveJobId(jobId);
+      setShowLog(true);
+
+      supabase.functions.invoke("ss-full-sync", {
+        body: { job_id: jobId },
+      }).catch((err) => {
+        console.error("Full sync invocation error:", err);
+        toast.error("Full sync failed to start");
+      });
+
+      toast.info("Started full S&S catalog sync...");
+    } catch (err: any) {
+      toast.error(`Failed to start sync: ${err.message}`);
+    }
+  };
+
+  // Brand-by-brand import (legacy)
+  const startBrandImport = async (brandsToImport: string[]) => {
+    try {
       const { data: jobRow, error: insertErr } = await supabase
         .from("ss_import_jobs")
         .insert({
@@ -145,7 +214,6 @@ export function SSBulkImportPanel() {
       setActiveJobId(jobId);
       setShowLog(true);
 
-      // Fire edge function (don't await — it'll run server-side)
       supabase.functions.invoke("ss-bulk-import", {
         body: { job_id: jobId, brands: brandsToImport },
       }).catch((err) => {
@@ -166,6 +234,7 @@ export function SSBulkImportPanel() {
       if (error) throw error;
       toast.success(data?.message || "Brands fixed");
       queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
+      queryClient.invalidateQueries({ queryKey: ["ss-debug-stats"] });
     } catch (err: any) {
       toast.error(`Fix failed: ${err.message}`);
     } finally {
@@ -173,20 +242,37 @@ export function SSBulkImportPanel() {
     }
   };
 
-  const progressPercent = job && job.brands_total > 0
-    ? Math.round((job.brands_completed / job.brands_total) * 100)
-    : 0;
+  const progressPercent =
+    job && job.brands_total > 0
+      ? Math.round((job.brands_completed / job.brands_total) * 100)
+      : 0;
+
+  const apiStyleCount = loaded
+    ? ssBrands.reduce((sum, b) => sum + b.count, 0)
+    : null;
 
   return (
-    <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-card border border-border rounded-xl p-6 space-y-4 mb-6">
+      {/* Header */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h3 className="font-semibold text-foreground">Bulk S&S Import</h3>
+          <h3 className="font-semibold text-foreground">S&S Activewear Sync</h3>
           <p className="text-sm text-muted-foreground">
-            Import all styles from S&S Activewear brands into the master catalog.
+            Sync the full S&S catalog into master_products.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            onClick={startFullSync}
+            disabled={isRunning}
+            size="sm"
+          >
+            {isRunning ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing…</>
+            ) : (
+              <><RefreshCw className="w-4 h-4 mr-2" />Sync All from S&S</>
+            )}
+          </Button>
           <Button onClick={fixOrphanedBrands} disabled={fixingBrands} variant="outline" size="sm">
             {fixingBrands ? (
               <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fixing…</>
@@ -194,17 +280,51 @@ export function SSBulkImportPanel() {
               <>Fix Orphaned Brands</>
             )}
           </Button>
-          {!loaded && (
-            <Button onClick={loadBrands} disabled={loading} variant="outline" size="sm">
-              {loading ? (
-                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading…</>
-              ) : (
-                <><Download className="w-4 h-4 mr-2" />Load S&S Brands</>
-              )}
-            </Button>
-          )}
         </div>
       </div>
+
+      {/* Debug Stats */}
+      {debugStats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="bg-secondary/50 rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Database className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">master_products (total)</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{debugStats.masterTotal.toLocaleString()}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">S&S in master_products</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{debugStats.ssTotal.toLocaleString()}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Database className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Brands (total)</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{debugStats.brandsTotal.toLocaleString()}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3">
+            <div className="flex items-center gap-1.5 mb-1">
+              <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">Brands (visible)</span>
+            </div>
+            <p className="text-lg font-bold text-foreground">{debugStats.brandsVisible.toLocaleString()}</p>
+          </div>
+          {apiStyleCount !== null && (
+            <div className="bg-accent/10 rounded-lg p-3 col-span-2 sm:col-span-4">
+              <span className="text-xs text-muted-foreground">S&S API styles (live): </span>
+              <span className="text-sm font-bold text-accent">{apiStyleCount.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground ml-2">
+                ({apiStyleCount - debugStats.ssTotal > 0 ? `${(apiStyleCount - debugStats.ssTotal).toLocaleString()} missing` : "all synced ✓"})
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Active Job Progress */}
       {job && (
@@ -220,7 +340,7 @@ export function SSBulkImportPanel() {
               )}
               <span className="text-sm font-medium">
                 {isRunning
-                  ? `Importing ${job.current_brand || "…"} (${job.brands_completed}/${job.brands_total})`
+                  ? `${job.current_brand || "Starting…"} (${job.brands_completed}/${job.brands_total})`
                   : job.status === "completed"
                     ? `Complete — ${job.products_imported} products imported`
                     : `Failed: ${job.error || "Unknown error"}`}
@@ -261,61 +381,92 @@ export function SSBulkImportPanel() {
         </div>
       )}
 
-      {/* Brand Selection */}
-      {loaded && !isRunning && (
-        <>
-          <div className="flex flex-wrap gap-2 items-center">
-            <Button
-              size="sm"
-              onClick={() => startImport(ssBrands.map((b) => b.brandName))}
-              disabled={isRunning}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Import All {ssBrands.length} Brands
-            </Button>
-            {selected.size > 0 && (
+      {/* Selective brand import (expandable) */}
+      <div className="border-t border-border pt-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            if (!loaded) loadBrands();
+            else setShowBrandPicker(!showBrandPicker);
+          }}
+          disabled={loading}
+          className="text-xs text-muted-foreground"
+        >
+          {loading ? (
+            <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Loading brands…</>
+          ) : (
+            <>{showBrandPicker ? <ChevronUp className="w-3 h-3 mr-1" /> : <ChevronDown className="w-3 h-3 mr-1" />}Selective Brand Import</>
+          )}
+        </Button>
+
+        {showBrandPicker && loaded && !isRunning && (
+          <div className="mt-3 space-y-3">
+            <div className="flex flex-wrap gap-2 items-center">
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => startImport([...selected])}
+                onClick={() => startBrandImport(ssBrands.map((b) => b.brandName))}
                 disabled={isRunning}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Import {selected.size} Selected
+                Import All {ssBrands.length} Brands (legacy)
               </Button>
-            )}
-            <div className="flex items-center gap-2 ml-auto">
-              <Checkbox
-                checked={selected.size === ssBrands.length && ssBrands.length > 0}
-                onCheckedChange={selectAll}
-              />
-              <span className="text-xs text-muted-foreground">Select all</span>
+              {selected.size > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => startBrandImport([...selected])}
+                  disabled={isRunning}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Import {selected.size} Selected
+                </Button>
+              )}
+              <div className="flex items-center gap-2 ml-auto">
+                <Checkbox
+                  checked={selected.size === ssBrands.length && ssBrands.length > 0}
+                  onCheckedChange={selectAll}
+                />
+                <span className="text-xs text-muted-foreground">Select all</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+              {ssBrands.map((brand) => (
+                <label
+                  key={brand.brandName}
+                  className={`flex items-center gap-2 p-2 border rounded-lg cursor-pointer text-xs transition-colors ${
+                    selected.has(brand.brandName)
+                      ? "border-accent bg-accent/5"
+                      : "border-border hover:border-accent/50"
+                  }`}
+                >
+                  <Checkbox
+                    checked={selected.has(brand.brandName)}
+                    onCheckedChange={() => toggleBrand(brand.brandName)}
+                  />
+                  <span className="truncate font-medium">{brand.brandName}</span>
+                  <Badge variant="secondary" className="text-[10px] ml-auto flex-shrink-0">
+                    {brand.count}
+                  </Badge>
+                </label>
+              ))}
             </div>
           </div>
+        )}
+      </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
-            {ssBrands.map((brand) => (
-              <label
-                key={brand.brandName}
-                className={`flex items-center gap-2 p-2 border rounded-lg cursor-pointer text-xs transition-colors ${
-                  selected.has(brand.brandName)
-                    ? "border-accent bg-accent/5"
-                    : "border-border hover:border-accent/50"
-                }`}
-              >
-                <Checkbox
-                  checked={selected.has(brand.brandName)}
-                  onCheckedChange={() => toggleBrand(brand.brandName)}
-                />
-                <span className="truncate font-medium">{brand.brandName}</span>
-                <Badge variant="secondary" className="text-[10px] ml-auto flex-shrink-0">
-                  {brand.count}
-                </Badge>
-              </label>
-            ))}
-          </div>
-        </>
-      )}
+      {/* Filter documentation */}
+      <div className="text-[11px] text-muted-foreground border-t border-border pt-3 space-y-1">
+        <p className="font-medium text-foreground/70">Catalog filter rules (/ss-products & /catalog):</p>
+        <ul className="list-disc list-inside space-y-0.5">
+          <li><code className="text-[10px]">master_products.active = true</code> — only active products</li>
+          <li><code className="text-[10px]">master_products.source = 'ss_activewear'</code> — S&S source filter on /ss-products</li>
+          <li><code className="text-[10px]">brands.show_in_catalog = true</code> — brand visibility toggle (admin)</li>
+          <li><code className="text-[10px]">brand_id IS NOT NULL</code> — must have a mapped brand</li>
+        </ul>
+      </div>
     </div>
   );
 }
