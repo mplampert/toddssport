@@ -491,26 +491,45 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     },
   });
 
-  // Update customer-facing preview image
+  // Update customer-facing preview image AND save edited SVG as new master
   const handleUpdatePreview = async () => {
     setIsUpdatingPreview(true);
     try {
       const svgEl = svgContainerRef.current?.querySelector("svg");
       if (!svgEl) throw new Error("No SVG to render");
+
+      // 1. Save the edited SVG as the new master so text changes persist
+      const svgString = getSerializedSvg();
+      const svgPath = `masters/${template.code}-master.svg`;
+      const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
+      const { error: svgUpErr } = await supabase.storage
+        .from("team-art")
+        .upload(svgPath, svgBlob, { upsert: true, contentType: "image/svg+xml" });
+      if (svgUpErr) throw svgUpErr;
+      const { data: svgUrlData } = supabase.storage.from("team-art").getPublicUrl(svgPath);
+      const newSvgUrl = `${svgUrlData.publicUrl}?v=${Date.now()}`;
+
+      // 2. Generate preview PNG
       const pngBlob = await svgToPngWithFonts(svgEl, getUsedFonts(), 1024, 1024);
-      const path = `previews/${template.code}-preview.png`;
+      const pngPath = `previews/${template.code}-preview.png`;
       const { error: upErr } = await supabase.storage
         .from("team-art")
-        .upload(path, pngBlob, { upsert: true, contentType: "image/png" });
+        .upload(pngPath, pngBlob, { upsert: true, contentType: "image/png" });
       if (upErr) throw upErr;
-      const { data: urlData } = supabase.storage.from("team-art").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("team-art").getPublicUrl(pngPath);
       const previewUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+
+      // 3. Update template record with new master SVG + preview
       const { error: dbErr } = await supabase
         .from("design_templates")
-        .update({ thumbnail_url: previewUrl, image_url: previewUrl })
+        .update({
+          thumbnail_url: previewUrl,
+          image_url: previewUrl,
+          svg_url_master: newSvgUrl,
+        })
         .eq("id", template.id);
       if (dbErr) throw dbErr;
-      toast.success("Preview image updated!");
+      toast.success("Design saved! Preview and SVG master updated.");
       queryClient.invalidateQueries({ queryKey: ["art-library-templates"] });
     } catch (err: any) {
       toast.error("Failed to update preview", { description: err.message });
