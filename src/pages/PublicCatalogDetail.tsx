@@ -77,52 +77,67 @@ export default function PublicCatalogDetail() {
     enabled: !!styleId && (isNumeric || !!masterProduct?.source_sku),
   });
 
-  // Determine the S&S style ID for enrichment
-  const ssStyleId = useMemo(() => {
-    if (masterProduct?.source === "ss_activewear" && masterProduct.source_sku) {
-      return masterProduct.source_sku;
+  // Determine the S&S style code for enrichment
+  const ssStyleCode = useMemo(() => {
+    if (masterProduct?.source === "ss_activewear") {
+      return (masterProduct as any)?.style_code || masterProduct.source_sku || null;
     }
     if (isNumeric) return styleId;
     return null;
   }, [masterProduct, isNumeric, styleId]);
 
-  // Fetch color/size data from S&S via edge function (only for S&S products)
+  // Fetch pre-imported color images from product_color_images table
+  const { data: dbColorImages = [] } = useQuery({
+    queryKey: ["product-color-images", masterProduct?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_color_images")
+        .select("*")
+        .eq("master_product_id", masterProduct!.id)
+        .order("color_name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!masterProduct?.id,
+  });
+
+  // Fetch color/size data from S&S via edge function (fallback for products without DB colors)
   const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ["public-catalog-products", ssStyleId],
+    queryKey: ["public-catalog-products", ssStyleCode],
     queryFn: async () => {
       try {
-        const data = await getProducts({ style: ssStyleId! });
+        const data = await getProducts({ style: ssStyleCode! });
         return Array.isArray(data) ? data : [];
       } catch {
         return [];
       }
     },
-    enabled: !!ssStyleId,
+    enabled: !!ssStyleCode && dbColorImages.length === 0,
   });
 
   // Fetch style details from S&S
   const { data: ssStyleInfo } = useQuery({
-    queryKey: ["public-catalog-ss-style", ssStyleId],
+    queryKey: ["public-catalog-ss-style", ssStyleCode],
     queryFn: async () => {
       try {
-        const data = await getStyles({ style: ssStyleId! });
+        const data = await getStyles({ style: ssStyleCode! });
         const styles = Array.isArray(data) ? data : [];
-        return styles.find((s) => String(s.styleID) === ssStyleId) || null;
+        return styles.find((s) => String(s.styleID) === ssStyleCode || s.styleName === ssStyleCode) || styles[0] || null;
       } catch {
         return null;
       }
     },
-    enabled: !!ssStyleId,
+    enabled: !!ssStyleCode,
   });
 
   // Fetch specs (only for S&S products with catalog_styles data)
   const { data: specs = [] } = useQuery({
-    queryKey: ["public-catalog-specs", ssStyleId],
+    queryKey: ["public-catalog-specs", ssStyleCode],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("catalog_specs")
         .select("spec_name, value")
-        .eq("style_id", Number(ssStyleId))
+        .eq("style_id", Number(ssStyleCode))
         .not("value", "is", null);
       if (error) throw error;
       const map = new Map<string, string>();
@@ -131,17 +146,35 @@ export default function PublicCatalogDetail() {
       });
       return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
     },
-    enabled: !!ssStyleId,
+    enabled: !!ssStyleCode && /^\d+$/.test(ssStyleCode),
   });
 
   // Pre-select first color
   useEffect(() => {
-    if (products.length > 0 && !selectedColor) {
-      setSelectedColor(products[0].colorName);
+    if (!selectedColor) {
+      if (dbColorImages.length > 0) {
+        setSelectedColor(dbColorImages[0].color_name);
+      } else if (products.length > 0) {
+        setSelectedColor(products[0].colorName);
+      }
     }
-  }, [products, selectedColor]);
+  }, [dbColorImages, products, selectedColor]);
 
+  // Build color options: prefer DB-stored colors, fall back to live API
   const colorOptions = useMemo<ColorOption[]>(() => {
+    if (dbColorImages.length > 0) {
+      return dbColorImages.map((img) => ({
+        name: img.color_name,
+        code: img.color_code || "",
+        frontImage: img.front_image_url || undefined,
+        backImage: img.back_image_url || undefined,
+        sideImage: img.side_image_url || undefined,
+        swatchImage: img.swatch_image_url || undefined,
+        color1: img.color1 || undefined,
+        color2: img.color2 || undefined,
+      }));
+    }
+    // Fallback to live S&S API data
     const map = new Map<string, ColorOption>();
     products.forEach((p) => {
       if (p.colorName && !map.has(p.colorName)) {
@@ -158,7 +191,7 @@ export default function PublicCatalogDetail() {
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [products]);
+  }, [dbColorImages, products]);
 
   const activeColor = useMemo(
     () => colorOptions.find((c) => c.name === selectedColor) || colorOptions[0],
@@ -184,7 +217,7 @@ export default function PublicCatalogDetail() {
   // Resolve display values from master_products first, fall back to catalog_styles / S&S
   const brandName = (masterProduct as any)?.brands?.name || catalogStyle?.brand_name || products[0]?.brandName || "";
   const productName = masterProduct?.name || catalogStyle?.title || catalogStyle?.style_name || ssStyleInfo?.title || ssStyleInfo?.styleName || `Style #${styleId}`;
-  const partNumber = masterProduct?.source_sku || catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
+  const partNumber = (masterProduct as any)?.style_code || masterProduct?.source_sku || catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
   const description = masterProduct?.description_short || catalogStyle?.description || ssStyleInfo?.description || "";
   const mainImage = masterProduct?.image_url || catalogStyle?.style_image || null;
 
@@ -198,7 +231,7 @@ export default function PublicCatalogDetail() {
     });
   };
 
-  const isLoading = loadingMaster || (!!ssStyleId && loadingProducts);
+  const isLoading = loadingMaster || (!!ssStyleCode && loadingProducts && dbColorImages.length === 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">

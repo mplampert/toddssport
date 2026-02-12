@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Database,
   BarChart3,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -54,6 +55,8 @@ export function SSBulkImportPanel() {
   const [showLog, setShowLog] = useState(false);
   const [fixingBrands, setFixingBrands] = useState(false);
   const [showBrandPicker, setShowBrandPicker] = useState(false);
+  const [remediating, setRemediating] = useState(false);
+  const [remediateReport, setRemediateReport] = useState<any>(null);
   const queryClient = useQueryClient();
 
   // Debug stats
@@ -242,6 +245,40 @@ export function SSBulkImportPanel() {
     }
   };
 
+  // Remediate all — fix style_code, pricing, colors
+  const startRemediation = async () => {
+    setRemediating(true);
+    setRemediateReport(null);
+    try {
+      toast.info("Phase 1: Fixing style codes & SKUs for all S&S products…");
+      const { data: p1, error: p1Err } = await supabase.functions.invoke("ss-remediate-all", {
+        body: { phase: 1 },
+      });
+      if (p1Err) throw p1Err;
+      
+      const p1Report = p1?.report;
+      toast.success(`Phase 1 done: ${p1Report?.fixed || 0} products fixed, ${p1Report?.alreadyCorrect || 0} already correct`);
+
+      // Phase 2: batch pricing + colors (first 100 products)
+      toast.info("Phase 2: Syncing pricing & colors (batch of 100)…");
+      const { data: p2, error: p2Err } = await supabase.functions.invoke("ss-remediate-all", {
+        body: { phase: 2, offset: 0, limit: 100, force: true },
+      });
+      if (p2Err) throw p2Err;
+
+      const p2Report = p2?.report;
+      setRemediateReport({ phase1: p1Report, phase2: p2Report });
+      toast.success(`Phase 2 done: ${p2Report?.pricingUpdated || 0} prices updated, ${p2Report?.colorsImported || 0} color images imported`);
+
+      queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
+      queryClient.invalidateQueries({ queryKey: ["ss-debug-stats"] });
+    } catch (err: any) {
+      toast.error(`Remediation failed: ${err.message}`);
+    } finally {
+      setRemediating(false);
+    }
+  };
+
   const progressPercent =
     job && job.brands_total > 0
       ? Math.round((job.brands_completed / job.brands_total) * 100)
@@ -280,8 +317,35 @@ export function SSBulkImportPanel() {
               <>Fix Orphaned Brands</>
             )}
           </Button>
+          <Button onClick={startRemediation} disabled={remediating || isRunning} variant="outline" size="sm">
+            {remediating ? (
+              <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Remediating…</>
+            ) : (
+              <><Wrench className="w-4 h-4 mr-2" />Fix All Mappings</>
+            )}
+          </Button>
         </div>
       </div>
+
+      {/* Remediation Report */}
+      {remediateReport && (
+        <div className="bg-secondary/50 rounded-lg p-4 space-y-2 text-sm">
+          <p className="font-semibold text-foreground flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-600" /> Remediation Report
+          </p>
+          {remediateReport.phase1 && (
+            <div className="text-muted-foreground space-y-0.5">
+              <p>Phase 1 — Style code fixes: <strong className="text-foreground">{remediateReport.phase1.fixed}</strong> fixed, {remediateReport.phase1.alreadyCorrect} already correct, {remediateReport.phase1.notFoundInApi} not in API</p>
+            </div>
+          )}
+          {remediateReport.phase2 && (
+            <div className="text-muted-foreground space-y-0.5">
+              <p>Phase 2 — Pricing: <strong className="text-foreground">{remediateReport.phase2.pricingUpdated}</strong> updated | Colors: <strong className="text-foreground">{remediateReport.phase2.colorsImported}</strong> images imported | Errors: {remediateReport.phase2.errors}</p>
+              <p className="text-xs">Processed {remediateReport.phase2.processed} products. Run again with higher offset for more.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Debug Stats */}
       {debugStats && (
