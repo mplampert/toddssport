@@ -68,17 +68,22 @@ export function SSBulkImportPanel() {
         ssCountRes,
         brandCountRes,
         visibleBrandCountRes,
+        colorProductsRes,
       ] = await Promise.all([
         supabase.from("master_products").select("id", { count: "exact", head: true }).eq("active", true),
         supabase.from("master_products").select("id", { count: "exact", head: true }).eq("active", true).eq("source", "ss_activewear"),
         supabase.from("brands").select("id", { count: "exact", head: true }),
         supabase.from("brands").select("id", { count: "exact", head: true }).eq("show_in_catalog", true),
+        supabase.from("product_color_images").select("master_product_id", { count: "exact", head: true }),
       ]);
+      // Count distinct products with colors
+      const ssWithColorsCount = colorProductsRes.count || 0;
       return {
         masterTotal: masterCountRes.count || 0,
         ssTotal: ssCountRes.count || 0,
         brandsTotal: brandCountRes.count || 0,
         brandsVisible: visibleBrandCountRes.count || 0,
+        ssWithColors: ssWithColorsCount,
       };
     },
     staleTime: 30000,
@@ -245,7 +250,7 @@ export function SSBulkImportPanel() {
     }
   };
 
-  // Remediate all — fix style_code, pricing, colors
+  // Remediate all — fix style_code, pricing, colors (auto-loops through all batches)
   const startRemediation = async () => {
     setRemediating(true);
     setRemediateReport(null);
@@ -259,17 +264,45 @@ export function SSBulkImportPanel() {
       const p1Report = p1?.report;
       toast.success(`Phase 1 done: ${p1Report?.fixed || 0} products fixed, ${p1Report?.alreadyCorrect || 0} already correct`);
 
-      // Phase 2: batch pricing + colors (first 100 products)
-      toast.info("Phase 2: Syncing pricing & colors (batch of 100)…");
-      const { data: p2, error: p2Err } = await supabase.functions.invoke("ss-remediate-all", {
-        body: { phase: 2, offset: 0, limit: 100, force: true },
-      });
-      if (p2Err) throw p2Err;
+      // Phase 2: auto-loop through all batches
+      const batchSize = 100;
+      let offset = 0;
+      let totalPricing = 0;
+      let totalColors = 0;
+      let totalErrors = 0;
+      let totalProcessed = 0;
+      let batchNum = 0;
 
-      const p2Report = p2?.report;
-      setRemediateReport({ phase1: p1Report, phase2: p2Report });
-      toast.success(`Phase 2 done: ${p2Report?.pricingUpdated || 0} prices updated, ${p2Report?.colorsImported || 0} color images imported`);
+      while (true) {
+        batchNum++;
+        toast.info(`Phase 2: Batch ${batchNum} (products ${offset}–${offset + batchSize})…`);
+        
+        const { data: p2, error: p2Err } = await supabase.functions.invoke("ss-remediate-all", {
+          body: { phase: 2, offset, limit: batchSize, force: true },
+        });
+        if (p2Err) throw p2Err;
 
+        const r = p2?.report;
+        if (!r || r.processed === 0) break;
+
+        totalPricing += r.pricingUpdated || 0;
+        totalColors += r.colorsImported || 0;
+        totalErrors += r.errors || 0;
+        totalProcessed += r.processed || 0;
+        offset = r.nextOffset || offset + batchSize;
+
+        // Update report live so user sees progress
+        setRemediateReport({
+          phase1: p1Report,
+          phase2: { pricingUpdated: totalPricing, colorsImported: totalColors, errors: totalErrors, processed: totalProcessed },
+        });
+        queryClient.invalidateQueries({ queryKey: ["ss-debug-stats"] });
+
+        // If we processed fewer than the batch size, we're done
+        if (r.processed < batchSize) break;
+      }
+
+      toast.success(`All done! ${totalProcessed} products processed, ${totalColors} color images imported`);
       queryClient.invalidateQueries({ queryKey: ["master-catalog-db"] });
       queryClient.invalidateQueries({ queryKey: ["ss-debug-stats"] });
     } catch (err: any) {
@@ -377,6 +410,25 @@ export function SSBulkImportPanel() {
               <span className="text-xs text-muted-foreground font-medium">Brands (visible)</span>
             </div>
             <p className="text-lg font-bold text-foreground">{debugStats.brandsVisible.toLocaleString()}</p>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3 col-span-2 sm:col-span-4">
+            <div className="flex items-center gap-1.5 mb-1">
+              <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground font-medium">S&S products with color images</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-lg font-bold text-foreground">{debugStats.ssWithColors.toLocaleString()}</p>
+              <span className="text-xs text-muted-foreground">/ {debugStats.ssTotal.toLocaleString()}</span>
+              {debugStats.ssTotal > 0 && (
+                <span className="text-xs font-medium ml-1">
+                  ({Math.round((debugStats.ssWithColors / debugStats.ssTotal) * 100)}%)
+                  {debugStats.ssWithColors >= debugStats.ssTotal ? " ✅ Complete!" : ` — ${(debugStats.ssTotal - debugStats.ssWithColors).toLocaleString()} remaining`}
+                </span>
+              )}
+            </div>
+            {debugStats.ssTotal > 0 && (
+              <Progress value={(debugStats.ssWithColors / debugStats.ssTotal) * 100} className="h-1.5 mt-2" />
+            )}
           </div>
           {apiStyleCount !== null && (
             <div className="bg-accent/10 rounded-lg p-3 col-span-2 sm:col-span-4">
