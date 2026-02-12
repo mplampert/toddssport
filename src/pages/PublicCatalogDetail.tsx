@@ -249,7 +249,11 @@ export default function PublicCatalogDetail() {
   const brandName = (masterProduct as any)?.brands?.name || catalogStyle?.brand_name || products[0]?.brandName || "";
   const productName = masterProduct?.name || catalogStyle?.title || catalogStyle?.style_name || ssStyleInfo?.title || ssStyleInfo?.styleName || `Style #${styleId}`;
   const partNumber = (masterProduct as any)?.style_code || masterProduct?.source_sku || catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
-  const description = masterProduct?.description_short || catalogStyle?.description || ssStyleInfo?.description || "";
+  // Prefer the longest available description (DB may be truncated from import)
+  const dbDesc = masterProduct?.description_short || "";
+  const ssDesc = ssStyleInfo?.description || "";
+  const catDesc = catalogStyle?.description || "";
+  const description = [ssDesc, catDesc, dbDesc].sort((a, b) => b.length - a.length)[0] || "";
   const mainImage = masterProduct?.image_url || catalogStyle?.style_image || null;
 
 
