@@ -5,11 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Package, Search, Eye, EyeOff } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Loader2, Package, Search, Eye, EyeOff, X } from "lucide-react";
+import { useState, useEffect } from "react";
 import { SSImportDialog } from "@/components/admin/catalog/SSImportDialog";
 import { SSBulkImportPanel } from "@/components/admin/catalog/SSBulkImportPanel";
 import { useToast } from "@/hooks/use-toast";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface BrandRow {
   id: string;
@@ -22,6 +23,8 @@ interface BrandRow {
 
 export default function AdminMasterCatalog() {
   const [search, setSearch] = useState("");
+  const [productSearch, setProductSearch] = useState("");
+  const debouncedProductSearch = useDebounce(productSearch, 350);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const { toast } = useToast();
@@ -87,12 +90,32 @@ export default function AdminMasterCatalog() {
     },
   });
 
+  // Product search query (server-side)
+  const { data: productResults, isLoading: productSearchLoading } = useQuery({
+    queryKey: ["admin-product-search", debouncedProductSearch],
+    enabled: debouncedProductSearch.length >= 2,
+    queryFn: async () => {
+      const term = `%${debouncedProductSearch}%`;
+      const { data, error } = await supabase
+        .from("master_products")
+        .select("id, name, style_code, source, image_url, brand_id, brands!master_products_brand_id_fkey(name)")
+        .eq("active", true)
+        .or(`name.ilike.${term},style_code.ilike.${term}`)
+        .order("name")
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const brands = data?.brands || [];
   const totalStyles = data?.totalStyles || 0;
 
   const filtered = brands.filter(
     (b) => !search || b.name.toLowerCase().includes(search.toLowerCase())
   );
+
+  const showProductResults = debouncedProductSearch.length >= 2;
 
   return (
     <AdminLayout>
@@ -156,6 +179,66 @@ export default function AdminMasterCatalog() {
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* Product Search */}
+        <div className="space-y-3 mb-6">
+          <div className="relative max-w-lg">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search products by name or style code…"
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="pl-10 pr-9"
+            />
+            {productSearch && (
+              <button
+                onClick={() => setProductSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {showProductResults && (
+            <div className="border border-border rounded-lg bg-card overflow-hidden">
+              {productSearchLoading ? (
+                <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Searching…
+                </div>
+              ) : !productResults?.length ? (
+                <p className="p-4 text-sm text-muted-foreground">No products match "{debouncedProductSearch}"</p>
+              ) : (
+                <div className="divide-y divide-border max-h-[400px] overflow-y-auto">
+                  {productResults.map((p: any) => (
+                    <Link
+                      key={p.id}
+                      to={`/admin/catalog/master/products/${p.id}`}
+                      className="flex items-center gap-3 px-4 py-3 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="w-10 h-10 rounded bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0">
+                        {p.image_url ? (
+                          <img src={p.image_url} alt="" className="w-full h-full object-contain" />
+                        ) : (
+                          <Package className="w-5 h-5 text-muted-foreground/40" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{p.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {p.brands?.name || "Unbranded"} {p.style_code ? `· ${p.style_code}` : ""} · {p.source}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                  {productResults.length === 20 && (
+                    <p className="px-4 py-2 text-xs text-muted-foreground text-center">Showing first 20 results — refine your search</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Brand Grid */}
