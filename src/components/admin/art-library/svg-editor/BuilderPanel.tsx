@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Save, Loader2, Type, Palette, FolderOpen, Download, AlignCenterHorizontal, AlignCenterVertical, Minus, Plus } from "lucide-react";
+import { Save, Loader2, Type, Palette, FolderOpen, Download, AlignCenterHorizontal, AlignCenterVertical, Minus, Plus, ImageIcon } from "lucide-react";
 import { GoogleFontPicker } from "../GoogleFontPicker";
 import type { TextBlock } from "./utils";
 import { SLOT_LABELS } from "./utils";
@@ -33,6 +33,10 @@ interface BuilderPanelProps {
   onDownload: () => void;
   isDownloading: boolean;
 
+  // Update preview
+  onUpdatePreview?: () => void;
+  isUpdatingPreview?: boolean;
+
   // Position/size controls
   onCenterH?: () => void;
   onCenterV?: () => void;
@@ -58,6 +62,8 @@ export function BuilderPanel({
   isSaving,
   onDownload,
   isDownloading,
+  onUpdatePreview,
+  isUpdatingPreview,
   onCenterH,
   onCenterV,
   onScaleUp,
@@ -192,6 +198,22 @@ export function BuilderPanel({
           )}
           Download Package
         </Button>
+        {onUpdatePreview && (
+          <Button
+            onClick={onUpdatePreview}
+            disabled={isUpdatingPreview}
+            variant="outline"
+            className="w-full gap-2 h-9"
+            size="sm"
+          >
+            {isUpdatingPreview ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <ImageIcon className="w-4 h-4" />
+            )}
+            Update Preview Image
+          </Button>
+        )}
       </div>
 
       {/* SAVE SECTION */}
