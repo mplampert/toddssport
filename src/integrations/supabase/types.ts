@@ -1315,6 +1315,7 @@ export type Database = {
           product_type: string
           source: string
           source_sku: string | null
+          supplier_item_number: string | null
           updated_at: string
         }
         Insert: {
@@ -1336,6 +1337,7 @@ export type Database = {
           product_type?: string
           source?: string
           source_sku?: string | null
+          supplier_item_number?: string | null
           updated_at?: string
         }
         Update: {
@@ -1357,6 +1359,7 @@ export type Database = {
           product_type?: string
           source?: string
           source_sku?: string | null
+          supplier_item_number?: string | null
           updated_at?: string
         }
         Relationships: [
