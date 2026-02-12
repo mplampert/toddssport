@@ -153,7 +153,7 @@ serve(async (req) => {
           category: catMap[s.baseCategory || ""] || (s.baseCategory || "other").toLowerCase().replace(/[^a-z0-9]/g, "_"),
           product_type: "blank_apparel",
           source: "ss_activewear",
-          source_sku: s.styleName || String(s.styleID),
+          source_sku: s.partNumber || s.styleName || String(s.styleID),
           supplier_item_number: s.partNumber || null,
           image_url: resolveImage(s.styleImage),
           description_short: s.description?.substring(0, 200) || null,
