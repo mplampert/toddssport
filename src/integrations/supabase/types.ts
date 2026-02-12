@@ -1310,6 +1310,7 @@ export type Database = {
           description_short: string | null
           id: string
           image_url: string | null
+          images_synced_at: string | null
           msrp: number | null
           name: string
           pricing_override: boolean
@@ -1334,6 +1335,7 @@ export type Database = {
           description_short?: string | null
           id?: string
           image_url?: string | null
+          images_synced_at?: string | null
           msrp?: number | null
           name: string
           pricing_override?: boolean
@@ -1358,6 +1360,7 @@ export type Database = {
           description_short?: string | null
           id?: string
           image_url?: string | null
+          images_synced_at?: string | null
           msrp?: number | null
           name?: string
           pricing_override?: boolean
@@ -1651,6 +1654,62 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      product_color_images: {
+        Row: {
+          back_image_url: string | null
+          color_code: string | null
+          color_name: string
+          color1: string | null
+          color2: string | null
+          created_at: string
+          direct_side_image_url: string | null
+          front_image_url: string | null
+          id: string
+          master_product_id: string
+          side_image_url: string | null
+          swatch_image_url: string | null
+          synced_at: string
+        }
+        Insert: {
+          back_image_url?: string | null
+          color_code?: string | null
+          color_name: string
+          color1?: string | null
+          color2?: string | null
+          created_at?: string
+          direct_side_image_url?: string | null
+          front_image_url?: string | null
+          id?: string
+          master_product_id: string
+          side_image_url?: string | null
+          swatch_image_url?: string | null
+          synced_at?: string
+        }
+        Update: {
+          back_image_url?: string | null
+          color_code?: string | null
+          color_name?: string
+          color1?: string | null
+          color2?: string | null
+          created_at?: string
+          direct_side_image_url?: string | null
+          front_image_url?: string | null
+          id?: string
+          master_product_id?: string
+          side_image_url?: string | null
+          swatch_image_url?: string | null
+          synced_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_color_images_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_inquiries: {
         Row: {

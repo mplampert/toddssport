@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.ss-backfill-pricing]
 verify_jwt = false
+
+[functions.ss-backfill-images]
+verify_jwt = false
