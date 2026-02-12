@@ -117,6 +117,7 @@ serve(async (req) => {
     let updated = 0;
     let skipped = 0;
     let errors = 0;
+    let resolved = 0;
     const CORE_SIZES = new Set(["XS", "S", "M", "L", "XL"]);
 
     for (const product of products) {
@@ -137,17 +138,66 @@ serve(async (req) => {
 
         const remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
 
-        if (!resp.ok) {
-          const errText = await resp.text();
-          console.error(`[SS Backfill] API error for styleId=${styleId}: ${resp.status}`);
-          errors++;
-          if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
-          continue;
+        let ssProducts: SSProduct[] = [];
+
+        if (resp.ok) {
+          const data = await resp.json();
+          ssProducts = Array.isArray(data) ? data : [];
+        } else {
+          await resp.text(); // consume body
+          console.warn(`[SS Backfill] Products API ${resp.status} for style=${lookupKey}`);
         }
 
-        const ssProducts: SSProduct[] = await resp.json();
-        if (!Array.isArray(ssProducts) || ssProducts.length === 0) {
+        // If products call returned empty/failed and we don't have a styleId,
+        // try resolving via the styles endpoint (handles numeric part numbers)
+        if (ssProducts.length === 0 && !styleId) {
+          console.log(`[SS Backfill] Attempting styles API resolution for: ${lookupKey}`);
+          const stylesResp = await fetch(
+            `${SS_BASE}/styles?style=${encodeURIComponent(lookupKey)}`,
+            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
+          );
+
+          const stylesRemaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+
+          if (stylesResp.ok) {
+            const stylesData = await stylesResp.json();
+            const styles = Array.isArray(stylesData) ? stylesData : [];
+            if (styles.length > 0) {
+              const resolvedStyleName = styles[0].styleName;
+              const resolvedStyleId = styles[0].styleID;
+              console.log(`[SS Backfill] Resolved ${lookupKey} → styleName=${resolvedStyleName}, styleID=${resolvedStyleId}`);
+
+              // Fix the style_code on the master_product so future syncs work
+              await db.from("master_products").update({
+                style_code: resolvedStyleName,
+                source_sku: resolvedStyleName,
+                supplier_item_number: styles[0].partNumber || product.supplier_item_number,
+              }).eq("id", product.id);
+              resolved++;
+
+              // Now fetch products with the correct styleID
+              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
+                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+              });
+              if (retryResp.ok) {
+                const retryData = await retryResp.json();
+                ssProducts = Array.isArray(retryData) ? retryData : [];
+              } else {
+                await retryResp.text();
+              }
+            }
+          } else {
+            await stylesResp.text();
+          }
+
+          if (stylesRemaining < 5) {
+            await new Promise((r) => setTimeout(r, 12000));
+          }
+        }
+
+        if (ssProducts.length === 0) {
           skipped++;
+          if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
           continue;
         }
 
@@ -241,7 +291,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[SS Backfill Pricing] Done: ${updated} updated, ${skipped} skipped, ${errors} errors`);
+    console.log(`[SS Backfill Pricing] Done: ${updated} updated, ${skipped} skipped, ${errors} errors, ${resolved} style_codes resolved`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -249,6 +299,7 @@ serve(async (req) => {
       updated,
       skipped,
       errors,
+      resolved,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
