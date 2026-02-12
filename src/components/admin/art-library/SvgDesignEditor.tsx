@@ -29,6 +29,43 @@ interface SvgDesignEditorProps {
   onBack: () => void;
 }
 
+/** Fetch Google Font CSS and inline font binaries as base64 data URIs */
+async function inlineFontsIntoSvg(svgEl: SVGSVGElement, fonts: Set<string>): Promise<void> {
+  if (fonts.size === 0) return;
+  try {
+    const familyParam = Array.from(fonts).map(f => f.replace(/ /g, "+")).join("|");
+    const cssUrl = `https://fonts.googleapis.com/css2?${Array.from(fonts).map(f => `family=${f.replace(/ /g, "+")}`).join("&")}`;
+    const cssResp = await fetch(cssUrl, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" }
+    });
+    let css = await cssResp.text();
+    // Replace each url(...) with a base64 data URI
+    const urlRegex = /url\((https:\/\/[^)]+)\)/g;
+    const matches = [...css.matchAll(urlRegex)];
+    for (const match of matches) {
+      try {
+        const fontResp = await fetch(match[1]);
+        const blob = await fontResp.blob();
+        const reader = new FileReader();
+        const dataUri = await new Promise<string>((resolve) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+        css = css.replace(match[0], `url(${dataUri})`);
+      } catch { /* skip individual font file failures */ }
+    }
+    // Inject <style> into SVG <defs>
+    let defs = svgEl.querySelector("defs");
+    if (!defs) {
+      defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      svgEl.prepend(defs);
+    }
+    const style = document.createElementNS("http://www.w3.org/2000/svg", "style");
+    style.textContent = css;
+    defs.prepend(style);
+  } catch { /* font inlining is best-effort */ }
+}
+
 /** Render SVG string to a PNG blob via offscreen canvas */
 async function svgToPng(svgString: string, width = 2048, height = 2048): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -51,6 +88,14 @@ async function svgToPng(svgString: string, width = 2048, height = 2048): Promise
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("SVG image load failed")); };
     img.src = url;
   });
+}
+
+/** Clone SVG, inline fonts, serialize, then render to PNG */
+async function svgToPngWithFonts(svgEl: SVGSVGElement, fonts: Set<string>, width = 2048, height = 2048): Promise<Blob> {
+  const clone = svgEl.cloneNode(true) as SVGSVGElement;
+  await inlineFontsIntoSvg(clone, fonts);
+  const serialized = new XMLSerializer().serializeToString(clone);
+  return svgToPng(serialized, width, height);
 }
 
 export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
@@ -308,13 +353,19 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     return parts.length > 0 ? `${template.code} — ${parts.join(" ")}` : template.name;
   };
 
-  /** Build font info text for the package */
-  const getFontInfo = (): string => {
-    const usedFonts = new Set<string>();
+  /** Collect all fonts currently in use */
+  const getUsedFonts = (): Set<string> => {
+    const fonts = new Set<string>();
     textBlocks.forEach((b) => {
       const font = textFonts[b.id] ?? b.font;
-      usedFonts.add(font);
+      if (font) fonts.add(font);
     });
+    return fonts;
+  };
+
+  /** Build font info text for the package */
+  const getFontInfo = (): string => {
+    const usedFonts = getUsedFonts();
     const lines = [
       `Design: ${getDesignName()}`,
       `Template: ${template.code}`,
@@ -363,7 +414,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       // Upload PNG
       let pngUrl = "";
       try {
-        const pngBlob = await svgToPng(svgString);
+        const svgEl = svgContainerRef.current?.querySelector("svg");
+        const pngBlob = svgEl
+          ? await svgToPngWithFonts(svgEl, getUsedFonts())
+          : await svgToPng(svgString);
         const pngPath = `${baseName}.png`;
         const { error: pngErr } = await supabase.storage
           .from("store-logos")
@@ -445,9 +499,9 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
   const handleUpdatePreview = async () => {
     setIsUpdatingPreview(true);
     try {
-      const svgString = getSerializedSvg();
-      if (!svgString) throw new Error("No SVG to render");
-      const pngBlob = await svgToPng(svgString, 1024, 1024);
+      const svgEl = svgContainerRef.current?.querySelector("svg");
+      if (!svgEl) throw new Error("No SVG to render");
+      const pngBlob = await svgToPngWithFonts(svgEl, getUsedFonts(), 1024, 1024);
       const path = `previews/${template.code}-preview.png`;
       const { error: upErr } = await supabase.storage
         .from("team-art")
@@ -485,7 +539,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
 
       // PNG (high-res)
       try {
-        const pngBlob = await svgToPng(svgString, 2048, 2048);
+        const svgEl2 = svgContainerRef.current?.querySelector("svg");
+        const pngBlob = svgEl2
+          ? await svgToPngWithFonts(svgEl2, getUsedFonts(), 2048, 2048)
+          : await svgToPng(svgString, 2048, 2048);
         folder.file(`${template.code}-2048.png`, pngBlob);
       } catch {
         // skip if PNG fails
@@ -493,7 +550,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
 
       // PNG (web-res)
       try {
-        const pngSmall = await svgToPng(svgString, 512, 512);
+        const svgEl3 = svgContainerRef.current?.querySelector("svg");
+        const pngSmall = svgEl3
+          ? await svgToPngWithFonts(svgEl3, getUsedFonts(), 512, 512)
+          : await svgToPng(svgString, 512, 512);
         folder.file(`${template.code}-512.png`, pngSmall);
       } catch {
         // skip
