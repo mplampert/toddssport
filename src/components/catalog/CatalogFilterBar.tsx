@@ -27,6 +27,8 @@ interface CatalogFilterBarProps {
   brands: BrandOption[];
   onClearAll: () => void;
   totalCount: number;
+  collectionFilter?: { type: string; value: string } | null;
+  onCollectionClear?: () => void;
 }
 
 export function CatalogFilterBar({
@@ -39,12 +41,20 @@ export function CatalogFilterBar({
   brands,
   onClearAll,
   totalCount,
+  collectionFilter,
+  onCollectionClear,
 }: CatalogFilterBarProps) {
   const [showFilters, setShowFilters] = useState(false);
 
-  const hasActiveFilters = search || brandFilter !== "all" || categoryFilter !== "all";
+  const hasActiveFilters = search || brandFilter !== "all" || categoryFilter !== "all" || !!collectionFilter;
 
   const activeChips: { label: string; onRemove: () => void }[] = [];
+  if (collectionFilter) {
+    activeChips.push({
+      label: `${collectionFilter.type === "season" ? "Season" : "Occasion"}: ${collectionFilter.value}`,
+      onRemove: () => onCollectionClear?.(),
+    });
+  }
   if (categoryFilter !== "all") {
     activeChips.push({
       label: categoryFilter,

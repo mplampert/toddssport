@@ -1311,11 +1311,15 @@ export type Database = {
           id: string
           image_url: string | null
           images_synced_at: string | null
+          is_featured: boolean
           msrp: number | null
           name: string
+          occasions: string[] | null
+          popularity_score: number
           pricing_override: boolean
           pricing_synced_at: string | null
           product_type: string
+          seasons: string[] | null
           source: string
           source_sku: string | null
           style_code: string | null
@@ -1337,11 +1341,15 @@ export type Database = {
           id?: string
           image_url?: string | null
           images_synced_at?: string | null
+          is_featured?: boolean
           msrp?: number | null
           name: string
+          occasions?: string[] | null
+          popularity_score?: number
           pricing_override?: boolean
           pricing_synced_at?: string | null
           product_type?: string
+          seasons?: string[] | null
           source?: string
           source_sku?: string | null
           style_code?: string | null
@@ -1363,11 +1371,15 @@ export type Database = {
           id?: string
           image_url?: string | null
           images_synced_at?: string | null
+          is_featured?: boolean
           msrp?: number | null
           name?: string
+          occasions?: string[] | null
+          popularity_score?: number
           pricing_override?: boolean
           pricing_synced_at?: string | null
           product_type?: string
+          seasons?: string[] | null
           source?: string
           source_sku?: string | null
           style_code?: string | null

@@ -8,11 +8,12 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock, ImageIcon, Download } from "lucide-react";
+import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock, ImageIcon, Download, Star, Tag } from "lucide-react";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 import { FastMockupDrawer } from "@/components/admin/catalog/FastMockupDrawer";
 import { Switch } from "@/components/ui/switch";
+import { ProductFeaturedTagsPanel } from "@/components/admin/catalog/ProductFeaturedTagsPanel";
 
 export default function AdminMasterProductDetail() {
   const { productId } = useParams<{ productId: string }>();
@@ -395,6 +396,15 @@ export default function AdminMasterProductDetail() {
                   </div>
                 )}
               </div>
+              {/* Featured & Tags */}
+              <Separator />
+              <ProductFeaturedTagsPanel
+                productId={product.id}
+                isFeatured={(product as any).is_featured ?? false}
+                popularityScore={(product as any).popularity_score ?? 0}
+                seasons={((product as any).seasons as string[]) || []}
+                occasions={((product as any).occasions as string[]) || []}
+              />
 
               {/* S&S Color Swatches */}
               {effectiveColors.length > 0 && (
