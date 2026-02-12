@@ -80,7 +80,7 @@ serve(async (req) => {
     // Get ss_activewear products needing image sync
     let query = db
       .from("master_products")
-      .select("id, source_sku, supplier_item_number")
+      .select("id, source_sku, supplier_item_number, style_code")
       .eq("source", "ss_activewear")
       .eq("active", true)
       .order("created_at", { ascending: true })
@@ -101,18 +101,17 @@ serve(async (req) => {
       });
     }
 
-    // Build source_sku → styleID mapping from catalog_styles
-    const sourceSkus = products.map((p) => p.source_sku).filter(Boolean);
+    // Build style_code → styleID mapping from catalog_styles
+    const styleCodes = products.map((p) => p.style_code || p.source_sku).filter(Boolean);
     const supplierItems = products.map((p) => p.supplier_item_number).filter(Boolean);
 
     const orClauses: string[] = [];
-    for (const s of sourceSkus) orClauses.push(`style_name.eq.${s}`);
+    for (const s of styleCodes) orClauses.push(`style_name.eq.${s}`);
     for (const s of supplierItems) orClauses.push(`part_number.eq.${s}`);
 
-    const { data: catalogRows } = await db
-      .from("catalog_styles")
-      .select("style_id, style_name, part_number")
-      .or(orClauses.join(","));
+    const { data: catalogRows } = orClauses.length > 0
+      ? await db.from("catalog_styles").select("style_id, style_name, part_number").or(orClauses.join(","))
+      : { data: [] };
 
     const styleIdMap = new Map<string, number>();
     for (const row of catalogRows || []) {
@@ -125,12 +124,13 @@ serve(async (req) => {
     let errors = 0;
 
     for (const product of products) {
-      const styleId = styleIdMap.get(product.source_sku) || styleIdMap.get(product.supplier_item_number);
+      const lookupKey = product.style_code || product.source_sku;
+      const styleId = styleIdMap.get(lookupKey) || styleIdMap.get(product.supplier_item_number);
 
       try {
         const apiUrl = styleId
           ? `${SS_BASE}/products/${styleId}`
-          : `${SS_BASE}/products?style=${encodeURIComponent(product.source_sku)}`;
+          : `${SS_BASE}/products?style=${encodeURIComponent(lookupKey)}`;
 
         const resp = await fetch(apiUrl, {
           headers: {

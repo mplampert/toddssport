@@ -229,6 +229,7 @@ serve(async (req) => {
           category: mapCategory(s.baseCategory),
           product_type: "blank_apparel",
           source: "ss_activewear",
+          style_code: s.styleName || String(s.styleID),
           source_sku: s.styleName || String(s.styleID),
           supplier_item_number: s.partNumber || null,
           image_url: resolveImage(s.styleImage),
@@ -241,16 +242,15 @@ serve(async (req) => {
           const chunk = rows.slice(j, j + 100);
           const { data: inserted, error: upsertErr } = await db
             .from("master_products")
-            .upsert(chunk, { onConflict: "source,source_sku", ignoreDuplicates: false })
+            .upsert(chunk, { onConflict: "source,style_code", ignoreDuplicates: false })
             .select("id");
 
           if (upsertErr) {
             console.error(`[SS Full Sync] Upsert error for ${brandName}: ${upsertErr.message}`);
-            // Try smaller batches
             for (const row of chunk) {
               const { error: singleErr } = await db
                 .from("master_products")
-                .upsert(row, { onConflict: "source,source_sku", ignoreDuplicates: false });
+                .upsert(row, { onConflict: "source,style_code", ignoreDuplicates: false });
               if (!singleErr) written++;
             }
           } else {

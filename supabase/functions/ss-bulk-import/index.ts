@@ -146,27 +146,28 @@ serve(async (req) => {
         const { data: brandRows } = await db.from("brands").select("id").eq("name", brandName).limit(1);
         const brandId = brandRows?.[0]?.id || null;
 
-        // Build rows — use partNumber as the stable source_sku key
+        // Build rows — use styleName as the canonical style_code key
         const rows = styles.map((s) => ({
           brand_id: brandId,
           name: s.title || s.styleName,
           category: catMap[s.baseCategory || ""] || (s.baseCategory || "other").toLowerCase().replace(/[^a-z0-9]/g, "_"),
           product_type: "blank_apparel",
           source: "ss_activewear",
-          source_sku: s.partNumber || s.styleName || String(s.styleID),
+          style_code: s.styleName || String(s.styleID),
+          source_sku: s.styleName || String(s.styleID),
           supplier_item_number: s.partNumber || null,
           image_url: resolveImage(s.styleImage),
           description_short: s.description?.substring(0, 200) || null,
           active: true,
         }));
 
-        // Batch upsert on unique (source, source_sku) — updates existing, inserts new
+        // Batch upsert on unique (source, style_code) — updates existing, inserts new
         let written = 0;
         for (let j = 0; j < rows.length; j += 50) {
           const chunk = rows.slice(j, j + 50);
           const { data: upserted, error: upsertErr } = await db
             .from("master_products")
-            .upsert(chunk, { onConflict: "source,source_sku", ignoreDuplicates: false })
+            .upsert(chunk, { onConflict: "source,style_code", ignoreDuplicates: false })
             .select("id");
 
           if (upsertErr) {

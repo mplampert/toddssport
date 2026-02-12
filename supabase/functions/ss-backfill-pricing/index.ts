@@ -71,7 +71,7 @@ serve(async (req) => {
     // Get ss_activewear products needing pricing
     let query = db
       .from("master_products")
-      .select("id, source_sku, supplier_item_number, pricing_override")
+      .select("id, source_sku, supplier_item_number, style_code, pricing_override")
       .eq("source", "ss_activewear")
       .eq("active", true)
       .order("created_at", { ascending: true })
@@ -95,19 +95,19 @@ serve(async (req) => {
       });
     }
 
-    // Build source_sku → styleID mapping from catalog_styles
-    const sourceSkus = products.map((p) => p.source_sku).filter(Boolean);
+    // Build style_code → styleID mapping from catalog_styles
+    const styleCodes = products.map((p) => p.style_code || p.source_sku).filter(Boolean);
     const supplierItems = products.map((p) => p.supplier_item_number).filter(Boolean);
 
-    const { data: catalogRows } = await db
-      .from("catalog_styles")
-      .select("style_id, style_name, part_number")
-      .or(
-        sourceSkus.map((s) => `style_name.eq.${s}`).join(",") +
-        (supplierItems.length ? "," + supplierItems.map((s) => `part_number.eq.${s}`).join(",") : "")
-      );
+    const orParts: string[] = [];
+    for (const s of styleCodes) orParts.push(`style_name.eq.${s}`);
+    for (const s of supplierItems) orParts.push(`part_number.eq.${s}`);
 
-    // Map: source_sku → style_id
+    const { data: catalogRows } = orParts.length > 0
+      ? await db.from("catalog_styles").select("style_id, style_name, part_number").or(orParts.join(","))
+      : { data: [] };
+
+    // Map: style_code/source_sku → style_id
     const styleIdMap = new Map<string, number>();
     for (const row of catalogRows || []) {
       if (row.style_name) styleIdMap.set(row.style_name, row.style_id);
@@ -120,13 +120,13 @@ serve(async (req) => {
     const CORE_SIZES = new Set(["XS", "S", "M", "L", "XL"]);
 
     for (const product of products) {
-      const styleId = styleIdMap.get(product.source_sku) || styleIdMap.get(product.supplier_item_number);
+      const lookupKey = product.style_code || product.source_sku;
+      const styleId = styleIdMap.get(lookupKey) || styleIdMap.get(product.supplier_item_number);
 
       try {
-        // Fetch products/pricing from S&S - use styleID if available, otherwise query by style name
         const apiUrl = styleId
           ? `${SS_BASE}/products/${styleId}`
-          : `${SS_BASE}/products?style=${encodeURIComponent(product.source_sku)}`;
+          : `${SS_BASE}/products?style=${encodeURIComponent(lookupKey)}`;
         
         const resp = await fetch(apiUrl, {
           headers: {

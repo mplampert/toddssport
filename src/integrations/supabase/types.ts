@@ -1318,6 +1318,7 @@ export type Database = {
           product_type: string
           source: string
           source_sku: string | null
+          style_code: string | null
           supplier_item_number: string | null
           updated_at: string
         }
@@ -1343,6 +1344,7 @@ export type Database = {
           product_type?: string
           source?: string
           source_sku?: string | null
+          style_code?: string | null
           supplier_item_number?: string | null
           updated_at?: string
         }
@@ -1368,6 +1370,7 @@ export type Database = {
           product_type?: string
           source?: string
           source_sku?: string | null
+          style_code?: string | null
           supplier_item_number?: string | null
           updated_at?: string
         }
