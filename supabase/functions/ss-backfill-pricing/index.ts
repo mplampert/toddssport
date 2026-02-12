@@ -136,7 +136,7 @@ serve(async (req) => {
           },
         });
 
-        const remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+        let remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
 
         let ssProducts: SSProduct[] = [];
 
@@ -144,56 +144,13 @@ serve(async (req) => {
           const data = await resp.json();
           ssProducts = Array.isArray(data) ? data : [];
         } else {
-          await resp.text(); // consume body
+          await resp.text();
           console.warn(`[SS Backfill] Products API ${resp.status} for style=${lookupKey}`);
         }
 
-        // If products call returned empty/failed and we don't have a styleId,
-        // try resolving via the styles endpoint (handles numeric part numbers)
-        if (ssProducts.length === 0 && !styleId) {
-          console.log(`[SS Backfill] Attempting styles API resolution for: ${lookupKey}`);
-          const stylesResp = await fetch(
-            `${SS_BASE}/styles?style=${encodeURIComponent(lookupKey)}`,
-            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
-          );
-
-          const stylesRemaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-
-          if (stylesResp.ok) {
-            const stylesData = await stylesResp.json();
-            const styles = Array.isArray(stylesData) ? stylesData : [];
-            if (styles.length > 0) {
-              const resolvedStyleName = styles[0].styleName;
-              const resolvedStyleId = styles[0].styleID;
-              console.log(`[SS Backfill] Resolved ${lookupKey} → styleName=${resolvedStyleName}, styleID=${resolvedStyleId}`);
-
-              // Fix the style_code on the master_product so future syncs work
-              await db.from("master_products").update({
-                style_code: resolvedStyleName,
-                source_sku: resolvedStyleName,
-                supplier_item_number: styles[0].partNumber || product.supplier_item_number,
-              }).eq("id", product.id);
-              resolved++;
-
-              // Now fetch products with the correct styleID
-              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
-                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-              });
-              if (retryResp.ok) {
-                const retryData = await retryResp.json();
-                ssProducts = Array.isArray(retryData) ? retryData : [];
-              } else {
-                await retryResp.text();
-              }
-            }
-          } else {
-            await stylesResp.text();
-          }
-
-          if (stylesRemaining < 5) {
-            await new Promise((r) => setTimeout(r, 12000));
-          }
-        }
+        // If initial lookup failed, skip — resolution is handled by the nightly cron Phase 1
+        // which downloads ALL styles and does proper part-number matching.
+        // Direct API resolution was producing wrong matches (different product for same numeric ID).
 
         if (ssProducts.length === 0) {
           skipped++;
