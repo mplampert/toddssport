@@ -102,6 +102,7 @@ import ReportProducts from "./pages/admin/reports/ReportProducts";
 import ReportFulfillment from "./pages/admin/reports/ReportFulfillment";
 import ReportOrganizations from "./pages/admin/reports/ReportOrganizations";
 import DesignLibrary from "./pages/DesignLibrary";
+import DesignCustomizer from "./pages/DesignCustomizer";
 import NotFound from "./pages/NotFound";
 import AccountLogin from "./pages/account/AccountLogin";
 import AccountRegister from "./pages/account/AccountRegister";
@@ -165,6 +166,7 @@ const App = () => (
           <Route path="/catalog" element={<PublicCatalog />} />
           <Route path="/catalog/:styleId" element={<PublicCatalogDetail />} />
           <Route path="/designs" element={<DesignLibrary />} />
+          <Route path="/designs/:code" element={<DesignCustomizer />} />
           <Route path="/preview/team-store/:slug" element={<TeamStorePreview />} />
           <Route path="/preview/team-store/:slug/product/:itemId" element={<TeamStoreProductDetail />} />
           {/* Customer Portal */}
