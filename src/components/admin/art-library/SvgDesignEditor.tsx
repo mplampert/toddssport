@@ -205,9 +205,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
       const newText = textValues[block.id] ?? block.defaultText;
       const font = textFonts[block.id] ?? block.font;
 
-      if (!el.getAttribute("text-anchor")) {
-        el.setAttribute("text-anchor", "middle");
-      }
+      // Preserve the original text-anchor — do not override
 
       const tspans = el.querySelectorAll("tspan");
       if (tspans.length > 0) {
@@ -218,9 +216,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         tspans.forEach((tspan) => {
           tspan.setAttribute("font-family", font);
           (tspan as SVGElement).style.fontFamily = font;
-          if (!tspan.getAttribute("text-anchor")) {
-            tspan.setAttribute("text-anchor", "middle");
-          }
+          // Preserve original text-anchor on tspans
         });
       } else {
         el.textContent = newText;
