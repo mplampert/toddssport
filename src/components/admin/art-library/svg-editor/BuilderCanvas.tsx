@@ -206,6 +206,10 @@ export function BuilderCanvas({
           if (!tspan.dataset.origX) tspan.dataset.origX = tspan.getAttribute("x") || "0";
           tspan.setAttribute("x", String(parseFloat(tspan.dataset.origX) + dx));
         }
+        if (tspan.hasAttribute("y")) {
+          if (!tspan.dataset.origY) tspan.dataset.origY = tspan.getAttribute("y") || "0";
+          tspan.setAttribute("y", String(parseFloat(tspan.dataset.origY) + dy));
+        }
       });
       // Keep handles in sync during drag
       updateResizeHandles(svg, targetIdRef.current);
@@ -244,6 +248,7 @@ export function BuilderCanvas({
         if (el) {
           el.querySelectorAll("tspan").forEach((tspan) => {
             delete tspan.dataset.origX;
+            delete tspan.dataset.origY;
           });
         }
       }
