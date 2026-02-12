@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock, ImageIcon, Download, Star, Tag } from "lucide-react";
-import { getProducts, type SSProduct } from "@/lib/ss-activewear";
+import { getProducts, getStyles, type SSProduct } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 import { FastMockupDrawer } from "@/components/admin/catalog/FastMockupDrawer";
 import { Switch } from "@/components/ui/switch";
@@ -40,19 +40,34 @@ export default function AdminMasterProductDetail() {
   const ssSourceSku = isSSProduct ? product.source_sku : null;
   const ssSupplierItem = isSSProduct ? (product as any).supplier_item_number : null;
 
+  const ssStyleCode = isSSProduct ? ((product as any)?.style_code || product?.source_sku) : null;
+
   const { data: resolvedStyleId } = useQuery({
-    queryKey: ["ss-resolve-style-id", ssSourceSku, ssSupplierItem],
+    queryKey: ["ss-resolve-style-id", ssSourceSku, ssSupplierItem, ssStyleCode],
     queryFn: async () => {
-      // Try matching by part_number (supplier item) first, then by style_name
+      // Try catalog_styles table first
       const { data } = await supabase
         .from("catalog_styles")
         .select("style_id")
         .or(`part_number.eq.${ssSupplierItem},style_name.eq.${ssSourceSku}`)
         .limit(1)
         .maybeSingle();
-      return data?.style_id ?? null;
+      if (data?.style_id) return data.style_id;
+
+      // Fallback: resolve via live S&S styles API (handles numeric part numbers)
+      if (ssStyleCode) {
+        try {
+          const stylesData = await getStyles({ style: ssStyleCode });
+          const styles = Array.isArray(stylesData) ? stylesData : [];
+          const match = styles.find((s: any) => String(s.styleID) === ssStyleCode || s.styleName === ssStyleCode) || styles[0];
+          if (match?.styleID) return match.styleID;
+        } catch {
+          // ignore
+        }
+      }
+      return null;
     },
-    enabled: !!(ssSourceSku || ssSupplierItem),
+    enabled: !!(ssSourceSku || ssSupplierItem || ssStyleCode),
     staleTime: Infinity,
   });
 
