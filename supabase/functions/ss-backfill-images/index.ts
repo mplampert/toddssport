@@ -123,6 +123,8 @@ serve(async (req) => {
     let skipped = 0;
     let errors = 0;
 
+    let resolved = 0;
+
     for (const product of products) {
       const lookupKey = product.style_code || product.source_sku;
       const styleId = styleIdMap.get(lookupKey) || styleIdMap.get(product.supplier_item_number);
@@ -139,18 +141,65 @@ serve(async (req) => {
           },
         });
 
-        const remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+        let remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
 
-        if (!resp.ok) {
-          console.error(`[SS Backfill Images] API error for ${product.source_sku}: ${resp.status}`);
-          errors++;
-          if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
-          continue;
+        let ssProducts: SSProduct[] = [];
+
+        if (resp.ok) {
+          const data = await resp.json();
+          ssProducts = Array.isArray(data) ? data : [];
+        } else {
+          await resp.text();
+          console.warn(`[SS Backfill Images] Products API ${resp.status} for style=${lookupKey}`);
         }
 
-        const ssProducts: SSProduct[] = await resp.json();
-        if (!Array.isArray(ssProducts) || ssProducts.length === 0) {
+        // If products call returned empty and we don't have a styleId,
+        // resolve via the styles endpoint (handles numeric part numbers)
+        if (ssProducts.length === 0 && !styleId) {
+          console.log(`[SS Backfill Images] Attempting styles API resolution for: ${lookupKey}`);
+          const stylesResp = await fetch(
+            `${SS_BASE}/styles?style=${encodeURIComponent(lookupKey)}`,
+            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
+          );
+          remaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+
+          if (stylesResp.ok) {
+            const stylesData = await stylesResp.json();
+            const styles = Array.isArray(stylesData) ? stylesData : [];
+            if (styles.length > 0) {
+              const resolvedStyleName = styles[0].styleName;
+              const resolvedStyleId = styles[0].styleID;
+              console.log(`[SS Backfill Images] Resolved ${lookupKey} → styleName=${resolvedStyleName}, styleID=${resolvedStyleId}`);
+
+              // Fix the style_code on the master_product
+              await db.from("master_products").update({
+                style_code: resolvedStyleName,
+                source_sku: resolvedStyleName,
+                supplier_item_number: styles[0].partNumber || product.supplier_item_number,
+              }).eq("id", product.id);
+              resolved++;
+
+              // Retry with resolved styleID
+              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
+                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+              });
+              if (retryResp.ok) {
+                const retryData = await retryResp.json();
+                ssProducts = Array.isArray(retryData) ? retryData : [];
+              } else {
+                await retryResp.text();
+              }
+            }
+          } else {
+            await stylesResp.text();
+          }
+
+          if (remaining < 5) await new Promise((r) => setTimeout(r, 12000));
+        }
+
+        if (ssProducts.length === 0) {
           skipped++;
+          if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
           continue;
         }
 
@@ -227,7 +276,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[SS Backfill Images] Done: ${updated} updated, ${skipped} skipped, ${errors} errors`);
+    console.log(`[SS Backfill Images] Done: ${updated} updated, ${skipped} skipped, ${errors} errors, ${resolved} resolved`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -235,6 +284,7 @@ serve(async (req) => {
       updated,
       skipped,
       errors,
+      resolved,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

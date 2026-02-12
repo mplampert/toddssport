@@ -297,26 +297,65 @@ async function runPhase2(db: any, basicAuth: string, offset: number, limit: numb
 
   for (const product of products) {
     const styleCode = product.style_code || product.source_sku;
-    if (!styleCode) continue;
+      if (!styleCode) continue;
 
-    try {
-      // Fetch products data from S&S (includes pricing + colors)
-      const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
-      const resp = await fetch(apiUrl, {
-        headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-      });
+      try {
+        // Fetch products data from S&S (includes pricing + colors)
+        const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
+        const resp = await fetch(apiUrl, {
+          headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+        });
 
-      const remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+        let remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
 
-      if (!resp.ok) {
-        console.warn(`[SS Remediate P2] API error for ${styleCode}: ${resp.status}`);
-        errors++;
-        if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
-        continue;
-      }
+        let ssProducts: SSProduct[] = [];
 
-      const ssProducts: SSProduct[] = await resp.json();
-      if (!Array.isArray(ssProducts) || ssProducts.length === 0) continue;
+        if (resp.ok) {
+          const data = await resp.json();
+          ssProducts = Array.isArray(data) ? data : [];
+        } else {
+          await resp.text();
+          console.warn(`[SS Remediate P2] Products API ${resp.status} for style=${styleCode}`);
+        }
+
+        // If products call returned empty, resolve via styles endpoint
+        if (ssProducts.length === 0) {
+          const stylesResp = await fetch(
+            `${SS_BASE}/styles?style=${encodeURIComponent(styleCode)}`,
+            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
+          );
+          remaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+
+          if (stylesResp.ok) {
+            const stylesData = await stylesResp.json();
+            const styles = Array.isArray(stylesData) ? stylesData : [];
+            if (styles.length > 0) {
+              const resolvedStyleId = styles[0].styleID;
+              // Fix style_code
+              await db.from("master_products").update({
+                style_code: styles[0].styleName,
+                source_sku: styles[0].styleName,
+                supplier_item_number: styles[0].partNumber || product.source_sku,
+              }).eq("id", product.id);
+
+              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
+                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+              });
+              if (retryResp.ok) {
+                const retryData = await retryResp.json();
+                ssProducts = Array.isArray(retryData) ? retryData : [];
+              } else {
+                await retryResp.text();
+              }
+            }
+          } else {
+            await stylesResp.text();
+          }
+
+          if (remaining < 5) await new Promise((r) => setTimeout(r, 12000));
+        }
+
+        if (ssProducts.length === 0) continue;
 
       // ── Pricing ──
       if (!product.pricing_override) {
