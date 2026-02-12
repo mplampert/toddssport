@@ -13,6 +13,7 @@ import { getProducts, getStyles, type SSProduct, type SSStyle } from "@/lib/ss-a
 import { toast } from "sonner";
 import { useInquiryCart } from "@/hooks/useInquiryCart";
 import { openInquiryDrawer } from "@/components/catalog/InquiryCartDrawer";
+import { getCategoryGroupLabel } from "@/lib/catalogCategories";
 
 interface ColorOption {
   name: string;
@@ -31,11 +32,10 @@ export default function PublicCatalogDetail() {
   const [selectedColor, setSelectedColor] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
 
-  // Determine if this is a UUID (master_products.id) or a numeric style_id (legacy)
   const isUuid = styleId ? /^[0-9a-f]{8}-/.test(styleId) : false;
   const isNumeric = styleId ? /^\d+$/.test(styleId) : false;
 
-  // Fetch from master_products (by UUID id, or by source_sku for legacy numeric links)
+  // Fetch from master_products
   const { data: masterProduct, isLoading: loadingMaster } = useQuery({
     queryKey: ["public-catalog-master", styleId],
     queryFn: async () => {
@@ -59,14 +59,13 @@ export default function PublicCatalogDetail() {
     enabled: !!styleId,
   });
 
-  // Also try catalog_styles for legacy numeric links (specs, extra metadata)
+  // Catalog styles for specs
   const { data: catalogStyle, isLoading: loadingCatalog } = useQuery({
     queryKey: ["public-catalog-style", styleId, masterProduct?.source_sku],
     queryFn: async () => {
       const sku = isNumeric ? styleId : masterProduct?.source_sku;
       if (!sku) return null;
 
-      // First try by style_name (S&S styleName, e.g. "18500")
       const { data: byName } = await supabase
         .from("catalog_styles")
         .select("*")
@@ -75,7 +74,6 @@ export default function PublicCatalogDetail() {
         .maybeSingle();
       if (byName) return byName;
 
-      // Then try by numeric style_id
       if (/^\d+$/.test(sku)) {
         const { data: byId } = await supabase
           .from("catalog_styles")
@@ -86,7 +84,6 @@ export default function PublicCatalogDetail() {
         if (byId) return byId;
       }
 
-      // Also try by part_number
       const { data: byPart } = await supabase
         .from("catalog_styles")
         .select("*")
@@ -98,7 +95,6 @@ export default function PublicCatalogDetail() {
     enabled: !!styleId && (isNumeric || !!masterProduct?.source_sku),
   });
 
-  // Determine the S&S style code for enrichment
   const ssStyleCode = useMemo(() => {
     if (masterProduct?.source === "ss_activewear") {
       return (masterProduct as any)?.style_code || masterProduct.source_sku || null;
@@ -107,7 +103,6 @@ export default function PublicCatalogDetail() {
     return null;
   }, [masterProduct, isNumeric, styleId]);
 
-  // Fetch style details from S&S first (styles endpoint accepts styleName like "18500")
   const { data: ssStyleInfo } = useQuery({
     queryKey: ["public-catalog-ss-style", ssStyleCode],
     queryFn: async () => {
@@ -122,15 +117,13 @@ export default function PublicCatalogDetail() {
     enabled: !!ssStyleCode,
   });
 
-  // Resolve the REAL numeric S&S styleID for the products endpoint
   const ssNumericStyleId = useMemo(() => {
     if (catalogStyle?.style_id) return String(catalogStyle.style_id);
-    // Use the styleID returned by the S&S styles endpoint (e.g. 395 for styleName "18500")
     if (ssStyleInfo?.styleID) return String(ssStyleInfo.styleID);
     return null;
   }, [catalogStyle, ssStyleInfo]);
 
-  // Fetch pre-imported color images from product_color_images table
+  // Pre-imported color images from DB
   const { data: dbColorImages = [] } = useQuery({
     queryKey: ["product-color-images", masterProduct?.id],
     queryFn: async () => {
@@ -145,7 +138,7 @@ export default function PublicCatalogDetail() {
     enabled: !!masterProduct?.id,
   });
 
-  // Fetch color/size data from S&S via edge function (fallback for products without DB colors)
+  // Fallback to live S&S API
   const { data: products = [], isLoading: loadingProducts } = useQuery({
     queryKey: ["public-catalog-products", ssNumericStyleId],
     queryFn: async () => {
@@ -159,8 +152,7 @@ export default function PublicCatalogDetail() {
     enabled: !!ssNumericStyleId && dbColorImages.length === 0,
   });
 
-
-  // Fetch specs (only for S&S products with catalog_styles data)
+  // Specs
   const resolvedStyleId = catalogStyle?.style_id || (ssStyleCode && /^\d+$/.test(ssStyleCode) ? Number(ssStyleCode) : null);
   const { data: specs = [] } = useQuery({
     queryKey: ["public-catalog-specs", resolvedStyleId],
@@ -191,7 +183,7 @@ export default function PublicCatalogDetail() {
     }
   }, [dbColorImages, products, selectedColor]);
 
-  // Build color options: prefer DB-stored colors, fall back to live API
+  // Build color options
   const colorOptions = useMemo<ColorOption[]>(() => {
     if (dbColorImages.length > 0) {
       return dbColorImages.map((img) => ({
@@ -205,7 +197,6 @@ export default function PublicCatalogDetail() {
         color2: img.color2 || undefined,
       }));
     }
-    // Fallback to live S&S API data
     const map = new Map<string, ColorOption>();
     products.forEach((p) => {
       if (p.colorName && !map.has(p.colorName)) {
@@ -236,7 +227,6 @@ export default function PublicCatalogDetail() {
     );
   }, [activeColor]);
 
-  // Size range
   const sizeRange = useMemo(() => {
     const sizes = products
       .filter((p) => p.sizeName)
@@ -245,17 +235,14 @@ export default function PublicCatalogDetail() {
     return sizes;
   }, [products]);
 
-  // Resolve display values from master_products first, fall back to catalog_styles / S&S
   const brandName = (masterProduct as any)?.brands?.name || catalogStyle?.brand_name || products[0]?.brandName || "";
   const productName = masterProduct?.name || catalogStyle?.title || catalogStyle?.style_name || ssStyleInfo?.title || ssStyleInfo?.styleName || `Style #${styleId}`;
   const partNumber = (masterProduct as any)?.style_code || masterProduct?.source_sku || catalogStyle?.part_number || ssStyleInfo?.partNumber || "";
-  // Prefer the longest available description (DB may be truncated from import)
   const dbDesc = masterProduct?.description_short || "";
   const ssDesc = ssStyleInfo?.description || "";
   const catDesc = catalogStyle?.description || "";
   const description = [ssDesc, catDesc, dbDesc].sort((a, b) => b.length - a.length)[0] || "";
   const mainImage = masterProduct?.image_url || catalogStyle?.style_image || null;
-
 
   const handleShare = () => {
     const url = window.location.href;
@@ -279,9 +266,9 @@ export default function PublicCatalogDetail() {
               Catalog
             </Link>
             <span>/</span>
-            {brandName && (
+            {masterProduct?.category && (
               <>
-                <span>{brandName}</span>
+                <span>{getCategoryGroupLabel(masterProduct.category)}</span>
                 <span>/</span>
               </>
             )}
@@ -354,6 +341,7 @@ export default function PublicCatalogDetail() {
                   )}
                 </div>
 
+                {/* Thumbnail strip */}
                 {galleryImages.length > 1 && (
                   <div className="flex gap-3 justify-center">
                     {galleryImages.map((img, i) => (
@@ -403,45 +391,58 @@ export default function PublicCatalogDetail() {
                   />
                 )}
 
-                {/* Color Swatches */}
+                {/* ═══ Colors Section ═══ */}
                 {colorOptions.length > 0 && (
                   <div className="mb-6">
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-sm font-semibold text-foreground">
-                        Color: <span className="font-normal text-muted-foreground">{selectedColor}</span>
+                        Colors
                       </label>
-                      <span className="text-xs text-muted-foreground">{colorOptions.length} colors</span>
+                      <span className="text-xs text-muted-foreground">
+                        {colorOptions.length} colorway{colorOptions.length !== 1 ? "s" : ""} · <span className="font-medium text-foreground">{selectedColor}</span>
+                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {colorOptions.map((c) => (
-                        <button
-                          key={c.name}
-                          onClick={() => { setSelectedColor(c.name); setActiveImageIdx(0); }}
-                          title={c.name}
-                          className={`relative w-10 h-10 rounded-lg border-2 overflow-hidden transition-all ${
-                            selectedColor === c.name
-                              ? "border-accent ring-2 ring-accent/20 scale-110"
-                              : "border-border hover:border-muted-foreground/50"
-                          }`}
-                        >
-                          {c.swatchImage ? (
-                            <img src={c.swatchImage} alt={c.name} className="w-full h-full object-cover" />
-                          ) : c.color1 ? (
-                            <div
-                              className="w-full h-full"
-                              style={{
-                                background: c.color2
-                                  ? `linear-gradient(135deg, ${c.color1} 50%, ${c.color2} 50%)`
-                                  : c.color1,
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-muted flex items-center justify-center">
-                              <span className="text-[8px] text-muted-foreground">{c.name.slice(0, 3)}</span>
-                            </div>
-                          )}
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-8 sm:grid-cols-10 gap-2">
+                      {colorOptions.map((c) => {
+                        const isSelected = selectedColor === c.name;
+                        return (
+                          <button
+                            key={c.name}
+                            onClick={() => {
+                              setSelectedColor(c.name);
+                              setActiveImageIdx(0);
+                            }}
+                            title={c.name}
+                            className={`relative aspect-square rounded-lg border-2 overflow-hidden transition-all ${
+                              isSelected
+                                ? "border-accent ring-2 ring-accent/20 scale-110 z-10"
+                                : "border-border hover:border-muted-foreground/50 hover:scale-105"
+                            }`}
+                          >
+                            {c.swatchImage ? (
+                              <img src={c.swatchImage} alt={c.name} className="w-full h-full object-cover" />
+                            ) : c.color1 ? (
+                              <div
+                                className="w-full h-full"
+                                style={{
+                                  background: c.color2
+                                    ? `linear-gradient(135deg, ${c.color1} 50%, ${c.color2} 50%)`
+                                    : c.color1,
+                                }}
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
+                                <span className="text-[8px] text-muted-foreground">{c.name.slice(0, 3)}</span>
+                              </div>
+                            )}
+                            {isSelected && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <Check className="w-3 h-3 text-white drop-shadow" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -452,9 +453,13 @@ export default function PublicCatalogDetail() {
                     <label className="text-sm font-semibold text-foreground mb-2 block">
                       Available Sizes
                     </label>
-                    <p className="text-sm text-muted-foreground">
-                      {sizeRange.join(", ")}
-                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {sizeRange.map((size) => (
+                        <Badge key={size} variant="outline" className="text-xs">
+                          {size}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -479,7 +484,6 @@ export default function PublicCatalogDetail() {
 
                 {/* CTA Buttons */}
                 <div className="space-y-3">
-                  {/* Add to Inquiry List */}
                   <AddToInquiryButton
                     productId={masterProduct?.id || styleId || ""}
                     name={productName}
@@ -488,7 +492,6 @@ export default function PublicCatalogDetail() {
                     color={selectedColor}
                     imageUrl={galleryImages[0] || mainImage || null}
                   />
-
 
                   <Button variant="outline" size="lg" className="w-full" onClick={handleShare}>
                     <Share2 className="w-4 h-4 mr-2" />
