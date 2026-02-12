@@ -8,9 +8,10 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Pencil, Check, X } from "lucide-react";
+import { ArrowLeft, Package, Pencil, Check, X, Wand2 } from "lucide-react";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { toast } from "sonner";
+import { FastMockupDrawer } from "@/components/admin/catalog/FastMockupDrawer";
 
 export default function AdminMasterProductDetail() {
   const { productId } = useParams<{ productId: string }>();
@@ -84,26 +85,36 @@ export default function AdminMasterProductDetail() {
   })();
 
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  const [mockupOpen, setMockupOpen] = useState(false);
   const activeColorImage = selectedColor
     ? colorOptions.find((c) => c.name === selectedColor)?.frontImage
     : null;
 
   const brand = (product as any)?.brands;
+  const currentImage = activeColorImage || product?.image_url || null;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        {/* Back link */}
-        <div className="flex items-center gap-3">
-          <Link
-            to={brand?.id ? `/admin/catalog/master/brands/${brand.id}` : "/admin/catalog/master"}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-2xl font-bold text-foreground truncate">
-            {isLoading ? <Skeleton className="h-7 w-64" /> : product?.name || "Product Detail"}
-          </h1>
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link
+              to={brand?.id ? `/admin/catalog/master/brands/${brand.id}` : "/admin/catalog/master"}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <h1 className="text-2xl font-bold text-foreground truncate">
+              {isLoading ? <Skeleton className="h-7 w-64" /> : product?.name || "Product Detail"}
+            </h1>
+          </div>
+          {product && (
+            <Button variant="outline" size="sm" onClick={() => setMockupOpen(true)} className="shrink-0 gap-2">
+              <Wand2 className="w-4 h-4" />
+              Create fast mockup
+            </Button>
+          )}
         </div>
 
         {isLoading ? (
@@ -302,6 +313,13 @@ export default function AdminMasterProductDetail() {
           </div>
         )}
       </div>
+
+      <FastMockupDrawer
+        open={mockupOpen}
+        onOpenChange={setMockupOpen}
+        productImage={currentImage}
+        productName={product?.name || "Product"}
+      />
     </AdminLayout>
   );
 }
