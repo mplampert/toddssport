@@ -34,17 +34,29 @@ export default function AdminMasterCatalog() {
   const { data, isLoading } = useQuery({
     queryKey: ["master-catalog-db", sourceFilter, typeFilter],
     queryFn: async () => {
-      const [brandsRes, productsRes] = await Promise.all([
-        supabase.from("brands").select("id, name, logo_url, show_in_catalog").order("name"),
-        supabase.from("master_products").select("brand_id, source, product_type").eq("active", true),
-      ]);
+      const brandsRes = await supabase.from("brands").select("id, name, logo_url, show_in_catalog").order("name");
       if (brandsRes.error) throw brandsRes.error;
-      if (productsRes.error) throw productsRes.error;
+
+      // Paginate through all active products to avoid the 1000-row default limit
+      let allProducts: { brand_id: string | null; source: string; product_type: string }[] = [];
+      let from = 0;
+      const pageSize = 1000;
+      while (true) {
+        const { data: page, error } = await supabase
+          .from("master_products")
+          .select("brand_id, source, product_type")
+          .eq("active", true)
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        allProducts = allProducts.concat(page || []);
+        if (!page || page.length < pageSize) break;
+        from += pageSize;
+      }
 
       const brandById = new Map((brandsRes.data || []).map((b: any) => [b.id, b]));
       const counts = new Map<string, { count: number; sources: Set<string> }>();
 
-      for (const p of productsRes.data || []) {
+      for (const p of allProducts) {
         if (sourceFilter !== "all" && p.source !== sourceFilter) continue;
         if (typeFilter !== "all" && p.product_type !== typeFilter) continue;
 
