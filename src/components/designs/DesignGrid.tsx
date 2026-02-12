@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useDesignTemplates, DESIGN_CATEGORIES, DesignTemplate } from "@/hooks/useDesignTemplates";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Save } from "lucide-react";
+import { Search, Save, Paintbrush } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DESIGN_IMAGE_FALLBACKS } from "@/lib/designImageFallbacks";
@@ -29,6 +30,7 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
   const [selectedDesign, setSelectedDesign] = useState<DesignTemplate | null>(null);
   const [selectedTeamStoreId, setSelectedTeamStoreId] = useState("");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: designs = [], isLoading } = useDesignTemplates(
     activeCategory === "all" ? undefined : activeCategory,
@@ -275,6 +277,18 @@ export function DesignGrid({ onSelectDesign, adminMode = false }: DesignGridProp
               {saveMutation.isPending ? "Saving…" : "Save to Logos"}
             </Button>
           </div>
+
+          {/* Customize button */}
+          <Button
+            className="w-full gap-2"
+            onClick={() => {
+              setSelectedDesign(null);
+              navigate(`/designs/${selectedDesign?.code}`);
+            }}
+          >
+            <Paintbrush className="w-4 h-4" />
+            Customize This Design
+          </Button>
 
           <p className="text-sm text-muted-foreground mt-2">
             Interested in this design? <a href="/contact" className="text-accent underline">Contact us</a> to get started!
