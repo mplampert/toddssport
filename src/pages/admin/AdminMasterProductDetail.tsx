@@ -8,7 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock } from "lucide-react";
+import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock, ImageIcon, Download } from "lucide-react";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 import { FastMockupDrawer } from "@/components/admin/catalog/FastMockupDrawer";
@@ -68,7 +68,7 @@ export default function AdminMasterProductDetail() {
     enabled: !!resolvedStyleId,
   });
 
-  // Deduplicate colors from S&S variants
+  // Deduplicate colors from S&S variants (live API fallback)
   const colorOptions = (() => {
     const map = new Map<string, { name: string; swatchImage?: string; frontImage?: string; color1?: string; color2?: string }>();
     ssProducts.forEach((p) => {
@@ -85,14 +85,72 @@ export default function AdminMasterProductDetail() {
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   })();
 
+  // Fetch stored color images from DB (synced from S&S)
+  const { data: dbColorImages = [] } = useQuery({
+    queryKey: ["admin-color-images", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_color_images")
+        .select("*")
+        .eq("master_product_id", productId!)
+        .order("color_name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId,
+  });
+
+  // Use DB color images if available, fall back to live API
+  const hasDbImages = dbColorImages.length > 0;
+  const effectiveColors = hasDbImages
+    ? dbColorImages.map((c: any) => ({
+        name: c.color_name,
+        swatchImage: c.swatch_image_url,
+        frontImage: c.front_image_url,
+        backImage: c.back_image_url,
+        sideImage: c.side_image_url,
+        directSideImage: c.direct_side_image_url,
+        color1: c.color1,
+        color2: c.color2,
+        syncedAt: c.synced_at,
+      }))
+    : colorOptions.map((c) => ({
+        name: c.name,
+        swatchImage: c.swatchImage,
+        frontImage: c.frontImage,
+        backImage: undefined as string | undefined,
+        sideImage: undefined as string | undefined,
+        directSideImage: undefined as string | undefined,
+        color1: c.color1,
+        color2: c.color2,
+        syncedAt: undefined as string | undefined,
+      }));
+
   const [selectedColor, setSelectedColor] = useState<string | null>(null);
   const [mockupOpen, setMockupOpen] = useState(false);
-  const activeColorImage = selectedColor
-    ? colorOptions.find((c) => c.name === selectedColor)?.frontImage
+  const selectedColorData = selectedColor
+    ? effectiveColors.find((c) => c.name === selectedColor)
     : null;
+  const activeColorImage = selectedColorData?.frontImage || null;
+
+  // Gallery images for selected color
+  const galleryImages = selectedColorData
+    ? [
+        selectedColorData.frontImage && { url: selectedColorData.frontImage, label: "Front" },
+        selectedColorData.backImage && { url: selectedColorData.backImage, label: "Back" },
+        selectedColorData.sideImage && { url: selectedColorData.sideImage, label: "Side" },
+        selectedColorData.directSideImage && { url: selectedColorData.directSideImage, label: "Direct Side" },
+      ].filter(Boolean) as { url: string; label: string }[]
+    : [];
+
+  const [activeGalleryIdx, setActiveGalleryIdx] = useState(0);
+  // Reset gallery index on color change
+  const activeMainImage = galleryImages.length > 0
+    ? galleryImages[Math.min(activeGalleryIdx, galleryImages.length - 1)]?.url
+    : activeColorImage;
 
   const brand = (product as any)?.brands;
-  const currentImage = activeColorImage || product?.image_url || null;
+  const currentImage = activeMainImage || product?.image_url || null;
 
   // Size pricing for S&S products
   const { data: sizePricing = [] } = useQuery({
@@ -166,13 +224,37 @@ export default function AdminMasterProductDetail() {
         ) : (
           <div className="grid md:grid-cols-2 gap-8">
             {/* Image */}
-            <div className="bg-card rounded-xl border border-border overflow-hidden aspect-square flex items-center justify-center">
-              {activeColorImage ? (
-                <img src={activeColorImage} alt={selectedColor || product.name} className="w-full h-full object-contain p-8" />
-              ) : product.image_url ? (
-                <img src={product.image_url} alt={product.name} className="w-full h-full object-contain p-8" />
-              ) : (
-                <Package className="w-24 h-24 text-muted-foreground/20" />
+            <div className="space-y-2">
+              <div className="bg-card rounded-xl border border-border overflow-hidden aspect-square flex items-center justify-center">
+                {currentImage ? (
+                  <img src={currentImage} alt={selectedColor || product.name} className="w-full h-full object-contain p-8" />
+                ) : (
+                  <Package className="w-24 h-24 text-muted-foreground/20" />
+                )}
+              </div>
+              {/* Gallery thumbnails when a color is selected */}
+              {galleryImages.length > 1 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {galleryImages.map((img, idx) => (
+                    <button
+                      key={img.label}
+                      onClick={() => setActiveGalleryIdx(idx)}
+                      className={`aspect-square rounded-lg border-2 overflow-hidden transition-all ${
+                        idx === Math.min(activeGalleryIdx, galleryImages.length - 1)
+                          ? "border-accent ring-2 ring-accent/20"
+                          : "border-border hover:border-muted-foreground/50"
+                      }`}
+                    >
+                      <img src={img.url} alt={img.label} className="w-full h-full object-contain p-1" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {selectedColor && galleryImages.length > 0 && (
+                <p className="text-[10px] text-muted-foreground text-center">
+                  {galleryImages[Math.min(activeGalleryIdx, galleryImages.length - 1)]?.label} view
+                  {hasDbImages && " · Synced from S&S"}
+                </p>
               )}
             </div>
 
@@ -315,23 +397,32 @@ export default function AdminMasterProductDetail() {
               </div>
 
               {/* S&S Color Swatches */}
-              {colorOptions.length > 0 && (
+              {effectiveColors.length > 0 && (
                 <>
                   <Separator />
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h4 className="text-sm font-semibold">
-                        Colors ({colorOptions.length})
+                        Colors ({effectiveColors.length})
+                        {hasDbImages && (
+                          <Badge variant="outline" className="ml-2 text-[9px]">
+                            <RefreshCw className="w-2.5 h-2.5 mr-1" />
+                            Synced from S&S
+                          </Badge>
+                        )}
                       </h4>
                       {selectedColor && (
                         <span className="text-xs text-muted-foreground">{selectedColor}</span>
                       )}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {colorOptions.map((c) => (
+                      {effectiveColors.map((c) => (
                         <button
                           key={c.name}
-                          onClick={() => setSelectedColor(selectedColor === c.name ? null : c.name)}
+                          onClick={() => {
+                            setSelectedColor(selectedColor === c.name ? null : c.name);
+                            setActiveGalleryIdx(0);
+                          }}
                           title={c.name}
                           className={`relative w-9 h-9 rounded-lg border-2 overflow-hidden transition-all ${
                             selectedColor === c.name
@@ -361,11 +452,38 @@ export default function AdminMasterProductDetail() {
                   </div>
                 </>
               )}
-              {isSSProduct && loadingSS && (
+              {isSSProduct && !hasDbImages && loadingSS && (
                 <>
                   <Separator />
                   <Skeleton className="h-12 w-full" />
                 </>
+              )}
+              {/* Sync images button for S&S products without synced images */}
+              {isSSProduct && !hasDbImages && !loadingSS && effectiveColors.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2 text-xs"
+                    onClick={async () => {
+                      try {
+                        toast.info("Syncing color images from S&S…");
+                        const { error } = await supabase.functions.invoke("ss-backfill-images", {
+                          body: { force: true, limit: 1 },
+                        });
+                        if (error) throw error;
+                        queryClient.invalidateQueries({ queryKey: ["admin-color-images", productId] });
+                        queryClient.invalidateQueries({ queryKey: ["admin-master-product", productId] });
+                        toast.success("Color images synced");
+                      } catch {
+                        toast.error("Failed to sync images");
+                      }
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Sync color images from S&S
+                  </Button>
+                </div>
               )}
 
               <Separator />
