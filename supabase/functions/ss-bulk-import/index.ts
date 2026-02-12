@@ -146,7 +146,7 @@ serve(async (req) => {
         const { data: brandRows } = await db.from("brands").select("id").eq("name", brandName).limit(1);
         const brandId = brandRows?.[0]?.id || null;
 
-        // Build rows
+        // Build rows — use partNumber as the stable source_sku key
         const rows = styles.map((s) => ({
           brand_id: brandId,
           name: s.title || s.styleName,
@@ -160,27 +160,19 @@ serve(async (req) => {
           active: true,
         }));
 
-        // Batch upsert (using source + source_sku as conflict key via insert ignore)
+        // Batch upsert on unique (source, source_sku) — updates existing, inserts new
         let written = 0;
         for (let j = 0; j < rows.length; j += 50) {
           const chunk = rows.slice(j, j + 50);
-          // Use insert with onConflict ignore to avoid duplicates
-          const { data: inserted, error: insertErr } = await db
+          const { data: upserted, error: upsertErr } = await db
             .from("master_products")
             .upsert(chunk, { onConflict: "source,source_sku", ignoreDuplicates: false })
             .select("id");
 
-          if (insertErr) {
-            // If unique constraint doesn't exist yet, fall back to plain insert
-            console.warn(`[SS Bulk Import] Upsert chunk error: ${insertErr.message}, trying insert`);
-            const { error: fallbackErr } = await db.from("master_products").insert(chunk);
-            if (fallbackErr) {
-              console.error(`[SS Bulk Import] Insert fallback error: ${fallbackErr.message}`);
-            } else {
-              written += chunk.length;
-            }
+          if (upsertErr) {
+            console.error(`[SS Bulk Import] Upsert chunk error: ${upsertErr.message}`);
           } else {
-            written += inserted?.length || chunk.length;
+            written += upserted?.length || chunk.length;
           }
         }
 
