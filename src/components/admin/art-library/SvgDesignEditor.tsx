@@ -72,6 +72,7 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
   const [selectedTextId, setSelectedTextId] = useState<string | null>(null);
   const [selectedTeamStoreId, setSelectedTeamStoreId] = useState<string>("");
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isUpdatingPreview, setIsUpdatingPreview] = useState(false);
   const svgContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
@@ -109,8 +110,10 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
         if (!svgEl) return;
         svgEl.setAttribute("width", "100%");
         svgEl.setAttribute("height", "100%");
+        svgEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
         svgEl.style.maxWidth = "100%";
         svgEl.style.maxHeight = "100%";
+        svgEl.style.display = "block";
 
         const blocks = discoverTextBlocks(svgEl);
         setTextBlocks(blocks);
@@ -438,6 +441,34 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
     },
   });
 
+  // Update customer-facing preview image
+  const handleUpdatePreview = async () => {
+    setIsUpdatingPreview(true);
+    try {
+      const svgString = getSerializedSvg();
+      if (!svgString) throw new Error("No SVG to render");
+      const pngBlob = await svgToPng(svgString, 1024, 1024);
+      const path = `previews/${template.code}-preview.png`;
+      const { error: upErr } = await supabase.storage
+        .from("team-art")
+        .upload(path, pngBlob, { upsert: true, contentType: "image/png" });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from("team-art").getPublicUrl(path);
+      const previewUrl = `${urlData.publicUrl}?v=${Date.now()}`;
+      const { error: dbErr } = await supabase
+        .from("design_templates")
+        .update({ thumbnail_url: previewUrl, image_url: previewUrl })
+        .eq("id", template.id);
+      if (dbErr) throw dbErr;
+      toast.success("Preview image updated!");
+      queryClient.invalidateQueries({ queryKey: ["art-library-templates"] });
+    } catch (err: any) {
+      toast.error("Failed to update preview", { description: err.message });
+    } finally {
+      setIsUpdatingPreview(false);
+    }
+  };
+
   // Download logo package as ZIP
   const handleDownload = async () => {
     setIsDownloading(true);
@@ -539,6 +570,8 @@ export function SvgDesignEditor({ template, onBack }: SvgDesignEditorProps) {
             isSaving={saveMutation.isPending}
             onDownload={handleDownload}
             isDownloading={isDownloading}
+            onUpdatePreview={handleUpdatePreview}
+            isUpdatingPreview={isUpdatingPreview}
             onCenterH={handleCenterH}
             onCenterV={handleCenterV}
             onScaleUp={handleScaleUp}
