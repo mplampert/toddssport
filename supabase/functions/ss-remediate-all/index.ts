@@ -18,6 +18,7 @@ interface SSStyle {
   description?: string;
   baseCategory?: string;
   styleImage?: string;
+  brandImage?: string;
   partNumber?: string;
 }
 
@@ -52,14 +53,8 @@ const CORE_SIZES = new Set(["XS", "S", "M", "L", "XL"]);
 /**
  * Batch remediation: fix style_code, source_sku, pricing, and colors for ALL S&S products.
  * 
- * Phase 1: Fetch all S&S styles, fix style_code + source_sku + name on master_products.
- * Phase 2: For each product (batched), fetch products endpoint for pricing + color images.
- * 
- * Body params:
- *   phase: 1 | 2 (default: 1)
- *   offset: number (for phase 2 batching, default 0)
- *   limit: number (for phase 2, default 50)
- *   force: boolean (re-process even if already synced)
+ * Phase 1: Fetch all S&S styles, populate catalog_styles, fix style_code + source_sku.
+ * Phase 2: For each product (batched), use catalog_styles for styleID, fetch pricing + colors.
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -113,7 +108,7 @@ serve(async (req) => {
 });
 
 /**
- * Phase 1: Fetch ALL styles from S&S, fix style_code + source_sku + name.
+ * Phase 1: Fetch ALL styles from S&S, populate catalog_styles, fix style_code + source_sku.
  */
 async function runPhase1(db: any, basicAuth: string) {
   console.log("[SS Remediate Phase 1] Fetching all S&S styles...");
@@ -129,16 +124,36 @@ async function runPhase1(db: any, basicAuth: string) {
   const allStyles: SSStyle[] = await resp.json();
   console.log(`[SS Remediate Phase 1] Got ${allStyles.length} styles from API`);
 
-  // Build map: styleName → style info
+  // Upsert all styles into catalog_styles for Phase 2 lookups
+  const catalogRows = allStyles.map((s) => ({
+    style_id: s.styleID,
+    style_name: s.styleName || String(s.styleID),
+    part_number: s.partNumber || null,
+    brand_name: s.brandName || "",
+    title: s.title || null,
+    description: s.description || null,
+    base_category: s.baseCategory || null,
+    style_image: s.styleImage || null,
+    brand_image: s.brandImage || null,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  }));
+
+  for (let i = 0; i < catalogRows.length; i += 200) {
+    const chunk = catalogRows.slice(i, i + 200);
+    const { error: upsertErr } = await db
+      .from("catalog_styles")
+      .upsert(chunk, { onConflict: "style_id" });
+    if (upsertErr) console.warn(`[SS Remediate] catalog_styles upsert error:`, upsertErr.message);
+  }
+  console.log(`[SS Remediate Phase 1] Upserted ${catalogRows.length} catalog_styles`);
+
+  // Build lookup maps
   const styleMap = new Map<string, SSStyle>();
+  const partToStyle = new Map<string, string>();
   for (const s of allStyles) {
     const key = s.styleName || String(s.styleID);
     styleMap.set(key, s);
-  }
-
-  // Also build partNumber → styleName map for products imported with wrong source_sku
-  const partToStyle = new Map<string, string>();
-  for (const s of allStyles) {
     if (s.partNumber && s.styleName && s.partNumber !== s.styleName) {
       partToStyle.set(s.partNumber, s.styleName);
     }
@@ -165,28 +180,18 @@ async function runPhase1(db: any, basicAuth: string) {
   let fixed = 0;
   let alreadyCorrect = 0;
   let notFoundInApi = 0;
-  const updates: any[] = [];
 
   for (const product of allProducts) {
     const currentStyleCode = product.style_code || product.source_sku;
     
-    // Try to find the correct S&S style
     let ssStyle = styleMap.get(currentStyleCode);
-    
-    // If not found, maybe source_sku is a partNumber - look it up
     if (!ssStyle && product.source_sku) {
-      const correctedCode = partToStyle.get(product.source_sku);
-      if (correctedCode) {
-        ssStyle = styleMap.get(correctedCode);
-      }
+      const c = partToStyle.get(product.source_sku);
+      if (c) ssStyle = styleMap.get(c);
     }
-    
-    // Also try supplier_item_number
     if (!ssStyle && product.supplier_item_number) {
-      const correctedCode = partToStyle.get(product.supplier_item_number);
-      if (correctedCode) {
-        ssStyle = styleMap.get(correctedCode);
-      }
+      const c = partToStyle.get(product.supplier_item_number);
+      if (c) ssStyle = styleMap.get(c);
     }
 
     if (!ssStyle) {
@@ -198,7 +203,6 @@ async function runPhase1(db: any, basicAuth: string) {
     const correctName = ssStyle.title || ssStyle.styleName;
     const correctImage = resolveImage(ssStyle.styleImage);
 
-    // Check if anything needs updating
     const needsUpdate =
       product.style_code !== correctStyleCode ||
       product.source_sku !== correctStyleCode ||
@@ -209,47 +213,26 @@ async function runPhase1(db: any, basicAuth: string) {
       continue;
     }
 
-    updates.push({
-      id: product.id,
+    const { error } = await db.from("master_products").update({
       style_code: correctStyleCode,
       source_sku: correctStyleCode,
       supplier_item_number: ssStyle.partNumber || product.supplier_item_number,
       name: correctName || product.name,
       image_url: correctImage || undefined,
-    });
-  }
-
-  // Batch update
-  let updateErrors = 0;
-  for (let i = 0; i < updates.length; i += 50) {
-    const chunk = updates.slice(i, i + 50);
-    for (const upd of chunk) {
-      const { id, ...fields } = upd;
-      // Remove undefined fields
-      const cleanFields: Record<string, any> = {};
-      for (const [k, v] of Object.entries(fields)) {
-        if (v !== undefined) cleanFields[k] = v;
-      }
-      const { error } = await db.from("master_products").update(cleanFields).eq("id", id);
-      if (error) {
-        // Likely a unique constraint conflict — another row already has this style_code
-        console.warn(`[SS Remediate] Update conflict for ${id} (${cleanFields.style_code}): ${error.message}`);
-        updateErrors++;
-      } else {
-        fixed++;
-      }
-    }
+    }).eq("id", product.id);
+    
+    if (!error) fixed++;
+    else console.warn(`[SS Remediate] Update conflict for ${product.id}: ${error.message}`);
   }
 
   const report = {
     phase: 1,
     totalApiStyles: allStyles.length,
     totalMasterProducts: allProducts.length,
+    catalogStylesUpserted: catalogRows.length,
     fixed,
     alreadyCorrect,
     notFoundInApi,
-    updateErrors,
-    remainingForPhase2: allProducts.length,
   };
 
   console.log("[SS Remediate Phase 1] Report:", JSON.stringify(report));
@@ -260,22 +243,21 @@ async function runPhase1(db: any, basicAuth: string) {
 }
 
 /**
- * Phase 2: Batch-process pricing + color images from S&S products endpoint.
+ * Phase 2: Batch-process pricing + color images.
+ * Uses catalog_styles for reliable styleID-based API lookups.
  */
 async function runPhase2(db: any, basicAuth: string, offset: number, limit: number, force: boolean) {
   console.log(`[SS Remediate Phase 2] offset=${offset}, limit=${limit}, force=${force}`);
 
-  // Get products to process
   let query = db
     .from("master_products")
-    .select("id, style_code, source_sku, pricing_override")
+    .select("id, style_code, source_sku, supplier_item_number, pricing_override")
     .eq("source", "ss_activewear")
     .eq("active", true)
     .order("created_at", { ascending: true })
     .range(offset, offset + limit - 1);
 
   if (!force) {
-    // Only process products missing pricing OR images
     query = query.or("pricing_synced_at.is.null,images_synced_at.is.null");
   }
 
@@ -291,71 +273,72 @@ async function runPhase2(db: any, basicAuth: string, offset: number, limit: numb
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
+  // Build styleID lookup from catalog_styles for this batch
+  const styleCodes = products.map((p: any) => p.style_code || p.source_sku).filter(Boolean);
+  const supplierItems = products.map((p: any) => p.supplier_item_number).filter(Boolean);
+
+  const orParts: string[] = [];
+  for (const s of styleCodes) orParts.push(`style_name.eq.${s}`);
+  for (const s of supplierItems) orParts.push(`part_number.eq.${s}`);
+
+  const { data: catalogRows } = orParts.length > 0
+    ? await db.from("catalog_styles").select("style_id, style_name, part_number").or(orParts.join(","))
+    : { data: [] };
+
+  const styleIdMap = new Map<string, number>();
+  for (const row of catalogRows || []) {
+    if (row.style_name) styleIdMap.set(row.style_name, row.style_id);
+    if (row.part_number) styleIdMap.set(row.part_number, row.style_id);
+  }
+
   let pricingUpdated = 0;
   let colorsImported = 0;
   let errors = 0;
 
   for (const product of products) {
     const styleCode = product.style_code || product.source_sku;
-      if (!styleCode) continue;
+    if (!styleCode) continue;
 
-      try {
-        // Fetch products data from S&S (includes pricing + colors)
-        const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
-        const resp = await fetch(apiUrl, {
+    try {
+      // Resolve to numeric styleID via catalog_styles
+      let numericId = styleIdMap.get(styleCode);
+      if (!numericId && product.supplier_item_number) {
+        numericId = styleIdMap.get(product.supplier_item_number);
+      }
+
+      let ssProducts: SSProduct[] = [];
+      let remaining = 100;
+
+      if (numericId) {
+        // Use styleID directly — most reliable
+        const resp = await fetch(`${SS_BASE}/products/${numericId}`, {
           headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
         });
-
-        let remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-
-        let ssProducts: SSProduct[] = [];
-
+        remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
         if (resp.ok) {
           const data = await resp.json();
           ssProducts = Array.isArray(data) ? data : [];
         } else {
           await resp.text();
-          console.warn(`[SS Remediate P2] Products API ${resp.status} for style=${styleCode}`);
         }
-
-        // If products call returned empty, resolve via styles endpoint
-        if (ssProducts.length === 0) {
-          const stylesResp = await fetch(
-            `${SS_BASE}/styles?style=${encodeURIComponent(styleCode)}`,
-            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
-          );
-          remaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-
-          if (stylesResp.ok) {
-            const stylesData = await stylesResp.json();
-            const styles = Array.isArray(stylesData) ? stylesData : [];
-            if (styles.length > 0) {
-              const resolvedStyleId = styles[0].styleID;
-              // Fix style_code
-              await db.from("master_products").update({
-                style_code: styles[0].styleName,
-                source_sku: styles[0].styleName,
-                supplier_item_number: styles[0].partNumber || product.source_sku,
-              }).eq("id", product.id);
-
-              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
-                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-              });
-              if (retryResp.ok) {
-                const retryData = await retryResp.json();
-                ssProducts = Array.isArray(retryData) ? retryData : [];
-              } else {
-                await retryResp.text();
-              }
-            }
-          } else {
-            await stylesResp.text();
-          }
-
-          if (remaining < 5) await new Promise((r) => setTimeout(r, 12000));
+      } else {
+        // Fallback: try style name query (works for some products)
+        const resp = await fetch(`${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`, {
+          headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+        });
+        remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+        if (resp.ok) {
+          const data = await resp.json();
+          ssProducts = Array.isArray(data) ? data : [];
+        } else {
+          await resp.text();
         }
+      }
 
-        if (ssProducts.length === 0) continue;
+      if (ssProducts.length === 0) {
+        if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
+        continue;
+      }
 
       // ── Pricing ──
       if (!product.pricing_override) {
