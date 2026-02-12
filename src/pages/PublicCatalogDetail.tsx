@@ -107,14 +107,28 @@ export default function PublicCatalogDetail() {
     return null;
   }, [masterProduct, isNumeric, styleId]);
 
-  // Resolve S&S numeric styleID from catalog_styles for API calls
+  // Fetch style details from S&S first (styles endpoint accepts styleName like "18500")
+  const { data: ssStyleInfo } = useQuery({
+    queryKey: ["public-catalog-ss-style", ssStyleCode],
+    queryFn: async () => {
+      try {
+        const data = await getStyles({ style: ssStyleCode! });
+        const styles = Array.isArray(data) ? data : [];
+        return styles.find((s) => String(s.styleID) === ssStyleCode || s.styleName === ssStyleCode) || styles[0] || null;
+      } catch {
+        return null;
+      }
+    },
+    enabled: !!ssStyleCode,
+  });
+
+  // Resolve the REAL numeric S&S styleID for the products endpoint
   const ssNumericStyleId = useMemo(() => {
-    if (isNumeric && ssStyleCode) return ssStyleCode;
     if (catalogStyle?.style_id) return String(catalogStyle.style_id);
-    // Fallback: if ssStyleCode is numeric-looking, use it directly
-    if (ssStyleCode && /^\d+$/.test(ssStyleCode)) return ssStyleCode;
+    // Use the styleID returned by the S&S styles endpoint (e.g. 395 for styleName "18500")
+    if (ssStyleInfo?.styleID) return String(ssStyleInfo.styleID);
     return null;
-  }, [isNumeric, ssStyleCode, catalogStyle]);
+  }, [catalogStyle, ssStyleInfo]);
 
   // Fetch pre-imported color images from product_color_images table
   const { data: dbColorImages = [] } = useQuery({
@@ -145,20 +159,6 @@ export default function PublicCatalogDetail() {
     enabled: !!ssNumericStyleId && dbColorImages.length === 0,
   });
 
-  // Fetch style details from S&S
-  const { data: ssStyleInfo } = useQuery({
-    queryKey: ["public-catalog-ss-style", ssStyleCode],
-    queryFn: async () => {
-      try {
-        const data = await getStyles({ style: ssStyleCode! });
-        const styles = Array.isArray(data) ? data : [];
-        return styles.find((s) => String(s.styleID) === ssStyleCode || s.styleName === ssStyleCode) || styles[0] || null;
-      } catch {
-        return null;
-      }
-    },
-    enabled: !!ssStyleCode,
-  });
 
   // Fetch specs (only for S&S products with catalog_styles data)
   const resolvedStyleId = catalogStyle?.style_id || (ssStyleCode && /^\d+$/.test(ssStyleCode) ? Number(ssStyleCode) : null);
