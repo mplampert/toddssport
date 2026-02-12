@@ -111,6 +111,8 @@ export default function PublicCatalogDetail() {
   const ssNumericStyleId = useMemo(() => {
     if (isNumeric && ssStyleCode) return ssStyleCode;
     if (catalogStyle?.style_id) return String(catalogStyle.style_id);
+    // Fallback: if ssStyleCode is numeric-looking, use it directly
+    if (ssStyleCode && /^\d+$/.test(ssStyleCode)) return ssStyleCode;
     return null;
   }, [isNumeric, ssStyleCode, catalogStyle]);
 
