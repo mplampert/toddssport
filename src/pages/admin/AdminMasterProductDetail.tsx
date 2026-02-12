@@ -8,10 +8,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Package, Pencil, Check, X, Wand2 } from "lucide-react";
+import { ArrowLeft, Package, Pencil, Check, X, Wand2, RefreshCw, Lock, Unlock } from "lucide-react";
 import { getProducts, type SSProduct } from "@/lib/ss-activewear";
 import { toast } from "sonner";
 import { FastMockupDrawer } from "@/components/admin/catalog/FastMockupDrawer";
+import { Switch } from "@/components/ui/switch";
 
 export default function AdminMasterProductDetail() {
   const { productId } = useParams<{ productId: string }>();
@@ -92,6 +93,36 @@ export default function AdminMasterProductDetail() {
 
   const brand = (product as any)?.brands;
   const currentImage = activeColorImage || product?.image_url || null;
+
+  // Size pricing for S&S products
+  const { data: sizePricing = [] } = useQuery({
+    queryKey: ["admin-size-pricing", productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_size_pricing")
+        .select("*")
+        .eq("master_product_id", productId!)
+        .order("size_name");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!productId,
+  });
+
+  // Toggle pricing override
+  const overrideMutation = useMutation({
+    mutationFn: async (override: boolean) => {
+      const { error } = await supabase
+        .from("master_products")
+        .update({ pricing_override: override })
+        .eq("id", productId!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-master-product", productId] });
+      toast.success("Pricing override updated");
+    },
+  });
 
   return (
     <AdminLayout>
@@ -194,16 +225,47 @@ export default function AdminMasterProductDetail() {
                 </>
               )}
 
-              {/* Editable Pricing */}
+              {/* Internal Pricing */}
               <Separator />
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-foreground">Internal Pricing</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-foreground">Internal Pricing</h4>
+                  {isSSProduct && (
+                    <div className="flex items-center gap-2">
+                      {(product as any).pricing_synced_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          Synced {new Date((product as any).pricing_synced_at).toLocaleDateString()}
+                        </span>
+                      )}
+                      {(product as any).pricing_override ? (
+                        <Lock className="w-3.5 h-3.5 text-accent" />
+                      ) : (
+                        <RefreshCw className="w-3.5 h-3.5 text-muted-foreground" />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {isSSProduct && (
+                  <div className="flex items-center gap-2 text-xs">
+                    <Switch
+                      checked={(product as any).pricing_override ?? false}
+                      onCheckedChange={(v) => overrideMutation.mutate(v)}
+                      className="scale-75"
+                    />
+                    <span className="text-muted-foreground">
+                      {(product as any).pricing_override ? "Manual override ON — won't be overwritten by sync" : "Auto-synced from S&S"}
+                    </span>
+                  </div>
+                )}
+
                 <EditablePrice
                   label="Base Price"
                   value={product.base_price}
                   productId={product.id}
                   field="base_price"
                   queryClient={queryClient}
+                  readOnly={isSSProduct && !(product as any).pricing_override}
                 />
                 <EditablePrice
                   label="MSRP"
@@ -211,7 +273,45 @@ export default function AdminMasterProductDetail() {
                   productId={product.id}
                   field="msrp"
                   queryClient={queryClient}
+                  readOnly={isSSProduct && !(product as any).pricing_override}
                 />
+
+                {/* Per-size pricing table */}
+                {sizePricing.length > 0 && (
+                  <div className="mt-3">
+                    <h5 className="text-xs font-medium text-muted-foreground mb-2">Size Pricing</h5>
+                    <div className="rounded-lg border border-border overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="text-left px-3 py-1.5 font-medium">Size</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Piece</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Dozen</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Case</th>
+                            <th className="text-right px-3 py-1.5 font-medium">Type</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {sizePricing.map((sp: any) => (
+                            <tr key={sp.id} className="border-t border-border">
+                              <td className="px-3 py-1.5 font-mono">{sp.size_name}</td>
+                              <td className="text-right px-3 py-1.5">{sp.piece_price ? `$${Number(sp.piece_price).toFixed(2)}` : "—"}</td>
+                              <td className="text-right px-3 py-1.5">{sp.dozen_price ? `$${Number(sp.dozen_price).toFixed(2)}` : "—"}</td>
+                              <td className="text-right px-3 py-1.5">{sp.case_price ? `$${Number(sp.case_price).toFixed(2)}` : "—"}</td>
+                              <td className="text-right px-3 py-1.5">
+                                {sp.is_upcharge ? (
+                                  <Badge variant="outline" className="text-[9px] px-1.5">Upcharge</Badge>
+                                ) : (
+                                  <span className="text-muted-foreground">Core</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* S&S Color Swatches */}
@@ -341,12 +441,14 @@ function EditablePrice({
   productId,
   field,
   queryClient,
+  readOnly = false,
 }: {
   label: string;
   value: number | null;
   productId: string;
   field: "base_price" | "msrp";
   queryClient: ReturnType<typeof useQueryClient>;
+  readOnly?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value != null ? String(value) : "");
@@ -407,14 +509,19 @@ function EditablePrice({
       <span className="text-sm font-medium text-foreground">
         {value != null ? `$${Number(value).toFixed(2)}` : "—"}
       </span>
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={() => { setDraft(value != null ? String(value) : ""); setEditing(true); }}
-      >
-        <Pencil className="w-3 h-3" />
-      </Button>
+      {!readOnly && (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => { setDraft(value != null ? String(value) : ""); setEditing(true); }}
+        >
+          <Pencil className="w-3 h-3" />
+        </Button>
+      )}
+      {readOnly && (
+        <span className="text-[10px] text-muted-foreground/60 italic">synced</span>
+      )}
     </div>
   );
 }

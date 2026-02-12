@@ -29,6 +29,19 @@ interface SSStyle {
   partNumber?: string;
 }
 
+interface SSProduct {
+  styleID: number;
+  styleName: string;
+  sizeName: string;
+  sizePriceCodeName?: string;
+  piecePrice?: number;
+  dozenPrice?: number;
+  casePrice?: number;
+  mapPrice?: number;
+  salePrice?: number;
+  colorName?: string;
+}
+
 function resolveImage(val: string | undefined | null): string | null {
   if (!val) return null;
   if (val.startsWith("http")) return val;

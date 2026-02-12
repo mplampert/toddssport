@@ -101,3 +101,6 @@ verify_jwt = false
 
 [functions.ss-full-sync]
 verify_jwt = false
+
+[functions.ss-backfill-pricing]
+verify_jwt = false
