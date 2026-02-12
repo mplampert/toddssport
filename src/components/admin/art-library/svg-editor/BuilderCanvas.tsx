@@ -225,7 +225,7 @@ export function BuilderCanvas({
       const dx = pt.x - resizeStartRef.current.x;
       const vb = getViewBox(svg);
       const dy = pt.y - resizeStartRef.current.y;
-      const scaleFactor = 1 + (dy / (vb.h * 0.15));
+      const scaleFactor = 1 + (-dy / (vb.h * 0.15));
       const newSize = Math.max(2, Math.min(2000, resizeStartRef.current.fontSize * scaleFactor));
 
       el.setAttribute("font-size", String(Math.round(newSize)));
