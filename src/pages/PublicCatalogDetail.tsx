@@ -64,15 +64,36 @@ export default function PublicCatalogDetail() {
     queryKey: ["public-catalog-style", styleId, masterProduct?.source_sku],
     queryFn: async () => {
       const sku = isNumeric ? styleId : masterProduct?.source_sku;
-      if (!sku || !/^\d+$/.test(sku)) return null;
-      const { data, error } = await supabase
+      if (!sku) return null;
+
+      // First try by style_name (S&S styleName, e.g. "18500")
+      const { data: byName } = await supabase
         .from("catalog_styles")
         .select("*")
-        .eq("style_id", Number(sku))
+        .eq("style_name", sku)
         .eq("is_active", true)
         .maybeSingle();
-      if (error) throw error;
-      return data;
+      if (byName) return byName;
+
+      // Then try by numeric style_id
+      if (/^\d+$/.test(sku)) {
+        const { data: byId } = await supabase
+          .from("catalog_styles")
+          .select("*")
+          .eq("style_id", Number(sku))
+          .eq("is_active", true)
+          .maybeSingle();
+        if (byId) return byId;
+      }
+
+      // Also try by part_number
+      const { data: byPart } = await supabase
+        .from("catalog_styles")
+        .select("*")
+        .eq("part_number", sku)
+        .eq("is_active", true)
+        .maybeSingle();
+      return byPart || null;
     },
     enabled: !!styleId && (isNumeric || !!masterProduct?.source_sku),
   });
@@ -85,6 +106,13 @@ export default function PublicCatalogDetail() {
     if (isNumeric) return styleId;
     return null;
   }, [masterProduct, isNumeric, styleId]);
+
+  // Resolve S&S numeric styleID from catalog_styles for API calls
+  const ssNumericStyleId = useMemo(() => {
+    if (isNumeric && ssStyleCode) return ssStyleCode;
+    if (catalogStyle?.style_id) return String(catalogStyle.style_id);
+    return null;
+  }, [isNumeric, ssStyleCode, catalogStyle]);
 
   // Fetch pre-imported color images from product_color_images table
   const { data: dbColorImages = [] } = useQuery({
@@ -103,16 +131,16 @@ export default function PublicCatalogDetail() {
 
   // Fetch color/size data from S&S via edge function (fallback for products without DB colors)
   const { data: products = [], isLoading: loadingProducts } = useQuery({
-    queryKey: ["public-catalog-products", ssStyleCode],
+    queryKey: ["public-catalog-products", ssNumericStyleId],
     queryFn: async () => {
       try {
-        const data = await getProducts({ style: ssStyleCode! });
+        const data = await getProducts({ style: ssNumericStyleId! });
         return Array.isArray(data) ? data : [];
       } catch {
         return [];
       }
     },
-    enabled: !!ssStyleCode && dbColorImages.length === 0,
+    enabled: !!ssNumericStyleId && dbColorImages.length === 0,
   });
 
   // Fetch style details from S&S
@@ -131,13 +159,14 @@ export default function PublicCatalogDetail() {
   });
 
   // Fetch specs (only for S&S products with catalog_styles data)
+  const resolvedStyleId = catalogStyle?.style_id || (ssStyleCode && /^\d+$/.test(ssStyleCode) ? Number(ssStyleCode) : null);
   const { data: specs = [] } = useQuery({
-    queryKey: ["public-catalog-specs", ssStyleCode],
+    queryKey: ["public-catalog-specs", resolvedStyleId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("catalog_specs")
         .select("spec_name, value")
-        .eq("style_id", Number(ssStyleCode))
+        .eq("style_id", resolvedStyleId!)
         .not("value", "is", null);
       if (error) throw error;
       const map = new Map<string, string>();
@@ -146,7 +175,7 @@ export default function PublicCatalogDetail() {
       });
       return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
     },
-    enabled: !!ssStyleCode && /^\d+$/.test(ssStyleCode),
+    enabled: !!resolvedStyleId,
   });
 
   // Pre-select first color
