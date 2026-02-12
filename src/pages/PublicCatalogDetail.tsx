@@ -1,31 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ArrowLeft, Package, Share2, Send, Check, Loader2, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
+import { ArrowLeft, Package, Share2, Check, ChevronLeft, ChevronRight, ClipboardList } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getProducts, getStyles, type SSProduct, type SSStyle } from "@/lib/ss-activewear";
 import { toast } from "sonner";
@@ -43,30 +25,11 @@ interface ColorOption {
   color2?: string;
 }
 
-const DECORATION_TYPES = [
-  "Screen Print",
-  "Embroidery",
-  "DTF (Direct to Film)",
-  "Heat Transfer",
-  "Not Sure / Need Guidance",
-];
-
 export default function PublicCatalogDetail() {
   const { styleId } = useParams<{ styleId: string }>();
 
   const [selectedColor, setSelectedColor] = useState("");
   const [activeImageIdx, setActiveImageIdx] = useState(0);
-  const [inquiryOpen, setInquiryOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-
-  // Form state
-  const [formName, setFormName] = useState("");
-  const [formEmail, setFormEmail] = useState("");
-  const [formOrg, setFormOrg] = useState("");
-  const [formPhone, setFormPhone] = useState("");
-  const [formQty, setFormQty] = useState("");
-  const [formDecoration, setFormDecoration] = useState("");
-  const [formNotes, setFormNotes] = useState("");
 
   // Determine if this is a UUID (master_products.id) or a numeric style_id (legacy)
   const isUuid = styleId ? /^[0-9a-f]{8}-/.test(styleId) : false;
@@ -225,50 +188,6 @@ export default function PublicCatalogDetail() {
   const description = masterProduct?.description_short || catalogStyle?.description || ssStyleInfo?.description || "";
   const mainImage = masterProduct?.image_url || catalogStyle?.style_image || null;
 
-  // Submit inquiry
-  const submitMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        name: formName,
-        email: formEmail,
-        organization: formOrg || null,
-        phone: formPhone || null,
-        product_style_id: ssStyleId ? Number(ssStyleId) : null,
-        product_brand: brandName,
-        product_style_code: partNumber,
-        product_name: productName,
-        product_color: selectedColor || null,
-        quantity_estimate: formQty || null,
-        decoration_type: formDecoration || null,
-        notes: formNotes || null,
-      };
-
-      const { error } = await supabase.from("product_inquiries").insert(payload);
-      if (error) throw error;
-
-      // Fire-and-forget GHL webhook
-      supabase.functions.invoke("notify-product-inquiry", {
-        body: payload,
-      }).catch((err) => console.warn("GHL webhook failed:", err));
-    },
-    onSuccess: () => {
-      setSubmitted(true);
-      toast.success("Inquiry submitted! We'll be in touch soon.");
-    },
-    onError: (err) => {
-      toast.error("Failed to submit inquiry. Please try again.");
-      console.error("Inquiry submit error:", err);
-    },
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formName.trim() || !formEmail.trim()) {
-      toast.error("Please fill in your name and email.");
-      return;
-    }
-    submitMutation.mutate();
-  };
 
   const handleShare = () => {
     const url = window.location.href;
@@ -502,106 +421,6 @@ export default function PublicCatalogDetail() {
                     imageUrl={galleryImages[0] || mainImage || null}
                   />
 
-                  <Dialog open={inquiryOpen} onOpenChange={(open) => { setInquiryOpen(open); if (!open) setSubmitted(false); }}>
-                    <DialogTrigger asChild>
-                      <Button size="lg" variant="outline" className="w-full text-base">
-                        <Send className="w-5 h-5 mr-2" />
-                        Request This Product Only
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-lg">
-                      <DialogHeader>
-                        <DialogTitle>Request: {productName}</DialogTitle>
-                        <DialogDescription>
-                          Fill out the form below and we'll get back to you with pricing and options.
-                        </DialogDescription>
-                      </DialogHeader>
-
-                      {submitted ? (
-                        <div className="text-center py-8">
-                          <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
-                            <Check className="w-8 h-8 text-accent" />
-                          </div>
-                          <h3 className="text-lg font-semibold mb-2">Inquiry Submitted!</h3>
-                          <p className="text-muted-foreground text-sm">
-                            We'll review your request and get back to you shortly.
-                          </p>
-                          <Button variant="outline" className="mt-4" onClick={() => setInquiryOpen(false)}>
-                            Close
-                          </Button>
-                        </div>
-                      ) : (
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="inq-name">Name *</Label>
-                              <Input id="inq-name" value={formName} onChange={(e) => setFormName(e.target.value)} required />
-                            </div>
-                            <div>
-                              <Label htmlFor="inq-email">Email *</Label>
-                              <Input id="inq-email" type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} required />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="inq-org">Organization / Team</Label>
-                              <Input id="inq-org" value={formOrg} onChange={(e) => setFormOrg(e.target.value)} />
-                            </div>
-                            <div>
-                              <Label htmlFor="inq-phone">Phone</Label>
-                              <Input id="inq-phone" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} />
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label htmlFor="inq-qty">Quantity Estimate</Label>
-                              <Input id="inq-qty" placeholder="e.g. 25-50" value={formQty} onChange={(e) => setFormQty(e.target.value)} />
-                            </div>
-                            <div>
-                              <Label htmlFor="inq-dec">Decoration Type</Label>
-                              <Select value={formDecoration} onValueChange={setFormDecoration}>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select…" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {DECORATION_TYPES.map((d) => (
-                                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-
-                          <div>
-                            <Label htmlFor="inq-notes">Notes</Label>
-                            <Textarea
-                              id="inq-notes"
-                              placeholder="Tell us more about your project…"
-                              value={formNotes}
-                              onChange={(e) => setFormNotes(e.target.value)}
-                              rows={3}
-                            />
-                          </div>
-
-                          {/* Hidden context shown as summary */}
-                          <div className="bg-secondary/50 rounded-lg p-3 text-xs text-muted-foreground">
-                            <strong>Product:</strong> {productName} · <strong>Brand:</strong> {brandName} · <strong>Style:</strong> #{partNumber}
-                            {selectedColor && <> · <strong>Color:</strong> {selectedColor}</>}
-                          </div>
-
-                          <Button type="submit" className="w-full btn-cta" disabled={submitMutation.isPending}>
-                            {submitMutation.isPending ? (
-                              <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting…</>
-                            ) : (
-                              <><Send className="w-4 h-4 mr-2" /> Submit Inquiry</>
-                            )}
-                          </Button>
-                        </form>
-                      )}
-                    </DialogContent>
-                  </Dialog>
 
                   <Button variant="outline" size="lg" className="w-full" onClick={handleShare}>
                     <Share2 className="w-4 h-4 mr-2" />
