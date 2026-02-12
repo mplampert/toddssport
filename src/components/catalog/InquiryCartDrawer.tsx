@@ -29,6 +29,7 @@ export function InquiryCartDrawer() {
   const [phone, setPhone] = useState("");
   const [org, setOrg] = useState("");
   const [timeline, setTimeline] = useState("");
+  const [decorationType, setDecorationType] = useState("");
   const [notes, setNotes] = useState("");
 
   openDrawerFn = () => setOpen(true);
@@ -69,10 +70,10 @@ export function InquiryCartDrawer() {
         product_name: `Multi-product inquiry (${items.length} items)`,
         product_brand: products.map((p) => p.brand).filter(Boolean).join(", "),
         product_style_code: products.map((p) => p.style_code).filter(Boolean).join(", "),
-        product_color: "",
+        product_color: products.map((p) => p.color).filter(Boolean).join(", "),
         quantity_estimate: products.map((p) => `${p.name}: ${p.qty}`).join(", "),
-        decoration_type: "",
-        notes: `MULTI-PRODUCT INQUIRY (${items.length} items)\n\nTimeline: ${timeline || "Not specified"}\n\nProducts:\n${productSummary}\n\nAdditional Notes: ${notes || "None"}`,
+        decoration_type: decorationType.trim() || "",
+        notes: `MULTI-PRODUCT INQUIRY (${items.length} items)\n\nTimeline: ${timeline || "Not specified"}\nDecoration: ${decorationType || "Not specified"}\n\nProducts:\n${productSummary}\n\nAdditional Notes: ${notes || "None"}`,
         // Include structured data
         products,
         inquiry_type: "multi_product",
@@ -117,6 +118,7 @@ export function InquiryCartDrawer() {
     setPhone("");
     setOrg("");
     setTimeline("");
+    setDecorationType("");
     setNotes("");
     setSubmitted(false);
   };
@@ -238,9 +240,15 @@ export function InquiryCartDrawer() {
                 </div>
               </div>
 
-              <div>
-                <Label htmlFor="inq-timeline" className="text-xs">Timeline</Label>
-                <Input id="inq-timeline" placeholder="e.g. Need by March 15" value={timeline} onChange={(e) => setTimeline(e.target.value)} className="h-9" />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label htmlFor="inq-timeline" className="text-xs">Timeline</Label>
+                  <Input id="inq-timeline" placeholder="e.g. Need by March 15" value={timeline} onChange={(e) => setTimeline(e.target.value)} className="h-9" />
+                </div>
+                <div>
+                  <Label htmlFor="inq-decoration" className="text-xs">Decoration Type</Label>
+                  <Input id="inq-decoration" placeholder="e.g. Screen Print, Embroidery" value={decorationType} onChange={(e) => setDecorationType(e.target.value)} className="h-9" />
+                </div>
               </div>
 
               <div>
