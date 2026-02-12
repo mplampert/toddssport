@@ -30,6 +30,7 @@ export function InquiryCartDrawer() {
   const [org, setOrg] = useState("");
   const [timeline, setTimeline] = useState("");
   const [decorationType, setDecorationType] = useState("");
+  const [estimatedQty, setEstimatedQty] = useState("");
   const [notes, setNotes] = useState("");
 
   openDrawerFn = () => setOpen(true);
@@ -71,7 +72,7 @@ export function InquiryCartDrawer() {
         product_brand: products.map((p) => p.brand).filter(Boolean).join(", "),
         product_style_code: products.map((p) => p.style_code).filter(Boolean).join(", "),
         product_color: products.map((p) => p.color).filter(Boolean).join(", "),
-        quantity_estimate: products.map((p) => `${p.name}: ${p.qty}`).join(", "),
+        quantity_estimate: estimatedQty.trim() || products.map((p) => `${p.name}: ${p.qty}`).join(", "),
         decoration_type: decorationType.trim() || "",
         notes: `MULTI-PRODUCT INQUIRY (${items.length} items)\n\nTimeline: ${timeline || "Not specified"}\nDecoration: ${decorationType || "Not specified"}\n\nProducts:\n${productSummary}\n\nAdditional Notes: ${notes || "None"}`,
         // Include structured data
@@ -119,6 +120,7 @@ export function InquiryCartDrawer() {
     setOrg("");
     setTimeline("");
     setDecorationType("");
+    setEstimatedQty("");
     setNotes("");
     setSubmitted(false);
   };
@@ -240,14 +242,18 @@ export function InquiryCartDrawer() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <Label htmlFor="inq-timeline" className="text-xs">Timeline</Label>
-                  <Input id="inq-timeline" placeholder="e.g. Need by March 15" value={timeline} onChange={(e) => setTimeline(e.target.value)} className="h-9" />
+                  <Label htmlFor="inq-qty" className="text-xs">Est. Quantity</Label>
+                  <Input id="inq-qty" placeholder="e.g. 50-100" value={estimatedQty} onChange={(e) => setEstimatedQty(e.target.value)} className="h-9" />
                 </div>
                 <div>
-                  <Label htmlFor="inq-decoration" className="text-xs">Decoration Type</Label>
-                  <Input id="inq-decoration" placeholder="e.g. Screen Print, Embroidery" value={decorationType} onChange={(e) => setDecorationType(e.target.value)} className="h-9" />
+                  <Label htmlFor="inq-timeline" className="text-xs">Timeline</Label>
+                  <Input id="inq-timeline" placeholder="e.g. March 15" value={timeline} onChange={(e) => setTimeline(e.target.value)} className="h-9" />
+                </div>
+                <div>
+                  <Label htmlFor="inq-decoration" className="text-xs">Decoration</Label>
+                  <Input id="inq-decoration" placeholder="e.g. Screen Print" value={decorationType} onChange={(e) => setDecorationType(e.target.value)} className="h-9" />
                 </div>
               </div>
 
