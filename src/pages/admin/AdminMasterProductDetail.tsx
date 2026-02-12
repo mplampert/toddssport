@@ -31,18 +31,39 @@ export default function AdminMasterProductDetail() {
   });
 
   // Fetch S&S color/variant data for S&S products
-  const ssStyleId = product?.source === "ss_activewear" ? product.source_sku : null;
+  // source_sku holds the styleName (e.g. "18500"), but the S&S API needs the numeric styleID.
+  // Look it up from catalog_styles first, then fall back to supplier_item_number (partNumber).
+  const isSSProduct = product?.source === "ss_activewear";
+  const ssSourceSku = isSSProduct ? product.source_sku : null;
+  const ssSupplierItem = isSSProduct ? (product as any).supplier_item_number : null;
+
+  const { data: resolvedStyleId } = useQuery({
+    queryKey: ["ss-resolve-style-id", ssSourceSku, ssSupplierItem],
+    queryFn: async () => {
+      // Try matching by part_number (supplier item) first, then by style_name
+      const { data } = await supabase
+        .from("catalog_styles")
+        .select("style_id")
+        .or(`part_number.eq.${ssSupplierItem},style_name.eq.${ssSourceSku}`)
+        .limit(1)
+        .maybeSingle();
+      return data?.style_id ?? null;
+    },
+    enabled: !!(ssSourceSku || ssSupplierItem),
+    staleTime: Infinity,
+  });
+
   const { data: ssProducts = [], isLoading: loadingSS } = useQuery({
-    queryKey: ["admin-ss-products", ssStyleId],
+    queryKey: ["admin-ss-products", resolvedStyleId],
     queryFn: async () => {
       try {
-        const data = await getProducts({ style: ssStyleId! });
+        const data = await getProducts({ style: resolvedStyleId! });
         return Array.isArray(data) ? data : [];
       } catch {
         return [];
       }
     },
-    enabled: !!ssStyleId,
+    enabled: !!resolvedStyleId,
   });
 
   // Deduplicate colors from S&S variants
@@ -229,7 +250,7 @@ export default function AdminMasterProductDetail() {
                   </div>
                 </>
               )}
-              {ssStyleId && loadingSS && (
+              {isSSProduct && loadingSS && (
                 <>
                   <Separator />
                   <Skeleton className="h-12 w-full" />
