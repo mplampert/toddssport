@@ -153,49 +153,8 @@ serve(async (req) => {
           console.warn(`[SS Backfill Images] Products API ${resp.status} for style=${lookupKey}`);
         }
 
-        // If products call returned empty and we don't have a styleId,
-        // resolve via the styles endpoint (handles numeric part numbers)
-        if (ssProducts.length === 0 && !styleId) {
-          console.log(`[SS Backfill Images] Attempting styles API resolution for: ${lookupKey}`);
-          const stylesResp = await fetch(
-            `${SS_BASE}/styles?style=${encodeURIComponent(lookupKey)}`,
-            { headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" } }
-          );
-          remaining = parseInt(stylesResp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-
-          if (stylesResp.ok) {
-            const stylesData = await stylesResp.json();
-            const styles = Array.isArray(stylesData) ? stylesData : [];
-            if (styles.length > 0) {
-              const resolvedStyleName = styles[0].styleName;
-              const resolvedStyleId = styles[0].styleID;
-              console.log(`[SS Backfill Images] Resolved ${lookupKey} → styleName=${resolvedStyleName}, styleID=${resolvedStyleId}`);
-
-              // Fix the style_code on the master_product
-              await db.from("master_products").update({
-                style_code: resolvedStyleName,
-                source_sku: resolvedStyleName,
-                supplier_item_number: styles[0].partNumber || product.supplier_item_number,
-              }).eq("id", product.id);
-              resolved++;
-
-              // Retry with resolved styleID
-              const retryResp = await fetch(`${SS_BASE}/products/${resolvedStyleId}`, {
-                headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-              });
-              if (retryResp.ok) {
-                const retryData = await retryResp.json();
-                ssProducts = Array.isArray(retryData) ? retryData : [];
-              } else {
-                await retryResp.text();
-              }
-            }
-          } else {
-            await stylesResp.text();
-          }
-
-          if (remaining < 5) await new Promise((r) => setTimeout(r, 12000));
-        }
+        // If initial lookup failed, skip — resolution is handled by the nightly cron Phase 1
+        // which downloads ALL styles and does proper part-number matching.
 
         if (ssProducts.length === 0) {
           skipped++;

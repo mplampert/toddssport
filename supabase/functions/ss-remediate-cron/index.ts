@@ -17,7 +17,6 @@ function resolveImage(val: string | undefined | null): string | null {
  * No user auth required — called by pg_cron with service role.
  */
 serve(async (req) => {
-  // Allow cron calls (no CORS needed, but keep OPTIONS for safety)
   if (req.method === "OPTIONS") {
     return new Response("ok", { status: 200 });
   }
@@ -36,7 +35,7 @@ serve(async (req) => {
   const basicAuth = btoa(`${ssAccount}:${ssKey}`);
 
   try {
-    // ── Phase 1: Fix style codes ──
+    // ── Phase 1: Download all styles, populate catalog_styles, fix style codes ──
     console.log("[SS Cron] Starting Phase 1...");
     const stylesResp = await fetch(`${SS_BASE}/styles`, {
       headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
@@ -46,13 +45,42 @@ serve(async (req) => {
     const allStyles = await stylesResp.json();
     console.log(`[SS Cron] Phase 1: ${allStyles.length} styles from API`);
 
+    // Upsert all styles into catalog_styles for future use by backfill functions
+    const catalogRows = allStyles.map((s: any) => ({
+      style_id: s.styleID,
+      style_name: s.styleName || String(s.styleID),
+      part_number: s.partNumber || null,
+      brand_name: s.brandName || "",
+      title: s.title || null,
+      description: s.description || null,
+      base_category: s.baseCategory || null,
+      style_image: s.styleImage || null,
+      brand_image: s.brandImage || null,
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    }));
+
+    // Batch upsert catalog_styles
+    for (let i = 0; i < catalogRows.length; i += 200) {
+      const chunk = catalogRows.slice(i, i + 200);
+      const { error: upsertErr } = await db
+        .from("catalog_styles")
+        .upsert(chunk, { onConflict: "style_id" });
+      if (upsertErr) console.warn(`[SS Cron] catalog_styles upsert error:`, upsertErr.message);
+    }
+    console.log(`[SS Cron] Phase 1: upserted ${catalogRows.length} catalog_styles`);
+
+    // Build lookup maps
     const styleMap = new Map<string, any>();
     const partToStyle = new Map<string, string>();
+    const styleNameToId = new Map<string, number>();
     for (const s of allStyles) {
       const key = s.styleName || String(s.styleID);
       styleMap.set(key, s);
+      styleNameToId.set(key, s.styleID);
       if (s.partNumber && s.styleName && s.partNumber !== s.styleName) {
         partToStyle.set(s.partNumber, s.styleName);
+        styleNameToId.set(s.partNumber, s.styleID);
       }
     }
 
@@ -101,6 +129,7 @@ serve(async (req) => {
     console.log(`[SS Cron] Phase 1 done: ${p1Fixed} fixed`);
 
     // ── Phase 2: Loop through all products for pricing + colors ──
+    // Use styleNameToId map to get numeric styleID for reliable API lookups
     let offset = 0;
     let totalPricing = 0;
     let totalColors = 0;
@@ -110,7 +139,7 @@ serve(async (req) => {
     while (true) {
       const { data: batch, error: bErr } = await db
         .from("master_products")
-        .select("id, style_code, source_sku, pricing_override")
+        .select("id, style_code, source_sku, supplier_item_number, pricing_override")
         .eq("source", "ss_activewear")
         .eq("active", true)
         .order("created_at", { ascending: true })
@@ -124,20 +153,46 @@ serve(async (req) => {
         if (!styleCode) continue;
 
         try {
-          const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
-          const resp = await fetch(apiUrl, {
-            headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-          });
-          const remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+          // Resolve to numeric styleID for reliable API lookup
+          let numericId = styleNameToId.get(styleCode);
+          if (!numericId && product.supplier_item_number) {
+            numericId = styleNameToId.get(product.supplier_item_number);
+          }
 
-          if (!resp.ok) {
+          let ssProducts: any[] = [];
+          let remaining = 100;
+
+          if (numericId) {
+            // Use styleID directly — most reliable
+            const resp = await fetch(`${SS_BASE}/products/${numericId}`, {
+              headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+            });
+            remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+            if (resp.ok) {
+              const data = await resp.json();
+              ssProducts = Array.isArray(data) ? data : [];
+            } else {
+              await resp.text();
+            }
+          } else {
+            // Fallback to style name query
+            const resp = await fetch(`${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`, {
+              headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+            });
+            remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+            if (resp.ok) {
+              const data = await resp.json();
+              ssProducts = Array.isArray(data) ? data : [];
+            } else {
+              await resp.text();
+            }
+          }
+
+          if (ssProducts.length === 0) {
             totalErrors++;
             if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
             continue;
           }
-
-          const ssProducts = await resp.json();
-          if (!Array.isArray(ssProducts) || ssProducts.length === 0) continue;
 
           // Pricing
           if (!product.pricing_override) {
