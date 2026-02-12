@@ -1312,6 +1312,8 @@ export type Database = {
           image_url: string | null
           msrp: number | null
           name: string
+          pricing_override: boolean
+          pricing_synced_at: string | null
           product_type: string
           source: string
           source_sku: string | null
@@ -1334,6 +1336,8 @@ export type Database = {
           image_url?: string | null
           msrp?: number | null
           name: string
+          pricing_override?: boolean
+          pricing_synced_at?: string | null
           product_type?: string
           source?: string
           source_sku?: string | null
@@ -1356,6 +1360,8 @@ export type Database = {
           image_url?: string | null
           msrp?: number | null
           name?: string
+          pricing_override?: boolean
+          pricing_synced_at?: string | null
           product_type?: string
           source?: string
           source_sku?: string | null
@@ -1720,6 +1726,50 @@ export type Database = {
             columns: ["team_store_id"]
             isOneToOne: false
             referencedRelation: "team_stores_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      product_size_pricing: {
+        Row: {
+          case_price: number | null
+          created_at: string
+          dozen_price: number | null
+          id: string
+          is_upcharge: boolean
+          master_product_id: string
+          piece_price: number | null
+          size_name: string
+          updated_at: string
+        }
+        Insert: {
+          case_price?: number | null
+          created_at?: string
+          dozen_price?: number | null
+          id?: string
+          is_upcharge?: boolean
+          master_product_id: string
+          piece_price?: number | null
+          size_name: string
+          updated_at?: string
+        }
+        Update: {
+          case_price?: number | null
+          created_at?: string
+          dozen_price?: number | null
+          id?: string
+          is_upcharge?: boolean
+          master_product_id?: string
+          piece_price?: number | null
+          size_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_size_pricing_master_product_id_fkey"
+            columns: ["master_product_id"]
+            isOneToOne: false
+            referencedRelation: "master_products"
             referencedColumns: ["id"]
           },
         ]
