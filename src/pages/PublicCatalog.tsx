@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
@@ -13,6 +13,8 @@ import {
   type CatalogProductData,
   type ProductColorDot,
 } from "@/components/catalog/CatalogProductCard";
+import { PopularProductsRow } from "@/components/catalog/PopularProductsRow";
+import { SeasonOccasionPills, type CollectionPill } from "@/components/catalog/SeasonOccasionPills";
 import { buildCategoryFilter } from "@/lib/catalogCategories";
 
 const PAGE_SIZE = 36;
@@ -21,10 +23,10 @@ export default function PublicCatalog() {
   const [search, setSearch] = useState("");
   const [brandFilter, setBrandFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [collectionFilter, setCollectionFilter] = useState<{ type: "season" | "occasion"; value: string } | null>(null);
   const [page, setPage] = useState(0);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Reset page on filter change
   const resetPage = () => setPage(0);
 
   // ── Filter options (brands) ──
@@ -57,6 +59,7 @@ export default function PublicCatalog() {
       brandFilter,
       categoryFilter,
       search,
+      collectionFilter,
       filterOptions?.hiddenBrandIds,
     ],
     queryFn: async () => {
@@ -96,6 +99,15 @@ export default function PublicCatalog() {
         } else {
           const orClause = dbValues.map((v) => `category.ilike.${v}`).join(",");
           query = query.or(orClause);
+        }
+      }
+
+      // Season/occasion filter
+      if (collectionFilter) {
+        if (collectionFilter.type === "season") {
+          query = query.contains("seasons", [collectionFilter.value]);
+        } else {
+          query = query.contains("occasions", [collectionFilter.value]);
         }
       }
 
@@ -160,13 +172,21 @@ export default function PublicCatalog() {
     setSearch("");
     setBrandFilter("all");
     setCategoryFilter("all");
+    setCollectionFilter(null);
     setPage(0);
   };
 
   const handleCategoryTileClick = (groupLabel: string) => {
     setCategoryFilter(groupLabel || "all");
     resetPage();
-    // Scroll to grid
+    setTimeout(() => {
+      gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
+  const handleCollectionSelect = (pill: CollectionPill | null) => {
+    setCollectionFilter(pill ? { type: pill.filterType, value: pill.filterValue } : null);
+    resetPage();
     setTimeout(() => {
       gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 100);
@@ -176,6 +196,8 @@ export default function PublicCatalog() {
     setPage(newPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const hasActiveFilters = search || brandFilter !== "all" || categoryFilter !== "all" || collectionFilter !== null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -198,10 +220,19 @@ export default function PublicCatalog() {
           </div>
         </section>
 
+        {/* Popular Products Row */}
+        <PopularProductsRow />
+
         {/* Category Tiles */}
         <CatalogCategoryTiles
           onSelect={handleCategoryTileClick}
           activeCategory={categoryFilter !== "all" ? categoryFilter : null}
+        />
+
+        {/* Season/Occasion Collection Pills */}
+        <SeasonOccasionPills
+          activeFilter={collectionFilter}
+          onSelect={handleCollectionSelect}
         />
 
         {/* Filters */}
@@ -224,6 +255,8 @@ export default function PublicCatalog() {
           brands={brands}
           onClearAll={clearFilters}
           totalCount={totalCount}
+          collectionFilter={collectionFilter}
+          onCollectionClear={() => { setCollectionFilter(null); resetPage(); }}
         />
 
         {/* Product Grid */}
@@ -252,8 +285,7 @@ export default function PublicCatalog() {
               </div>
             ) : (
               <>
-                {/* Result count (only when no chips are shown) */}
-                {!search && brandFilter === "all" && categoryFilter === "all" && (
+                {!hasActiveFilters && (
                   <p className="text-sm text-muted-foreground mb-6">
                     {totalCount.toLocaleString()} products
                   </p>
@@ -269,7 +301,6 @@ export default function PublicCatalog() {
                   ))}
                 </div>
 
-                {/* Pagination */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-center gap-2 mt-8">
                     <Button
