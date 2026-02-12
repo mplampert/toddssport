@@ -11,6 +11,8 @@ import { Loader2, ArrowLeft, Package, Search, Plus, Store } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 
+type ColorCountMap = Record<string, number>;
+
 const CATEGORY_LABELS: Record<string, string> = {
   tee: "T‑Shirts",
   hoodie: "Hoodies & Sweatshirts",
@@ -86,6 +88,33 @@ export default function AdminMasterCatalogBrand() {
     enabled: !!brandId,
   });
 
+  // Fetch color counts from product_color_images table
+  const { data: colorCounts = {} as ColorCountMap } = useQuery({
+    queryKey: ["master-catalog-color-counts", brandId],
+    queryFn: async () => {
+      const productIds = (products || []).map((p) => p.id);
+      if (productIds.length === 0) return {} as ColorCountMap;
+      
+      // Query in chunks to avoid URL length limits
+      const counts: ColorCountMap = {};
+      const chunkSize = 100;
+      for (let i = 0; i < productIds.length; i += chunkSize) {
+        const chunk = productIds.slice(i, i + chunkSize);
+        const { data } = await supabase
+          .from("product_color_images")
+          .select("master_product_id")
+          .in("master_product_id", chunk);
+        if (data) {
+          for (const row of data) {
+            counts[row.master_product_id] = (counts[row.master_product_id] || 0) + 1;
+          }
+        }
+      }
+      return counts;
+    },
+    enabled: !!(products && products.length > 0),
+  });
+
   // Derive categories, sources, types
   const { categories, sources, types } = useMemo(() => {
     const cats = new Map<string, number>();
@@ -119,15 +148,6 @@ export default function AdminMasterCatalogBrand() {
       return true;
     });
   }, [products, search, categoryFilter, typeFilter]);
-
-  // Count available_colors length for display
-  function colorCount(p: any): number {
-    if (Array.isArray(p.available_colors)) return p.available_colors.length;
-    if (p.available_colors && typeof p.available_colors === "object") {
-      return Object.keys(p.available_colors).length;
-    }
-    return 0;
-  }
 
   return (
     <AdminLayout>
@@ -250,7 +270,7 @@ export default function AdminMasterCatalogBrand() {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             {filtered.map((product) => {
-              const colors = colorCount(product);
+              const colors = colorCounts[product.id] || 0;
               return (
                 <Link
                   key={product.id}
