@@ -81,6 +81,12 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`SS API error: ${response.status} - ${errorText}`);
+      // Return empty array for 404 (discontinued/not found) instead of error status
+      if (response.status === 404) {
+        return new Response(JSON.stringify([]), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       return new Response(
         JSON.stringify({ error: `S&S API error: ${response.status}`, details: errorText }),
         { status: response.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
