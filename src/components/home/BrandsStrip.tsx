@@ -4,12 +4,13 @@ interface Brand {
   logo_url: string | null;
 }
 
+const FEATURED_BRANDS = ["under armour", "nike", "spyder", "marmot"];
+
 const defaultBrands: Brand[] = [
-  { id: "1", name: "Nike", logo_url: "/brands/nike.png" },
-  { id: "2", name: "Under Armour", logo_url: "/brands/under-armour.png" },
-  { id: "3", name: "Adidas", logo_url: "/brands/adidas.png" },
-  { id: "4", name: "The North Face", logo_url: "/brands/the-north-face.png" },
-  { id: "5", name: "Carhartt", logo_url: null },
+  { id: "1", name: "Under Armour", logo_url: "/brands/under-armour.png" },
+  { id: "2", name: "Nike", logo_url: "/brands/nike.png" },
+  { id: "3", name: "Spyder", logo_url: null },
+  { id: "4", name: "Marmot", logo_url: null },
 ];
 
 interface BrandsStripProps {
@@ -17,6 +18,10 @@ interface BrandsStripProps {
 }
 
 export function BrandsStrip({ brands = defaultBrands }: BrandsStripProps) {
+  const filtered = brands.filter((b) =>
+    FEATURED_BRANDS.includes(b.name.toLowerCase())
+  );
+  const displayBrands = filtered.length > 0 ? filtered : defaultBrands;
   return (
     <section className="py-12 md:py-16 bg-secondary">
       <div className="container mx-auto px-4">
@@ -25,7 +30,7 @@ export function BrandsStrip({ brands = defaultBrands }: BrandsStripProps) {
         </h2>
         
         <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 lg:gap-14">
-          {brands.map((brand) => (
+          {displayBrands.map((brand) => (
             <div 
               key={brand.id}
               className="flex items-center justify-center"
