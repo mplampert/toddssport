@@ -417,17 +417,17 @@ export function SSBulkImportPanel() {
               <span className="text-xs text-muted-foreground font-medium">S&S products with color images</span>
             </div>
             <div className="flex items-center gap-2">
-              <p className="text-lg font-bold text-foreground">{debugStats.ssWithColors.toLocaleString()}</p>
+              <p className="text-lg font-bold text-foreground">{(debugStats.ssWithColors ?? 0).toLocaleString()}</p>
               <span className="text-xs text-muted-foreground">/ {debugStats.ssTotal.toLocaleString()}</span>
               {debugStats.ssTotal > 0 && (
                 <span className="text-xs font-medium ml-1">
-                  ({Math.round((debugStats.ssWithColors / debugStats.ssTotal) * 100)}%)
-                  {debugStats.ssWithColors >= debugStats.ssTotal ? " ✅ Complete!" : ` — ${(debugStats.ssTotal - debugStats.ssWithColors).toLocaleString()} remaining`}
+                  ({Math.round(((debugStats.ssWithColors ?? 0) / debugStats.ssTotal) * 100)}%)
+                  {(debugStats.ssWithColors ?? 0) >= debugStats.ssTotal ? " ✅ Complete!" : ` — ${(debugStats.ssTotal - (debugStats.ssWithColors ?? 0)).toLocaleString()} remaining`}
                 </span>
               )}
             </div>
             {debugStats.ssTotal > 0 && (
-              <Progress value={(debugStats.ssWithColors / debugStats.ssTotal) * 100} className="h-1.5 mt-2" />
+              <Progress value={((debugStats.ssWithColors ?? 0) / debugStats.ssTotal) * 100} className="h-1.5 mt-2" />
             )}
           </div>
           {apiStyleCount !== null && (
