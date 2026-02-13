@@ -300,38 +300,26 @@ async function runPhase2(db: any, basicAuth: string, offset: number, limit: numb
     if (!styleCode) continue;
 
     try {
-      // Resolve to numeric styleID via catalog_styles
-      let numericId = styleIdMap.get(styleCode);
-      if (!numericId && product.supplier_item_number) {
-        numericId = styleIdMap.get(product.supplier_item_number);
-      }
-
       let ssProducts: SSProduct[] = [];
       let remaining = 100;
 
-      if (numericId) {
-        // Use styleID directly — most reliable
-        const resp = await fetch(`${SS_BASE}/products/${numericId}`, {
-          headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-        });
-        remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-        if (resp.ok) {
-          const data = await resp.json();
+      const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
+      const resp = await fetch(apiUrl, {
+        headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+      });
+      remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+      if (resp.ok) {
+        const text = await resp.text();
+        try {
+          const data = JSON.parse(text);
           ssProducts = Array.isArray(data) ? data : [];
-        } else {
-          await resp.text();
+        } catch {
+          console.warn(`[SS Remediate P2] Invalid JSON for ${styleCode}: ${text.substring(0, 200)}`);
         }
       } else {
-        // Fallback: try style name query (works for some products)
-        const resp = await fetch(`${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`, {
-          headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-        });
-        remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-        if (resp.ok) {
-          const data = await resp.json();
-          ssProducts = Array.isArray(data) ? data : [];
-        } else {
-          await resp.text();
+        const errText = await resp.text();
+        if (resp.status !== 404) {
+          console.warn(`[SS Remediate P2] API ${resp.status} for ${styleCode}: ${errText.substring(0, 200)}`);
         }
       }
 

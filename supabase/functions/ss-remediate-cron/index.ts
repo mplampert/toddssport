@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 const SS_BASE = "https://api.ssactivewear.com/v2";
 const SS_MEDIA_BASE = "https://www.ssactivewear.com/";
 const CORE_SIZES = new Set(["XS", "S", "M", "L", "XL"]);
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 40;
 
 function resolveImage(val: string | undefined | null): string | null {
   if (!val) return null;
@@ -13,8 +13,10 @@ function resolveImage(val: string | undefined | null): string | null {
 }
 
 /**
- * Cron-triggered S&S remediation: runs Phase 1 then loops Phase 2 through all products.
- * No user auth required — called by pg_cron with service role.
+ * Cron-triggered S&S remediation worker.
+ * Each invocation processes BATCH_SIZE products that are missing pricing/images.
+ * Phase 1 (style refresh) only runs when ?phase1=true or body.phase1=true.
+ * Schedule every 5 minutes to chew through backlog.
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -34,161 +36,163 @@ serve(async (req) => {
   const db = createClient(supabaseUrl, serviceKey);
   const basicAuth = btoa(`${ssAccount}:${ssKey}`);
 
+  const url = new URL(req.url);
+  const body = await req.json().catch(() => ({}));
+  const runPhase1 = url.searchParams.get("phase1") === "true" || body.phase1 === true;
+
   try {
-    // ── Phase 1: Download all styles, populate catalog_styles, fix style codes ──
-    console.log("[SS Cron] Starting Phase 1...");
-    const stylesResp = await fetch(`${SS_BASE}/styles`, {
-      headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-    });
-    if (!stylesResp.ok) throw new Error(`Styles fetch failed: ${stylesResp.status}`);
-
-    const allStyles = await stylesResp.json();
-    console.log(`[SS Cron] Phase 1: ${allStyles.length} styles from API`);
-
-    // Upsert all styles into catalog_styles for future use by backfill functions
-    const catalogRows = allStyles.map((s: any) => ({
-      style_id: s.styleID,
-      style_name: s.styleName || String(s.styleID),
-      part_number: s.partNumber || null,
-      brand_name: s.brandName || "",
-      title: s.title || null,
-      description: s.description || null,
-      base_category: s.baseCategory || null,
-      style_image: s.styleImage || null,
-      brand_image: s.brandImage || null,
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    }));
-
-    // Batch upsert catalog_styles
-    for (let i = 0; i < catalogRows.length; i += 200) {
-      const chunk = catalogRows.slice(i, i + 200);
-      const { error: upsertErr } = await db
-        .from("catalog_styles")
-        .upsert(chunk, { onConflict: "style_id" });
-      if (upsertErr) console.warn(`[SS Cron] catalog_styles upsert error:`, upsertErr.message);
-    }
-    console.log(`[SS Cron] Phase 1: upserted ${catalogRows.length} catalog_styles`);
-
-    // Build lookup maps
-    const styleMap = new Map<string, any>();
-    const partToStyle = new Map<string, string>();
-    const styleNameToId = new Map<string, number>();
-    for (const s of allStyles) {
-      const key = s.styleName || String(s.styleID);
-      styleMap.set(key, s);
-      styleNameToId.set(key, s.styleID);
-      if (s.partNumber && s.styleName && s.partNumber !== s.styleName) {
-        partToStyle.set(s.partNumber, s.styleName);
-        styleNameToId.set(s.partNumber, s.styleID);
-      }
-    }
-
-    // Fetch all ss_activewear products
-    let allProducts: any[] = [];
-    let page = 0;
-    while (true) {
-      const { data, error } = await db
-        .from("master_products")
-        .select("id, style_code, source_sku, supplier_item_number, name, base_price, msrp, pricing_override")
-        .eq("source", "ss_activewear")
-        .range(page * 1000, (page + 1) * 1000 - 1);
-      if (error) throw error;
-      if (!data || data.length === 0) break;
-      allProducts = allProducts.concat(data);
-      if (data.length < 1000) break;
-      page++;
-    }
-
     let p1Fixed = 0;
-    for (const product of allProducts) {
-      const currentStyleCode = product.style_code || product.source_sku;
-      let ssStyle = styleMap.get(currentStyleCode);
-      if (!ssStyle && product.source_sku) {
-        const c = partToStyle.get(product.source_sku);
-        if (c) ssStyle = styleMap.get(c);
-      }
-      if (!ssStyle && product.supplier_item_number) {
-        const c = partToStyle.get(product.supplier_item_number);
-        if (c) ssStyle = styleMap.get(c);
-      }
-      if (!ssStyle) continue;
+    let styleNameToId = new Map<string, number>();
 
-      const correctStyleCode = ssStyle.styleName || String(ssStyle.styleID);
-      const correctName = ssStyle.title || ssStyle.styleName;
-      if (product.style_code === correctStyleCode && product.source_sku === correctStyleCode) continue;
+    if (runPhase1) {
+      console.log("[SS Cron] Starting Phase 1...");
+      const stylesResp = await fetch(`${SS_BASE}/styles`, {
+        headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+      });
+      if (!stylesResp.ok) throw new Error(`Styles fetch failed: ${stylesResp.status}`);
 
-      const { error } = await db.from("master_products").update({
-        style_code: correctStyleCode,
-        source_sku: correctStyleCode,
-        supplier_item_number: ssStyle.partNumber || product.supplier_item_number,
-        name: correctName || product.name,
-      }).eq("id", product.id);
-      if (!error) p1Fixed++;
+      const allStyles = await stylesResp.json();
+      console.log(`[SS Cron] Phase 1: ${allStyles.length} styles from API`);
+
+      const catalogRows = allStyles.map((s: any) => ({
+        style_id: s.styleID,
+        style_name: s.styleName || String(s.styleID),
+        part_number: s.partNumber || null,
+        brand_name: s.brandName || "",
+        title: s.title || null,
+        description: s.description || null,
+        base_category: s.baseCategory || null,
+        style_image: s.styleImage || null,
+        brand_image: s.brandImage || null,
+        is_active: true,
+        updated_at: new Date().toISOString(),
+      }));
+
+      for (let i = 0; i < catalogRows.length; i += 200) {
+        const chunk = catalogRows.slice(i, i + 200);
+        await db.from("catalog_styles").upsert(chunk, { onConflict: "style_id" });
+      }
+      console.log(`[SS Cron] Phase 1: upserted ${catalogRows.length} catalog_styles`);
+
+      const styleMap = new Map<string, any>();
+      const partToStyle = new Map<string, string>();
+      for (const s of allStyles) {
+        const key = s.styleName || String(s.styleID);
+        styleMap.set(key, s);
+        styleNameToId.set(key, s.styleID);
+        if (s.partNumber && s.styleName && s.partNumber !== s.styleName) {
+          partToStyle.set(s.partNumber, s.styleName);
+          styleNameToId.set(s.partNumber, s.styleID);
+        }
+      }
+
+      let allProducts: any[] = [];
+      let page = 0;
+      while (true) {
+        const { data, error } = await db
+          .from("master_products")
+          .select("id, style_code, source_sku, supplier_item_number, name")
+          .eq("source", "ss_activewear")
+          .range(page * 1000, (page + 1) * 1000 - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allProducts = allProducts.concat(data);
+        if (data.length < 1000) break;
+        page++;
+      }
+
+      for (const product of allProducts) {
+        const currentStyleCode = product.style_code || product.source_sku;
+        let ssStyle = styleMap.get(currentStyleCode);
+        if (!ssStyle && product.source_sku) {
+          const c = partToStyle.get(product.source_sku);
+          if (c) ssStyle = styleMap.get(c);
+        }
+        if (!ssStyle && product.supplier_item_number) {
+          const c = partToStyle.get(product.supplier_item_number);
+          if (c) ssStyle = styleMap.get(c);
+        }
+        if (!ssStyle) continue;
+
+        const correctStyleCode = ssStyle.styleName || String(ssStyle.styleID);
+        if (product.style_code === correctStyleCode && product.source_sku === correctStyleCode) continue;
+
+        const { error } = await db.from("master_products").update({
+          style_code: correctStyleCode,
+          source_sku: correctStyleCode,
+          supplier_item_number: ssStyle.partNumber || product.supplier_item_number,
+          name: ssStyle.title || ssStyle.styleName || product.name,
+        }).eq("id", product.id);
+        if (!error) p1Fixed++;
+      }
+      console.log(`[SS Cron] Phase 1 done: ${p1Fixed} fixed`);
     }
-    console.log(`[SS Cron] Phase 1 done: ${p1Fixed} fixed`);
 
-    // ── Phase 2: Loop through all products for pricing + colors ──
-    // Use styleNameToId map to get numeric styleID for reliable API lookups
-    let offset = 0;
+    // ── Phase 2: Process a batch of unsynced products ──
+    if (styleNameToId.size === 0) {
+      const { data: csRows } = await db
+        .from("catalog_styles")
+        .select("style_id, style_name, part_number")
+        .limit(10000);
+      for (const row of csRows || []) {
+        if (row.style_name) styleNameToId.set(row.style_name, row.style_id);
+        if (row.part_number) styleNameToId.set(row.part_number, row.style_id);
+      }
+    }
+
+    // Get unsynced products (always offset 0 since we mark them as synced)
+    const { data: batch, error: bErr } = await db
+      .from("master_products")
+      .select("id, style_code, source_sku, supplier_item_number, pricing_override")
+      .eq("source", "ss_activewear")
+      .eq("active", true)
+      .or("pricing_synced_at.is.null,images_synced_at.is.null")
+      .order("created_at", { ascending: true })
+      .range(0, BATCH_SIZE - 1);
+
+    if (bErr) throw bErr;
+
     let totalPricing = 0;
     let totalColors = 0;
     let totalErrors = 0;
-    let totalProcessed = 0;
 
-    while (true) {
-      const { data: batch, error: bErr } = await db
-        .from("master_products")
-        .select("id, style_code, source_sku, supplier_item_number, pricing_override")
-        .eq("source", "ss_activewear")
-        .eq("active", true)
-        .order("created_at", { ascending: true })
-        .range(offset, offset + BATCH_SIZE - 1);
-
-      if (bErr) throw bErr;
-      if (!batch || batch.length === 0) break;
+    if (batch && batch.length > 0) {
+      console.log(`[SS Cron] Phase 2: processing ${batch.length} unsynced products`);
 
       for (const product of batch) {
         const styleCode = product.style_code || product.source_sku;
         if (!styleCode) continue;
 
         try {
-          // Resolve to numeric styleID for reliable API lookup
-          let numericId = styleNameToId.get(styleCode);
-          if (!numericId && product.supplier_item_number) {
-            numericId = styleNameToId.get(product.supplier_item_number);
-          }
-
           let ssProducts: any[] = [];
           let remaining = 100;
 
-          if (numericId) {
-            // Use styleID directly — most reliable
-            const resp = await fetch(`${SS_BASE}/products/${numericId}`, {
-              headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-            });
-            remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-            if (resp.ok) {
-              const data = await resp.json();
+          // Always use style name/code — S&S API's ?style= param accepts styleName
+          const apiUrl = `${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`;
+          const resp = await fetch(apiUrl, {
+            headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
+          });
+          remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
+          if (resp.ok) {
+            const text = await resp.text();
+            try {
+              const data = JSON.parse(text);
               ssProducts = Array.isArray(data) ? data : [];
-            } else {
-              await resp.text();
+            } catch {
+              console.warn(`[SS Cron P2] Invalid JSON for ${styleCode}: ${text.substring(0, 200)}`);
             }
           } else {
-            // Fallback to style name query
-            const resp = await fetch(`${SS_BASE}/products?style=${encodeURIComponent(styleCode)}`, {
-              headers: { Authorization: `Basic ${basicAuth}`, "Content-Type": "application/json" },
-            });
-            remaining = parseInt(resp.headers.get("X-Rate-Limit-Remaining") || "100", 10);
-            if (resp.ok) {
-              const data = await resp.json();
-              ssProducts = Array.isArray(data) ? data : [];
-            } else {
-              await resp.text();
+            const errText = await resp.text();
+            if (resp.status !== 404) {
+              console.warn(`[SS Cron P2] API ${resp.status} for ${styleCode}: ${errText.substring(0, 200)}`);
             }
           }
 
           if (ssProducts.length === 0) {
+            await db.from("master_products").update({
+              pricing_synced_at: new Date().toISOString(),
+              images_synced_at: new Date().toISOString(),
+            }).eq("id", product.id);
             totalErrors++;
             if (remaining < 3) await new Promise((r) => setTimeout(r, 15000));
             continue;
@@ -284,13 +288,16 @@ serve(async (req) => {
           totalErrors++;
         }
       }
-
-      totalProcessed += batch.length;
-      offset += BATCH_SIZE;
-      if (batch.length < BATCH_SIZE) break;
     }
 
-    const summary = { p1Fixed, totalProcessed, totalPricing, totalColors, totalErrors };
+    const remaining = await db
+      .from("master_products")
+      .select("id", { count: "exact", head: true })
+      .eq("source", "ss_activewear")
+      .eq("active", true)
+      .or("pricing_synced_at.is.null,images_synced_at.is.null");
+
+    const summary = { p1Fixed, processed: batch?.length || 0, totalPricing, totalColors, totalErrors, remainingUnsynced: remaining.count || 0 };
     console.log("[SS Cron] Complete:", JSON.stringify(summary));
 
     return new Response(JSON.stringify({ success: true, summary }), {
