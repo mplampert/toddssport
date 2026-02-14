@@ -30,7 +30,7 @@ export function HeroSection() {
               size="lg"
               className="btn-cta text-lg px-8 py-6 font-bold"
             >
-              <Link to="/request-a-store">Request a Team Store</Link>
+              <Link to="/contact">Request a Team Store</Link>
             </Button>
             <Button 
               asChild
