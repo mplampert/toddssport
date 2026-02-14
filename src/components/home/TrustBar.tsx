@@ -1,9 +1,9 @@
 const items = [
-  "Trusted by 50+ teams across Massachusetts",
-  "30+ years in business",
-  "No minimums",
-  "Free setup",
-  "Built-in fundraising",
+  "100+ Team Stores Launched",
+  "30+ Years in Business",
+  "No Minimums",
+  "Free Setup",
+  "Built-In Fundraising",
 ];
 
 export function TrustBar() {
