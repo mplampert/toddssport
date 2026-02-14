@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Header } from "@/components/layout/Header";
 import { Footer } from "@/components/layout/Footer";
 import { HeroSection } from "@/components/home/HeroSection";
+import { TrustBar } from "@/components/home/TrustBar";
 import { ProgramCards } from "@/components/home/ProgramCards";
 import { FindYourRep } from "@/components/home/FindYourRep";
 import { WeAreStatement } from "@/components/home/WeAreStatement";
@@ -43,6 +44,7 @@ const Index = () => {
       <Header />
       <main className="flex-grow">
         <HeroSection />
+        <TrustBar />
         <ProgramCards />
         <FindYourRep />
         <WeAreStatement />

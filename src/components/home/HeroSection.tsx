@@ -1,21 +1,8 @@
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import heroMainImg from "@/assets/hero-main.jpg";
 
 export function HeroSection() {
-  const scrollToQuote = () => {
-    const quoteSection = document.getElementById("quote-form");
-    if (quoteSection) {
-      quoteSection.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
-  const scrollToRep = () => {
-    const repSection = document.getElementById("find-rep");
-    if (repSection) {
-      repSection.scrollIntoView({ behavior: "smooth" });
-    }
-  };
-
   return (
     <section className="relative min-h-[70vh] md:min-h-[80vh] flex items-center">
       {/* Background Image */}
@@ -35,23 +22,23 @@ export function HeroSection() {
             <span className="block text-accent">Todd's Delivers.</span>
           </h1>
           <p className="text-lg md:text-xl lg:text-2xl text-primary-foreground/90 mb-8 max-w-2xl leading-relaxed">
-            Custom uniforms, spirit wear, and branded gear for schools, clubs, and businesses—handled by a dedicated Todd's rep.
+            Custom team stores, uniforms, spirit wear, and branded gear for schools, clubs, and businesses — with built-in fundraising and direct-to-home shipping.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Button 
-              onClick={scrollToQuote}
+              asChild
               size="lg"
               className="btn-cta text-lg px-8 py-6 font-bold"
             >
-              Get a Team Quote
+              <Link to="/request-a-store">Request a Team Store</Link>
             </Button>
             <Button 
-              onClick={scrollToRep}
+              asChild
               variant="outline"
               size="lg"
               className="text-lg px-8 py-6 bg-primary-foreground/10 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground font-semibold"
             >
-              Find Your Rep
+              <Link to="/webstores">Find My Store</Link>
             </Button>
           </div>
         </div>
