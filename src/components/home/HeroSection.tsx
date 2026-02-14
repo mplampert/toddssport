@@ -38,7 +38,7 @@ export function HeroSection() {
               size="lg"
               className="text-lg px-8 py-6 bg-primary-foreground/10 border-2 border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground font-semibold"
             >
-              <Link to="/webstores">Find My Store</Link>
+              <a href="https://tsgonline.chipply.com/" target="_blank" rel="noopener noreferrer">Find My Store</a>
             </Button>
           </div>
         </div>
