@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { ScrollToTop } from "./components/ScrollToTop";
+import { initMetaPixelHelper } from "./utils/metaPixelHelper";
 import { ChatWidgetController } from "./components/ChatWidgetController";
 import Index from "./pages/Index";
 import Services from "./pages/Services";
@@ -122,6 +123,9 @@ import PublicCatalogDetail from "./pages/PublicCatalogDetail";
 import { InquiryCartDrawer } from "./components/catalog/InquiryCartDrawer";
 
 const queryClient = new QueryClient();
+
+// Initialize Meta Pixel helper (cookie handling + SPA navigation tracking)
+initMetaPixelHelper();
 
 const App = () => (
   <HelmetProvider>
