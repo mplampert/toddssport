@@ -13,7 +13,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { ArrowLeft, Save, Bell, Send, MessageSquare, Mail, Phone, Loader2 } from "lucide-react";
+import { ArrowLeft, Save, Bell, Send, MessageSquare, Mail, Phone, Loader2, Download } from "lucide-react";
+import { generateOrderPdf } from "@/utils/orderPdfExport";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -126,9 +127,40 @@ export default function StoreOrderDetail() {
           <Badge>{order.status}</Badge>
           {order.is_sample && <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-300">Sample</Badge>}
         </div>
-        <Button onClick={handleSave} disabled={!dirty || updateOrder.isPending}>
-          <Save className="w-4 h-4 mr-1" /> Save
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => {
+            generateOrderPdf({
+              orderNumber: order.order_number,
+              date: format(new Date(order.created_at), "MMMM d, yyyy 'at' h:mm a"),
+              customerName: order.customer_name || "—",
+              customerEmail: order.customer_email || undefined,
+              storeName: store.name,
+              status: order.status,
+              fulfillmentMethod: order.fulfillment_method,
+              fulfillmentStatus: order.fulfillment_status,
+              items,
+              subtotal,
+              discountTotal: Number(form.discount_total || 0),
+              taxTotal: Number(form.tax_total || 0),
+              shippingTotal: Number(form.shipping_total || 0),
+              feesJson: Array.isArray((order as any).fees_json) ? (order as any).fees_json : undefined,
+              total: computedTotal,
+              shippingAddress: order.fulfillment_method === "ship" ? {
+                name: order.shipping_name || undefined,
+                address1: order.shipping_address1 || undefined,
+                address2: order.shipping_address2 || undefined,
+                city: order.shipping_city || undefined,
+                state: order.shipping_state || undefined,
+                zip: order.shipping_zip || undefined,
+              } : undefined,
+            });
+          }}>
+            <Download className="w-4 h-4 mr-1" /> PDF
+          </Button>
+          <Button onClick={handleSave} disabled={!dirty || updateOrder.isPending}>
+            <Save className="w-4 h-4 mr-1" /> Save
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
