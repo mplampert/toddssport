@@ -242,7 +242,7 @@ export default function App() {
               </Route>
 
               {/* Admin team-stores section */}
-              <Route path="/admin/team-stores" element={<AdminGuard><TeamStoresLayout /></AdminGuard>}>
+              <Route path="/admin/team-stores" element={<AdminGuard><AdminTeamStores /></AdminGuard>}>
                 <Route index element={<TeamStoresDashboard />} />
                 <Route path="stores" element={<TeamStoresStores />} />
                 <Route path="orders" element={<TeamStoresOrders />} />
