@@ -41,7 +41,7 @@ const STORE_TABS = [
 ] as const;
 
 export default function AdminTeamStoreDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { storeId: id } = useParams<{ storeId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
 
