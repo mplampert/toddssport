@@ -1,26 +1,23 @@
-/* ─── Meta Pixel Helper ─── */
+// src/utils/metaPixelHelper.ts
+// Meta Pixel Enhancement Utility for Todd's Sporting Goods
+// Handles fbc/fbp cookie management and SPA navigation tracking
 
-// Extend Window for fbq
 declare global {
   interface Window {
-    fbq?: (...args: unknown[]) => void;
+    fbq: (...args: any[]) => void;
   }
 }
 
-const META_PIXEL_ID = "373119482079759";
-const COOKIE_DAYS = 90;
+const PIXEL_ID = '373119482079759';
+const COOKIE_EXPIRY_DAYS = 90;
 
-/* ── Cookie helpers ── */
+// ── Cookie Helpers ──────────────────────────────────────────
 
-function setCookie(name: string, value: string, days: number) {
+function setCookie(name: string, value: string, days: number): void {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  // Set on root domain
-  const hostParts = window.location.hostname.split(".");
-  const domain =
-    hostParts.length > 2
-      ? "." + hostParts.slice(-2).join(".")
-      : "." + window.location.hostname;
-  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;domain=${domain};SameSite=Lax`;
+  // Set on root domain so it works across subdomains
+  const domain = window.location.hostname.replace(/^www\./, '');
+  document.cookie = `${name}=${value};expires=${expires};path=/;domain=.${domain};SameSite=Lax`;
 }
 
 function getCookie(name: string): string | null {
@@ -28,74 +25,94 @@ function getCookie(name: string): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
-/* ── FBC / FBP handling ── */
+// ── FBC (Click ID) ─────────────────────────────────────────
 
-function handleFbc() {
-  const url = new URL(window.location.href);
-  const fbclid = url.searchParams.get("fbclid");
+function handleFbc(): void {
+  const params = new URLSearchParams(window.location.search);
+  const fbclid = params.get('fbclid');
+
   if (fbclid) {
     const fbc = `fb.1.${Date.now()}.${fbclid}`;
-    setCookie("_fbc", fbc, COOKIE_DAYS);
+    setCookie('_fbc', fbc, COOKIE_EXPIRY_DAYS);
   }
 }
 
-function handleFbp() {
-  if (!getCookie("_fbp")) {
-    const random = Math.floor(1e12 + Math.random() * 9e12); // 13-digit number
-    const fbp = `fb.1.${Date.now()}.${random}`;
-    setCookie("_fbp", fbp, COOKIE_DAYS);
+// ── FBP (Browser ID) ───────────────────────────────────────
+
+function handleFbp(): void {
+  if (!getCookie('_fbp')) {
+    const random13 = Math.floor(1000000000000 + Math.random() * 9000000000000);
+    const fbp = `fb.1.${Date.now()}.${random13}`;
+    setCookie('_fbp', fbp, COOKIE_EXPIRY_DAYS);
   }
 }
 
-/* ── Track event ── */
+// ── Track Event ─────────────────────────────────────────────
 
 export function trackMetaEvent(
   eventName: string,
-  eventData?: Record<string, unknown>,
-  userData?: { em?: string; ph?: string; [key: string]: unknown }
-) {
-  if (!window.fbq) return;
+  eventData?: Record<string, any>,
+  userData?: Record<string, any>
+): void {
+  if (typeof window.fbq !== 'function') return;
 
-  const fbc = getCookie("_fbc");
-  const fbp = getCookie("_fbp");
+  const fbc = getCookie('_fbc');
+  const fbp = getCookie('_fbp');
 
-  // Set advanced matching data if available
-  const advancedMatching: Record<string, unknown> = { ...userData };
-  if (fbc) advancedMatching.fbc = fbc;
-  if (fbp) advancedMatching.fbp = fbp;
+  const enhancedUserData: Record<string, any> = { ...userData };
+  if (fbc) enhancedUserData.fbc = fbc;
+  if (fbp) enhancedUserData.fbp = fbp;
 
-  if (Object.keys(advancedMatching).length > 0) {
-    window.fbq("init", META_PIXEL_ID, advancedMatching);
+  if (Object.keys(enhancedUserData).length > 0) {
+    window.fbq('track', eventName, eventData || {}, {
+      eventID: `${eventName}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+    });
+  } else {
+    window.fbq('track', eventName, eventData || {});
   }
-
-  window.fbq("track", eventName, eventData ?? {});
 }
 
-/* ── SPA navigation patching ── */
+// ── SPA Navigation Tracking ─────────────────────────────────
 
-function patchHistory() {
-  const originalPush = history.pushState;
-  const originalReplace = history.replaceState;
+function setupSpaTracking(): void {
+  if (typeof window.fbq !== 'function') return;
+
+  const originalPushState = history.pushState.bind(history);
+  const originalReplaceState = history.replaceState.bind(history);
 
   history.pushState = function (...args) {
-    originalPush.apply(this, args);
-    if (window.fbq) window.fbq("track", "PageView");
+    originalPushState(...args);
+    setTimeout(() => {
+      window.fbq('track', 'PageView');
+    }, 100);
   };
 
   history.replaceState = function (...args) {
-    originalReplace.apply(this, args);
-    if (window.fbq) window.fbq("track", "PageView");
+    originalReplaceState(...args);
+    setTimeout(() => {
+      window.fbq('track', 'PageView');
+    }, 100);
   };
 
-  window.addEventListener("popstate", () => {
-    if (window.fbq) window.fbq("track", "PageView");
+  window.addEventListener('popstate', () => {
+    setTimeout(() => {
+      window.fbq('track', 'PageView');
+    }, 100);
   });
 }
 
-/* ── Init (call once) ── */
+// ── Initialize ──────────────────────────────────────────────
 
-export function initMetaPixelHelper() {
+export function initMetaPixelHelper(): void {
   handleFbc();
   handleFbp();
-  patchHistory();
+  setupSpaTracking();
+
+  console.log('[Meta Pixel Helper] Initialized', {
+    fbc: getCookie('_fbc'),
+    fbp: getCookie('_fbp'),
+    pixelId: PIXEL_ID,
+  });
 }
+
+export default { initMetaPixelHelper, trackMetaEvent };
