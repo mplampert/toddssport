@@ -112,6 +112,7 @@ import AccountDashboard from "./pages/account/AccountDashboard";
 import AccountOrders from "./pages/account/AccountOrders";
 import AccountOrderDetail from "./pages/account/AccountOrderDetail";
 import { CustomerGuard } from "./components/auth/CustomerGuard";
+import { AdminGuard } from "./components/auth/AdminGuard";
 import AdminMasterCatalog from "./pages/admin/AdminMasterCatalog";
 import AdminMasterCatalogBrand from "./pages/admin/AdminMasterCatalogBrand";
 import AdminMasterCatalogSSBrand from "./pages/admin/AdminMasterCatalogSSBrand";
@@ -183,32 +184,32 @@ const App = () => {
           <Route path="/account/orders" element={<CustomerGuard><AccountOrders /></CustomerGuard>} />
           <Route path="/account/orders/:id" element={<CustomerGuard><AccountOrderDetail /></CustomerGuard>} />
           {/* Admin */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/catalog/master" element={<AdminMasterCatalog />} />
-          <Route path="/admin/catalog/master/brands/ss/:brandName" element={<AdminMasterCatalogSSBrand />} />
-          <Route path="/admin/catalog/master/brands/:brandId" element={<AdminMasterCatalogBrand />} />
-          <Route path="/admin/catalog/master/products/:productId" element={<AdminMasterProductDetail />} />
-          <Route path="/admin/catalogs" element={<AdminCatalogs />} />
-          <Route path="/admin/champro-orders" element={<AdminChamproOrders />} />
-          <Route path="/admin/champro-pricing" element={<AdminChamproPricing />} />
-          <Route path="/admin/reps" element={<AdminReps />} />
-          <Route path="/admin/uniforms" element={<AdminUniforms />} />
-          <Route path="/admin/flyers" element={<AdminFlyers />} />
-          <Route path="/admin/flyers/new" element={<AdminFlyerNew />} />
-          <Route path="/admin/flyers/:id/edit" element={<AdminFlyerNew />} />
-          <Route path="/admin/message-generator" element={<AdminMessageGenerator />} />
-          <Route path="/admin/lookbook-generator" element={<AdminLookbookGenerator />} />
-          <Route path="/admin/catalog-products" element={<AdminCatalogProducts />} />
-          <Route path="/admin/promo-products" element={<AdminPromoProducts />} />
-          <Route path="/admin/art-library" element={<AdminArtLibrary />} />
-          <Route path="/admin/fulfillment/batches" element={<AdminFulfillmentBatches />} />
-          <Route path="/admin/orders" element={<AdminGlobalOrders />} />
-          <Route path="/admin/sample-data" element={<AdminSampleData />} />
-          <Route path="/admin/customers" element={<AdminCustomers />} />
-          <Route path="/admin/customers/:id" element={<AdminCustomerDetail />} />
-          <Route path="/admin/staff" element={<AdminStaffUsers />} />
-          <Route path="/admin/notifications" element={<AdminNotifications />} />
-          <Route path="/admin/team-stores" element={<AdminTeamStores />}>
+          <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+          <Route path="/admin/catalog/master" element={<AdminGuard><AdminMasterCatalog /></AdminGuard>} />
+          <Route path="/admin/catalog/master/brands/ss/:brandName" element={<AdminGuard><AdminMasterCatalogSSBrand /></AdminGuard>} />
+          <Route path="/admin/catalog/master/brands/:brandId" element={<AdminGuard><AdminMasterCatalogBrand /></AdminGuard>} />
+          <Route path="/admin/catalog/master/products/:productId" element={<AdminGuard><AdminMasterProductDetail /></AdminGuard>} />
+          <Route path="/admin/catalogs" element={<AdminGuard><AdminCatalogs /></AdminGuard>} />
+          <Route path="/admin/champro-orders" element={<AdminGuard><AdminChamproOrders /></AdminGuard>} />
+          <Route path="/admin/champro-pricing" element={<AdminGuard><AdminChamproPricing /></AdminGuard>} />
+          <Route path="/admin/reps" element={<AdminGuard><AdminReps /></AdminGuard>} />
+          <Route path="/admin/uniforms" element={<AdminGuard><AdminUniforms /></AdminGuard>} />
+          <Route path="/admin/flyers" element={<AdminGuard><AdminFlyers /></AdminGuard>} />
+          <Route path="/admin/flyers/new" element={<AdminGuard><AdminFlyerNew /></AdminGuard>} />
+          <Route path="/admin/flyers/:id/edit" element={<AdminGuard><AdminFlyerNew /></AdminGuard>} />
+          <Route path="/admin/message-generator" element={<AdminGuard><AdminMessageGenerator /></AdminGuard>} />
+          <Route path="/admin/lookbook-generator" element={<AdminGuard><AdminLookbookGenerator /></AdminGuard>} />
+          <Route path="/admin/catalog-products" element={<AdminGuard><AdminCatalogProducts /></AdminGuard>} />
+          <Route path="/admin/promo-products" element={<AdminGuard><AdminPromoProducts /></AdminGuard>} />
+          <Route path="/admin/art-library" element={<AdminGuard><AdminArtLibrary /></AdminGuard>} />
+          <Route path="/admin/fulfillment/batches" element={<AdminGuard><AdminFulfillmentBatches /></AdminGuard>} />
+          <Route path="/admin/orders" element={<AdminGuard><AdminGlobalOrders /></AdminGuard>} />
+          <Route path="/admin/sample-data" element={<AdminGuard><AdminSampleData /></AdminGuard>} />
+          <Route path="/admin/customers" element={<AdminGuard><AdminCustomers /></AdminGuard>} />
+          <Route path="/admin/customers/:id" element={<AdminGuard><AdminCustomerDetail /></AdminGuard>} />
+          <Route path="/admin/staff" element={<AdminGuard><AdminStaffUsers /></AdminGuard>} />
+          <Route path="/admin/notifications" element={<AdminGuard><AdminNotifications /></AdminGuard>} />
+          <Route path="/admin/team-stores" element={<AdminGuard><AdminTeamStores /></AdminGuard>}>
             <Route index element={<TeamStoresDashboard />} />
             <Route path="stores" element={<TeamStoresStores />} />
             <Route path="orders" element={<TeamStoresOrders />} />
@@ -223,7 +224,6 @@ const App = () => {
               <Route path="fulfillment" element={<ReportFulfillment />} />
               <Route path="organizations" element={<ReportOrganizations />} />
             </Route>
-            <Route path="logos" element={<TeamStoresLogos />} />
             <Route path="logos" element={<TeamStoresLogos />} />
             <Route path="settings" element={<TeamStoresSettings />} />
             <Route path="new" element={<NewTeamStoreWizard />} />
