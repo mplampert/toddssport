@@ -5,8 +5,10 @@ import { Footer } from "@/components/layout/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, ArrowLeft, Package } from "lucide-react";
+import { Loader2, ArrowLeft, Package, Download } from "lucide-react";
+import { generateOrderPdf } from "@/utils/orderPdfExport";
 import { format } from "date-fns";
 
 export default function AccountOrderDetail() {
@@ -101,7 +103,38 @@ export default function AccountOrderDetail() {
                 {storeName && <> · {storeName}</>}
               </p>
             </div>
-            <Badge className="capitalize">{order.status}</Badge>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => {
+                generateOrderPdf({
+                  orderNumber: order.order_number,
+                  date: format(new Date(order.created_at), "MMMM d, yyyy 'at' h:mm a"),
+                  customerName: order.customer_name || "—",
+                  customerEmail: order.customer_email || undefined,
+                  storeName: storeName || undefined,
+                  status: order.status,
+                  fulfillmentMethod: order.fulfillment_method,
+                  fulfillmentStatus: order.fulfillment_status,
+                  items,
+                  subtotal: order.subtotal,
+                  discountTotal: order.discount_total,
+                  taxTotal: order.tax_total,
+                  shippingTotal: order.shipping_total,
+                  feesJson: Array.isArray(order.fees_json) ? order.fees_json as any : undefined,
+                  total: order.total,
+                  shippingAddress: order.fulfillment_method === "ship" ? {
+                    name: order.shipping_name || undefined,
+                    address1: order.shipping_address1 || undefined,
+                    address2: order.shipping_address2 || undefined,
+                    city: order.shipping_city || undefined,
+                    state: order.shipping_state || undefined,
+                    zip: order.shipping_zip || undefined,
+                  } : undefined,
+                });
+              }}>
+                <Download className="w-4 h-4 mr-1" /> Download PDF
+              </Button>
+              <Badge className="capitalize">{order.status}</Badge>
+            </div>
           </div>
 
           {/* Items */}
