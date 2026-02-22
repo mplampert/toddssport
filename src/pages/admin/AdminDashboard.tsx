@@ -1,17 +1,10 @@
 import { AdminLayout } from "@/components/admin/AdminLayout";
 import { Link } from "react-router-dom";
-import { 
-  BookOpen, 
-  Package, 
-  DollarSign, 
-  Users, 
-  TrendingUp,
-  ShoppingCart,
-  ArrowRight,
-  FileText,
-} from "lucide-react";
+import { BookOpen, Package, DollarSign, TrendingUp, ShoppingCart, ArrowRight, FileText } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const adminSections = [
   {
@@ -48,22 +41,64 @@ const adminSections = [
   },
 ];
 
-const quickStats = [
-  { label: "Active Products", value: "11", icon: ShoppingCart },
-  { label: "Pending Orders", value: "—", icon: Package },
-  { label: "This Month", value: "—", icon: TrendingUp },
-];
-
 export default function AdminDashboard() {
+  // Fetch pending orders count
+  const { data: pendingOrdersCount } = useQuery({
+    queryKey: ["pending-orders-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("orders")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Fetch this month's revenue
+  const { data: monthRevenue } = useQuery({
+    queryKey: ["month-revenue"],
+    queryFn: async () => {
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+
+      const { data, error } = await supabase
+        .from("orders")
+        .select("total_amount")
+        .gte("created_at", startOfMonth.toISOString());
+      if (error) throw error;
+      const total = (data ?? []).reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
+      return total > 0 ? `$${total.toLocaleString()}` : "$0";
+    },
+  });
+
+  // Fetch active products count
+  const { data: activeProductsCount } = useQuery({
+    queryKey: ["active-products-count"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("active", true);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const quickStats = [
+    { label: "Active Products", value: activeProductsCount?.toString() ?? "—", icon: ShoppingCart },
+    { label: "Pending Orders", value: pendingOrdersCount?.toString() ?? "—", icon: Package },
+    { label: "This Month", value: monthRevenue ?? "—", icon: TrendingUp },
+  ];
+
   return (
     <AdminLayout>
       <div className="space-y-8">
         {/* Header */}
         <div>
           <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your store, orders, and pricing
-          </p>
+          <p className="text-muted-foreground mt-1">Manage your store, orders, and pricing</p>
         </div>
 
         {/* Quick Stats */}
