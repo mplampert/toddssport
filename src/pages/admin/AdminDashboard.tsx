@@ -47,7 +47,7 @@ export default function AdminDashboard() {
     queryKey: ["pending-orders-count"],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("orders")
+        .from("champro_orders")
         .select("*", { count: "exact", head: true })
         .eq("status", "pending");
       if (error) throw error;
@@ -55,21 +55,20 @@ export default function AdminDashboard() {
     },
   });
 
-  // Fetch this month's revenue
-  const { data: monthRevenue } = useQuery({
-    queryKey: ["month-revenue"],
+  // Fetch this month's orders count
+  const { data: monthOrdersCount } = useQuery({
+    queryKey: ["month-orders-count"],
     queryFn: async () => {
       const startOfMonth = new Date();
       startOfMonth.setDate(1);
       startOfMonth.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
-        .from("orders")
-        .select("total_amount")
+      const { count, error } = await supabase
+        .from("champro_orders")
+        .select("*", { count: "exact", head: true })
         .gte("created_at", startOfMonth.toISOString());
       if (error) throw error;
-      const total = (data ?? []).reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
-      return total > 0 ? `$${total.toLocaleString()}` : "$0";
+      return count ?? 0;
     },
   });
 
@@ -78,7 +77,7 @@ export default function AdminDashboard() {
     queryKey: ["active-products-count"],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("products")
+        .from("master_products")
         .select("*", { count: "exact", head: true })
         .eq("active", true);
       if (error) throw error;
@@ -89,7 +88,7 @@ export default function AdminDashboard() {
   const quickStats = [
     { label: "Active Products", value: activeProductsCount?.toString() ?? "—", icon: ShoppingCart },
     { label: "Pending Orders", value: pendingOrdersCount?.toString() ?? "—", icon: Package },
-    { label: "This Month", value: monthRevenue ?? "—", icon: TrendingUp },
+    { label: "This Month", value: monthOrdersCount?.toString() ?? "—", icon: TrendingUp },
   ];
 
   return (
