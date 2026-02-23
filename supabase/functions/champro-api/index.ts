@@ -5,6 +5,7 @@ const corsHeaders = {
 };
 
 const CHAMPRO_BASE_URL = "https://api.champrosports.com";
+// v2 - force redeploy
 const API_CUSTOMER_KEY = Deno.env.get("CHAMPRO_API_KEY") || "";
 
 Deno.serve(async (req) => {
