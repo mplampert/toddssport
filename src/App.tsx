@@ -213,10 +213,10 @@ export default function App() {
               <Route path="/admin/flyers/new" element={<AdminGuard><AdminFlyerNew /></AdminGuard>} />
               <Route path="/admin/reps" element={<AdminGuard><AdminReps /></AdminGuard>} />
               <Route path="/admin/uniforms" element={<AdminGuard><AdminUniforms /></AdminGuard>} />
-              <Route path="/admin/master-catalog" element={<AdminGuard><AdminMasterCatalog /></AdminGuard>} />
-              <Route path="/admin/master-catalog/:brand" element={<AdminGuard><AdminMasterCatalogBrand /></AdminGuard>} />
-              <Route path="/admin/master-catalog/ss/:brand" element={<AdminGuard><AdminMasterCatalogSSBrand /></AdminGuard>} />
-              <Route path="/admin/master-catalog/product/:productId" element={<AdminGuard><AdminMasterProductDetail /></AdminGuard>} />
+              <Route path="/admin/catalog/master" element={<AdminGuard><AdminMasterCatalog /></AdminGuard>} />
+              <Route path="/admin/catalog/master/brands/:brand" element={<AdminGuard><AdminMasterCatalogBrand /></AdminGuard>} />
+              <Route path="/admin/catalog/master/ss/:brand" element={<AdminGuard><AdminMasterCatalogSSBrand /></AdminGuard>} />
+              <Route path="/admin/catalog/master/products/:productId" element={<AdminGuard><AdminMasterProductDetail /></AdminGuard>} />
               <Route path="/admin/promo-products" element={<AdminGuard><AdminPromoProducts /></AdminGuard>} />
               <Route path="/admin/champro-orders" element={<AdminGuard><AdminChamproOrders /></AdminGuard>} />
               <Route path="/admin/champro-pricing" element={<AdminGuard><AdminChamproPricing /></AdminGuard>} />
