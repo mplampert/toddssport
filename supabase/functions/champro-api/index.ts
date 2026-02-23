@@ -5,8 +5,50 @@ const corsHeaders = {
 };
 
 const CHAMPRO_BASE_URL = "https://api.champrosports.com";
-// v2 - force redeploy
 const API_CUSTOMER_KEY = Deno.env.get("CHAMPRO_API_KEY") || "";
+
+// Route requests through Fixie static IP proxy for Champro IP whitelisting
+async function fetchViaProxy(
+  url: string,
+  method: string,
+  body?: unknown
+): Promise<Response> {
+  const proxyUrl = Deno.env.get("FIXIE_PROXY_URL");
+
+  if (proxyUrl) {
+    const parsed = new URL(proxyUrl);
+    let client: Deno.HttpClient | null = null;
+    try {
+      client = Deno.createHttpClient({
+        proxy: {
+          url: `${parsed.protocol}//${parsed.host}`,
+          basicAuth: {
+            username: decodeURIComponent(parsed.username),
+            password: decodeURIComponent(parsed.password),
+          },
+        },
+      });
+
+      return await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: body ? JSON.stringify(body) : undefined,
+        // @ts-ignore - Deno client option for proxy
+        client,
+      });
+    } finally {
+      if (client) client.close();
+    }
+  }
+
+  // Fallback: direct call
+  console.warn("No FIXIE_PROXY_URL configured, calling Champro directly");
+  return fetch(url, {
+    method,
+    headers: { "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -35,10 +77,7 @@ Deno.serve(async (req) => {
       }
 
       const statusUrl = `${CHAMPRO_BASE_URL}/api/Order/OrderStatus?OrderNumber=${encodeURIComponent(orderNumber)}&APICustomerKey=${encodeURIComponent(API_CUSTOMER_KEY)}`;
-      const response = await fetch(statusUrl, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
+      const response = await fetchViaProxy(statusUrl, "GET");
       const data = await response.json();
       console.log("Order status response:", JSON.stringify(data, null, 2));
 
@@ -77,11 +116,7 @@ Deno.serve(async (req) => {
         }],
       };
 
-      const response = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetchViaProxy(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, "POST", requestBody);
       const data = await response.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -116,11 +151,7 @@ Deno.serve(async (req) => {
         }],
       };
 
-      const response = await fetch(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+      const response = await fetchViaProxy(`${CHAMPRO_BASE_URL}/api/Order/PlaceOrder`, "POST", requestBody);
       const data = await response.json();
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
