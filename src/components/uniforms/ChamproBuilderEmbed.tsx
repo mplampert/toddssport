@@ -90,13 +90,10 @@ export function ChamproBuilderEmbed({
   // Build the embed URL with required config parameters
   const getEmbedUrl = () => {
     const baseUrl = "https://cb.champrosports.com/V2/Index";
-    // cartItemPricingMethod must be "SimpleTieredPricing" - "AggregatePricing" causes ValidateData 500 errors
-    const pricingMethod = "SimpleTieredPricing";
     if (category) {
-      return `${baseUrl}/${category.id}?Name=${encodeURIComponent(category.name)}&lic=${embedKey}&cartItemPricingMethod=${pricingMethod}`;
+      return `${baseUrl}/${category.id}?Name=${encodeURIComponent(category.name)}&lic=${embedKey}`;
     }
-    // Fallback to all categories
-    return `${baseUrl}?lic=${embedKey}&cartItemPricingMethod=${pricingMethod}`;
+    return `${baseUrl}?lic=${embedKey}`;
   };
 
   // Report builder errors to Slack
