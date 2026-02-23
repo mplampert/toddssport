@@ -105,6 +105,31 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "inventory") {
+      const payload = await req.json();
+      if (!payload.skus || !Array.isArray(payload.skus) || payload.skus.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "skus array is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const requestBody = {
+        APICustomerKey: API_CUSTOMER_KEY,
+        Orders: [{
+          OrderItems: payload.skus.map((sku: string) => ({ SKU: sku })),
+        }],
+      };
+
+      const response = await fetchViaProxy(`${CHAMPRO_BASE_URL}/api/Order/Inventory`, "POST", requestBody);
+      const data = await response.json();
+      console.log("Inventory response:", JSON.stringify(data, null, 2));
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "customOrder") {
       const payload = await req.json();
       const requestBody = {
@@ -178,7 +203,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use: customOrder, stockOrder, orderStatus, or productInfo" }),
+      JSON.stringify({ error: "Invalid action. Use: customOrder, stockOrder, orderStatus, productInfo, or inventory" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
