@@ -11,7 +11,7 @@ export function AnnouncementBanner() {
     <div className="bg-accent text-accent-foreground text-sm py-2 px-4 relative">
       <div className="container mx-auto text-center pr-8">
         <span>🏈 Spring season is here — Launch your team store today and be ready for tryouts. </span>
-        <Link to="/request-a-store" className="underline underline-offset-2 font-semibold hover:opacity-80 transition-opacity">
+        <Link to="/contact" className="underline underline-offset-2 font-semibold hover:opacity-80 transition-opacity">
           Request a Store →
         </Link>
       </div>
