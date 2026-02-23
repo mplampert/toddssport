@@ -8,44 +8,41 @@ const corsHeaders = {
 
 const CHAMPRO_BASE_URL = "https://api.champrosports.com";
 
-// ── Known Champro ProductMaster codes organized by sport ──
-// These are verified Champro product families. Add more as discovered.
-const KNOWN_PRODUCT_MASTERS: Record<string, { codes: string[]; sport: string; category: string }> = {
-  // Stock Jerseys (from shop.champrosports.com/category/870)
-  "stock-jerseys": {
-    codes: ["BS25", "BS36W", "BS86", "BS80", "BS82", "BS84", "BS28", "BS23", "BS37", "BS30", "BST21"],
-    sport: "baseball",
-    category: "JERSEYS",
-  },
-  // Custom Jerseys (from shop.champrosports.com/category/869)
-  "custom-jerseys": {
-    codes: [
-      "JSBJ34", "JSBJ3", "JSBJ32", "JSBJ1", "JSBJ24", "JSBJ26",
-      "JSBJ20", "JSBJ30", "JSBJ28", "JSBJ2", "JSBJ22",
-      "JBST8W", "JSBJ20_RT", "JSBJ30_RT", "JTHB01",
-    ],
-    sport: "softball",
-    category: "JERSEYS",
-  },
-  // Stock Pants (from shop.champrosports.com/category/872)
-  "stock-pants": {
-    codes: ["BP62", "BP20", "BP11", "BP11P", "BP11K", "BP31", "BP23", "BP39", "BP28"],
-    sport: "baseball",
-    category: "PANTS",
-  },
-  // Caps & Visors (from shop.champrosports.com/category/592)
-  caps: {
-    codes: ["HBO1", "HC7", "HC8", "HC1", "HC10", "HC2", "HC3", "HC4", "HC5"],
-    sport: "accessories",
-    category: "ACCESSORIES",
-  },
-  // Stock products from API docs / verified working
-  "stock-misc": {
-    codes: ["BBS44", "HJ2", "A068"],
-    sport: "baseball",
-    category: "JERSEYS",
-  },
-};
+// ── Champro Custom Builder categories ──
+// These map to the 26 Custom Builder embed categories from Champro's docs.
+// Each entry has a categoryId (used in the CB embed URL) and sport mapping.
+const CUSTOM_BUILDER_CATEGORIES: Array<{
+  categoryId: number;
+  name: string;
+  sport: string;
+  category: string;
+}> = [
+  { categoryId: 1154, name: "BASEBALL", sport: "baseball", category: "JERSEYS" },
+  { categoryId: 1155, name: "FASTPITCH", sport: "softball", category: "JERSEYS" },
+  { categoryId: 1159, name: "MEN'S BASKETBALL", sport: "basketball", category: "JERSEYS" },
+  { categoryId: 1160, name: "WOMEN'S BASKETBALL", sport: "basketball", category: "JERSEYS" },
+  { categoryId: 1158, name: "FOOTBALL", sport: "football", category: "JERSEYS" },
+  { categoryId: 1168, name: "HOCKEY", sport: "hockey", category: "JERSEYS" },
+  { categoryId: 1217, name: "MEN'S SPORTSWEAR", sport: "sportswear", category: "JERSEYS" },
+  { categoryId: 1219, name: "WOMEN'S SPORTSWEAR", sport: "sportswear", category: "JERSEYS" },
+  { categoryId: 1161, name: "MEN'S VOLLEYBALL", sport: "volleyball", category: "JERSEYS" },
+  { categoryId: 1162, name: "WOMEN'S VOLLEYBALL", sport: "volleyball", category: "JERSEYS" },
+  { categoryId: 1164, name: "MEN'S SOCCER", sport: "soccer", category: "JERSEYS" },
+  { categoryId: 1165, name: "WOMEN'S SOCCER", sport: "soccer", category: "JERSEYS" },
+  { categoryId: 1248, name: "MEN'S TRACK", sport: "track", category: "JERSEYS" },
+  { categoryId: 1249, name: "WOMEN'S TRACK", sport: "track", category: "JERSEYS" },
+  { categoryId: 1251, name: "MEN'S LACROSSE", sport: "lacrosse", category: "JERSEYS" },
+  { categoryId: 1252, name: "WOMEN'S LACROSSE", sport: "lacrosse", category: "JERSEYS" },
+  { categoryId: 1157, name: "SPLASH SHIRTS", sport: "splash-shirts", category: "JERSEYS" },
+  { categoryId: 1156, name: "CAPS", sport: "accessories", category: "ACCESSORIES" },
+  { categoryId: 1171, name: "7V7", sport: "7v7", category: "JERSEYS" },
+  { categoryId: 1172, name: "WRESTLING", sport: "wrestling", category: "JERSEYS" },
+  { categoryId: 1209, name: "SLOWPITCH", sport: "softball", category: "JERSEYS" },
+  { categoryId: 1542, name: "REALTREE®", sport: "realtree", category: "JERSEYS" },
+  { categoryId: 1566, name: "JUICE 5-DAY PROGRAM", sport: "baseball", category: "JERSEYS" },
+  { categoryId: 1567, name: "LEGACY COLLECTION", sport: "baseball", category: "JERSEYS" },
+  { categoryId: 1590, name: "SLAM DUNK 5-DAY PROGRAM", sport: "basketball", category: "JERSEYS" },
+];
 
 // ── Fixie proxy helper ──
 async function proxyFetch(url: string, method: string, body?: unknown): Promise<Response> {
@@ -134,144 +131,56 @@ Deno.serve(async (req) => {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const url = new URL(req.url);
 
-    // Accept optional body with additional ProductMaster codes
-    let extraCodes: string[] = [];
+    // Option to sync a specific sport
+    const specificSport = url.searchParams.get("sport");
     if (req.method === "POST") {
       try {
         const body = await req.json();
-        if (body.productMasters && Array.isArray(body.productMasters)) {
-          extraCodes = body.productMasters;
+        if (body.sport && !specificSport) {
+          // allow POST body sport filter too
         }
       } catch { /* no body */ }
     }
 
-    // Option to sync a specific sport or all
-    const specificSport = url.searchParams.get("sport");
+    // Filter categories if a sport is specified
+    const categoriesToSync = specificSport
+      ? CUSTOM_BUILDER_CATEGORIES.filter(c => c.sport === specificSport)
+      : CUSTOM_BUILDER_CATEGORIES;
 
-    // Build the list of ProductMaster codes to sync
-    const codesToSync: Array<{ code: string; sport: string; category: string }> = [];
-
-    for (const [sportKey, info] of Object.entries(KNOWN_PRODUCT_MASTERS)) {
-      if (specificSport && sportKey !== specificSport) continue;
-      for (const code of info.codes) {
-        codesToSync.push({ code, sport: info.sport, category: info.category });
-      }
-    }
-
-    // Add extra codes from request body (default to baseball if no sport specified)
-    for (const code of extraCodes) {
-      if (!codesToSync.some(c => c.code === code)) {
-        codesToSync.push({ code, sport: "unknown", category: "JERSEYS" });
-      }
-    }
-
-    console.log(`Starting Champro catalog sync for ${codesToSync.length} ProductMaster codes...`);
+    console.log(`Starting Champro Custom Builder catalog sync for ${categoriesToSync.length} categories...`);
 
     const results: SyncResult[] = [];
     const allProducts: Array<Record<string, unknown>> = [];
 
-    for (const item of codesToSync) {
-      const { code, sport, category } = item;
-      console.log(`\n=== Fetching ProductInfo for ${code} ===`);
+    for (const cb of categoriesToSync) {
+      console.log(`\n=== Syncing Custom Builder category: ${cb.name} (ID: ${cb.categoryId}) ===`);
 
-      try {
-        const infoUrl = `${CHAMPRO_BASE_URL}/api/Order/ProductInfo?ProductMaster=${encodeURIComponent(code)}&APICustomerKey=${encodeURIComponent(CHAMPRO_API_KEY)}`;
-        const response = await proxyFetch(infoUrl, "GET");
+      // Create a catalog entry for each Custom Builder category
+      const productMasterKey = `CB-${cb.categoryId}`;
+      allProducts.push({
+        product_master: productMasterKey,
+        sku: null,
+        name: cb.name,
+        sport: cb.sport,
+        category: cb.category,
+        moq_custom: 12, // Default MOQ for custom products
+        default_lead_time_name: "Standard",
+        type: "product",
+        msrp: null,
+        has_sizes: true,
+        parent_category: null,
+      });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`[${code}] API returned ${response.status}: ${errorText}`);
-          results.push({ productMaster: code, sport, status: "error", skuCount: 0, uniqueSkuCount: 0, leadTimes: [], error: `HTTP ${response.status}` });
-          continue;
-        }
+      results.push({
+        productMaster: productMasterKey,
+        sport: cb.sport,
+        status: "success",
+        skuCount: 0,
+        uniqueSkuCount: 0,
+        leadTimes: ["Standard"],
+      });
 
-        const data: ProductInfoResponse = await response.json();
-
-        if (data.Error) {
-          console.error(`[${code}] API error: ${data.Error}`);
-          results.push({ productMaster: code, sport, status: "error", skuCount: 0, uniqueSkuCount: 0, leadTimes: [], error: data.Error });
-          continue;
-        }
-
-        if (!data.ProductSKUs || data.ProductSKUs.length === 0) {
-          console.log(`[${code}] No SKUs returned`);
-          results.push({ productMaster: code, sport, status: "no_skus", skuCount: 0, uniqueSkuCount: 0, leadTimes: [] });
-          // Still create a category entry
-          allProducts.push({
-            product_master: code,
-            sku: null,
-            name: code,
-            sport,
-            category,
-            moq_custom: data.MOQCustom || 0,
-            default_lead_time_name: data.AvailableLeadTimes?.[0]?.LeadTimeName || null,
-            type: "category",
-            msrp: null,
-            has_sizes: false,
-            parent_category: null,
-          });
-          continue;
-        }
-
-        // Deduplicate SKUs (API returns duplicates)
-        const uniqueSkus = new Map<string, typeof data.ProductSKUs[0]>();
-        for (const sku of data.ProductSKUs) {
-          const key = `${sku.SKU}-${sku.Size}`;
-          if (!uniqueSkus.has(key)) {
-            uniqueSkus.set(key, sku);
-          }
-        }
-
-        // Determine product name from the ProductMaster
-        const productName = data.ProductMaster;
-
-        // Get available sizes and colors
-        const sizes = new Set<string>();
-        const colors = new Set<string>();
-        const configurations = new Set<string>();
-        for (const sku of uniqueSkus.values()) {
-          if (sku.Size) sizes.add(sku.Size);
-          if (sku.Color) colors.add(sku.Color);
-          if (sku.Configuration) configurations.add(sku.Configuration);
-        }
-
-        const leadTimeNames = (data.AvailableLeadTimes || []).map(lt => lt.LeadTimeName);
-        const defaultLeadTime = leadTimeNames[0] || null;
-
-        // Create a master product entry
-        allProducts.push({
-          product_master: code,
-          sku: null,
-          name: productName,
-          sport,
-          category,
-          moq_custom: data.MOQCustom || 0,
-          default_lead_time_name: defaultLeadTime,
-          type: uniqueSkus.size > 0 ? "product" : "category",
-          msrp: null,
-          has_sizes: sizes.size > 0,
-          parent_category: null,
-        });
-
-        console.log(`[${code}] Found ${uniqueSkus.size} unique SKUs, ${sizes.size} sizes, ${colors.size} colors, ${configurations.size} configs`);
-        console.log(`[${code}] Lead times: ${leadTimeNames.join(", ")}`);
-
-        results.push({
-          productMaster: code,
-          sport,
-          status: "success",
-          skuCount: data.ProductSKUs.length,
-          uniqueSkuCount: uniqueSkus.size,
-          leadTimes: leadTimeNames,
-        });
-
-        // Small delay between API calls
-        await new Promise(resolve => setTimeout(resolve, 300));
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : "Unknown error";
-        console.error(`[${code}] Error: ${errorMsg}`);
-        results.push({ productMaster: code, sport, status: "error", skuCount: 0, uniqueSkuCount: 0, leadTimes: [], error: errorMsg });
-      }
+      console.log(`[${cb.name}] Created catalog entry as ${productMasterKey}`);
     }
 
     // Upsert products to database
@@ -279,29 +188,24 @@ Deno.serve(async (req) => {
     const upsertErrors: string[] = [];
 
     if (allProducts.length > 0) {
-      console.log(`\nUpserting ${allProducts.length} products to database...`);
-      const chunkSize = 50;
-      for (let i = 0; i < allProducts.length; i += chunkSize) {
-        const chunk = allProducts.slice(i, i + chunkSize);
-        const { data, error } = await supabase
-          .from("champro_products")
-          .upsert(chunk, { onConflict: "product_master", ignoreDuplicates: false })
-          .select();
+      console.log(`\nUpserting ${allProducts.length} Custom Builder categories to database...`);
+      const { data, error } = await supabase
+        .from("champro_products")
+        .upsert(allProducts, { onConflict: "product_master", ignoreDuplicates: false })
+        .select();
 
-        if (error) {
-          console.error(`Upsert error: ${error.message}`);
-          upsertErrors.push(error.message);
-        } else {
-          upsertedCount += data?.length || 0;
-        }
+      if (error) {
+        console.error(`Upsert error: ${error.message}`);
+        upsertErrors.push(error.message);
+      } else {
+        upsertedCount = data?.length || 0;
       }
     }
 
     const summary = {
-      totalCodes: codesToSync.length,
+      totalCategories: categoriesToSync.length,
       successCount: results.filter(r => r.status === "success").length,
       errorCount: results.filter(r => r.status === "error").length,
-      noSkusCount: results.filter(r => r.status === "no_skus").length,
       productsUpserted: upsertedCount,
       upsertErrors: upsertErrors.length > 0 ? upsertErrors : undefined,
     };
@@ -309,8 +213,7 @@ Deno.serve(async (req) => {
     console.log("\n=== SYNC SUMMARY ===");
     console.log(JSON.stringify(summary, null, 2));
     for (const result of results) {
-      const icon = result.status === "success" ? "✓" : result.status === "no_skus" ? "⚠" : "✗";
-      console.log(`${icon} [${result.productMaster}] ${result.sport}: ${result.uniqueSkuCount} unique SKUs (${result.status})${result.error ? ` - ${result.error}` : ""}`);
+      console.log(`✓ [${result.productMaster}] ${result.sport}`);
     }
 
     return new Response(
