@@ -275,6 +275,8 @@ Deno.serve(async (req: Request) => {
       const champroSessionId = session.metadata?.champro_session_id;
       const sportSlug = session.metadata?.sport_slug;
       const productMaster = session.metadata?.product_master;
+      const sku = session.metadata?.sku;
+      const category = session.metadata?.category;
       const quantity = session.metadata?.quantity;
       const leadTime = session.metadata?.lead_time || "standard";
       const teamName = session.metadata?.team_name;
@@ -394,6 +396,10 @@ Deno.serve(async (req: Request) => {
         if (champroApiKey && champroSessionId) {
           logStep("Calling Champro PlaceOrder API via proxy...");
 
+          // Build OrderItems - Champro requires at least one item even for session-based orders
+          const orderSku = sku || productMaster || `SESSION-${champroSessionId}`;
+          const orderQuantity = parseInt(quantity || "1", 10);
+
           const champroPayload = {
             APICustomerKey: champroApiKey,
             Orders: [
@@ -414,7 +420,15 @@ Deno.serve(async (req: Request) => {
                 LeadTime: mapLeadTimeToChampro(leadTime),
                 ProofFileURL: "",
                 TeamColor: "",
-                OrderItems: [], // Items come from the SessionId/design
+                OrderItems: [
+                  {
+                    SKU: orderSku,
+                    TeamName: teamName || "",
+                    PlayerName: "",
+                    PlayerNumber: "",
+                    Quantity: orderQuantity,
+                  },
+                ],
               },
             ],
           };
