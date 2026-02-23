@@ -86,6 +86,25 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "productInfo") {
+      const productMaster = url.searchParams.get("productMaster");
+      if (!productMaster) {
+        return new Response(
+          JSON.stringify({ error: "productMaster is required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const infoUrl = `${CHAMPRO_BASE_URL}/api/Order/ProductInfo?ProductMaster=${encodeURIComponent(productMaster)}&APICustomerKey=${encodeURIComponent(API_CUSTOMER_KEY)}`;
+      const response = await fetchViaProxy(infoUrl, "GET");
+      const data = await response.json();
+      console.log("Product info response:", JSON.stringify(data, null, 2));
+
+      return new Response(JSON.stringify(data), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "customOrder") {
       const payload = await req.json();
       const requestBody = {
@@ -159,7 +178,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use: customOrder, stockOrder, or orderStatus" }),
+      JSON.stringify({ error: "Invalid action. Use: customOrder, stockOrder, orderStatus, or productInfo" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
