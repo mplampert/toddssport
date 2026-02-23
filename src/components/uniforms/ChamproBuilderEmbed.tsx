@@ -189,46 +189,42 @@ export function ChamproBuilderEmbed({
     }
   };
 
-  // Listen for messages from the Custom Builder iframe (success + error)
+  // Champro builder calls window.cb_callback(action, id) on the parent page
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      // Check for Champro builder messages
-      if (event.data && event.data.sender === "CustomBuilder") {
-        const { action, message } = event.data;
-        console.log("Champro Custom Builder event:", action, message);
+    const handleChamproCallback = (cbAction: string, cbId: string) => {
+      console.log("Champro cb_callback fired:", cbAction, cbId);
 
-        if (action === "ProcessDesign") {
-          // Design was saved - message contains the Session ID
-          setSessionId(message);
-          setBuilderError(null);
-          console.log("Design saved with Session ID:", message);
+      if (cbAction === "ProcessDesign") {
+        setSessionId(cbId);
+        setBuilderError(null);
+        console.log("Design saved with Session ID:", cbId);
 
-          // Call the onCheckout callback if provided
-          if (onCheckout) {
-            onCheckout({
-              champroSessionId: message,
-              sportSlug,
-            });
-          }
-
-          // Auto-submit to Champro API if enabled
-          if (autoSubmitOrder) {
-            submitToChampro(message);
-          }
+        if (onCheckout) {
+          onCheckout({
+            champroSessionId: cbId,
+            sportSlug,
+          });
         }
 
-        // Check for error actions from the builder
-        if (action === "Error" || action === "CartError") {
-          console.error("Champro builder error:", message);
-          setBuilderError(message || "An error occurred in the designer");
-          reportBuilderError(action, message || "Unknown error");
-          toast.error("Design could not be saved. Please try again.");
+        if (autoSubmitOrder) {
+          submitToChampro(cbId);
         }
       }
+    };
 
-      // Also check for string-based error messages from the iframe
+    // Register the global callback that Champro's iframe expects
+    (window as any).cb_callback = handleChamproCallback;
+
+    // Also listen for postMessage as a fallback
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.sender === "CustomBuilder") {
+        const { action, message } = event.data;
+        console.log("Champro postMessage event:", action, message);
+        handleChamproCallback(action, message);
+      }
+
       if (typeof event.data === "string") {
-        const isKnownError = CHAMPRO_ERROR_PATTERNS.some(pattern => 
+        const isKnownError = CHAMPRO_ERROR_PATTERNS.some(pattern =>
           event.data.toLowerCase().includes(pattern.toLowerCase())
         );
         if (isKnownError) {
@@ -240,7 +236,10 @@ export function ChamproBuilderEmbed({
     };
 
     window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
+    return () => {
+      window.removeEventListener("message", handleMessage);
+      delete (window as any).cb_callback;
+    };
   }, [onCheckout, sportSlug, autoSubmitOrder, reportBuilderError]);
 
   if (!embedKey) {
