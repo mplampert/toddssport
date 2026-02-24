@@ -50,7 +50,7 @@ export function Footer() {
               <Link to="/services" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 Services
               </Link>
-              <Link to="/teams-leagues" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
+              <Link to="/teams-and-leagues" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
                 Teams & Leagues
               </Link>
               <Link to="/contact" className="text-primary-foreground/70 hover:text-primary-foreground transition-colors">
