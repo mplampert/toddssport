@@ -23,7 +23,7 @@ const serviceLinks = [
   { name: "Fanwear", path: "/fanwear" },
   { name: "Corporate", path: "/corporate" },
   { name: "Promo Products", path: "/promotional-products" },
-  { name: "Teams & Leagues", path: "/teams-leagues" },
+  { name: "Teams & Leagues", path: "/teams-and-leagues" },
 ];
 
 const navLinks = [
