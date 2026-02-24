@@ -180,8 +180,7 @@ export default function App() {
               <Route path="/checkout/success" element={<CheckoutSuccess />} />
               <Route path="/catalogs" element={<Catalogs />} />
               <Route path="/catalog" element={<PublicCatalog />} />
-              <Route path="/catalog/:catalogId" element={<PublicCatalog />} />
-              <Route path="/catalog/:catalogId/:styleId" element={<PublicCatalogDetail />} />
+              <Route path="/catalog/:styleId" element={<PublicCatalogDetail />} />
               <Route path="/find-your-rep" element={<FindYourRep />} />
               <Route path="/designs" element={<DesignLibrary />} />
               <Route path="/designs/:templateId" element={<DesignCustomizer />} />
