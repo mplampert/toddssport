@@ -179,6 +179,7 @@ export default function App() {
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout/success" element={<CheckoutSuccess />} />
               <Route path="/catalogs" element={<Catalogs />} />
+              <Route path="/catalog" element={<PublicCatalog />} />
               <Route path="/catalog/:catalogId" element={<PublicCatalog />} />
               <Route path="/catalog/:catalogId/:styleId" element={<PublicCatalogDetail />} />
               <Route path="/find-your-rep" element={<FindYourRep />} />
