@@ -1,0 +1,9 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/todds-staging', '.']
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/todds-staging']
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args: ['gcloud', 'run', 'deploy', 'todds-staging', '--image', 'gcr.io/$PROJECT_ID/todds-staging', '--region', 'us-east1', '--allow-unauthenticated']
+images:
+  - 'gcr.io/$PROJECT_ID/todds-staging'
