@@ -26,10 +26,10 @@ export function FindYourRep() {
               asChild
               className="w-full md:w-auto btn-cta px-10 py-6 text-lg font-bold"
             >
-              <Link to="/webstores">
+              <a href="https://tsgonline.chipply.com/" target="_blank" rel="noopener noreferrer">
                 <Search className="w-5 h-5 mr-2" />
                 Find My Store
-              </Link>
+              </a>
             </Button>
             <p className="mt-4 text-sm text-primary-foreground/60">
               <Link to="/request-a-store" className="hover:text-accent transition-colors underline underline-offset-2">
