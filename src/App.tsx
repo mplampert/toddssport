@@ -164,6 +164,7 @@ export default function App() {
               {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/request-a-store" element={<RequestAStore />} />
               <Route path="/request-a-store/*" element={<RequestAStore />} />
               <Route path="/services" element={<Services />} />
               <Route path="/uniforms" element={<Uniforms />} />
