@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { HelmetProvider } from "react-helmet-async";
@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 const Index = lazy(() => import("./pages/Index"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Contact = lazy(() => import("./pages/Contact"));
+const RequestAStore = lazy(() => import("./pages/RequestAStore"));
 const Services = lazy(() => import("./pages/Services"));
 const Uniforms = lazy(() => import("./pages/Uniforms"));
 const UniformDetail = lazy(() => import("./pages/UniformDetail"));
@@ -163,7 +164,7 @@ export default function App() {
               {/* Public routes */}
               <Route path="/" element={<Index />} />
               <Route path="/contact" element={<Contact />} />
-              <Route path="/request-a-store/*" element={<Navigate to="/contact" replace />} />
+              <Route path="/request-a-store/*" element={<RequestAStore />} />
               <Route path="/services" element={<Services />} />
               <Route path="/uniforms" element={<Uniforms />} />
               <Route path="/uniforms/:sport" element={<UniformDetail />} />
