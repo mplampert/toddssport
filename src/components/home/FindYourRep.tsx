@@ -32,7 +32,7 @@ export function FindYourRep() {
               </a>
             </Button>
             <p className="mt-4 text-sm text-primary-foreground/60">
-              <Link to="/request-a-store" className="hover:text-accent transition-colors underline underline-offset-2">
+              <Link to="/contact" className="hover:text-accent transition-colors underline underline-offset-2">
                 Don't have a store yet? Request one for free →
               </Link>
             </p>
