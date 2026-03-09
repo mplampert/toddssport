@@ -55,7 +55,7 @@ const Contact = () => {
                   href={`tel:${settings.phone?.replace(/[^0-9]/g, "") || "9789271600"}`}
                   className="text-muted-foreground hover:text-accent transition-colors"
                 >
-                  {settings.phone || "(978) 927-1600"}
+                  {settings.phone || "978-927-1600"}
                 </a>
               </div>
 
@@ -78,7 +78,7 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Address</h3>
                 <p className="text-muted-foreground">
-                  {settings.address || <>393 Cabot St.<br />Beverly, MA 01915</>}
+                  {settings.address || "393 Cabot Street Beverly, MA 01915"}
                 </p>
               </div>
 
@@ -88,7 +88,8 @@ const Contact = () => {
                 </div>
                 <h3 className="font-bold text-lg mb-2 text-primary">Hours</h3>
                 <p className="text-muted-foreground">
-                  Mon-Fri: 9am - 5pm<br />
+                  Mon-Thur: 9am - 5pm<br />
+                  Fri: 9am - 4pm
                   Sat-Sun: Closed
                 </p>
               </div>
